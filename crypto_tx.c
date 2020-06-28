@@ -104,11 +104,11 @@ int main(int argc, char *argv[]) {
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
     while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {
-        if (new->iv_low > 0 && new->iv_high > 0) {
+        if (new->vox_low > 0 && new->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
 
             /* Reset IV at the start of sound after a second of silence */
-            if (rms_val > new->iv_high) {
+            if (rms_val > new->vox_high) {
                 if (silent_frames >= 25) {
                     fprintf(stderr, "New IV!\n");
                     fread(iv, sizeof(iv), 1, urandom);
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
             }
             /* If a frame drops below iv_low or is between iv_low and iv_high after
                dropping below iv_low, increment the silent counter */
-            else if (rms_val < new->iv_low || silent_frames > 0) {
+            else if (rms_val < new->vox_low || silent_frames > 0) {
                 ++silent_frames;
 
                 /* Reset IV every minute of silence */

@@ -14,8 +14,8 @@ struct config
     char log_file[80];
     int  log_level;
 
-    int iv_low;
-    int iv_high;
+    int vox_low;
+    int vox_high;
     int silent_period;
 };
 

@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "crypto_cfg.h"
 #include "minIni.h"
@@ -33,24 +34,27 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
     }
     else if (strcasecmp(Section, "Rekeying") ==0) {
-        if (strcasecmp(Key, "VOXQuiet") == 0) {
-            cfg->iv_low = atoi(Value);
-        }
-        else if (strcasecmp(Key, "VOXNoise") == 0) {
-            cfg->iv_high = atoi(Value);
-        }
-        else if (strcasecmp(Key, "QuietRekey") == 0) {
+        if (strcasecmp(Key, "QuietRekey") == 0) {
             cfg->silent_period = atoi(Value);
         }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
 
     }
+    else if (strcasecmp(Section, "Audio") == 0) {
+        if (strcasecmp(Key, "VOXQuiet") == 0) {
+            cfg->vox_low = atoi(Value);
+        }
+        else if (strcasecmp(Key, "VOXNoise") == 0) {
+            cfg->vox_high = atoi(Value);
+        }
+    }
 
     return 1;
 }
 
 void read_config(const char* config_file, struct config* cfg) {
+    memset(cfg, 0, sizeof(struct config));
     ini_browse(ini_callback, (void*)cfg, config_file);
 }
 

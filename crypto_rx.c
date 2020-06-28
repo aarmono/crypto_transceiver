@@ -26,11 +26,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <math.h>
 
 #include "freedv_api.h"
 #include "crypto_cfg.h"
 
 static volatile sig_atomic_t reload_config = 0;
+
+static short rms(short vals[], int len) {
+    int64_t total = 0;
+    for (int i = 0; i < len; ++i) {
+        int64_t val = vals[i];
+        total += val * val;
+    }
+
+    return (short)sqrt(total / len);
+}
 
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
@@ -85,6 +96,7 @@ int main(int argc, char *argv[]) {
        and rx sample clock frequencies.  Note also the number of
        output speech samples "nout" is time varying. */
 
+    unsigned short silent_frames = 0;
     nin = freedv_nin(freedv);
     while(fread(demod_in, sizeof(short), nin, fin) == nin) {
         nout = freedv_rx(freedv, speech_out, demod_in);
@@ -93,6 +105,25 @@ int main(int argc, char *argv[]) {
            ensure we fread the correct number of samples: ie update
            "nin" before every call to freedv_rx()/freedv_comprx() */
         nin = freedv_nin(freedv);
+
+        if (new->vox_low > 0 && new->vox_high > 0) {
+            unsigned short rms_val = rms(speech_out, nout);
+
+            /* Reset counter */
+            if (rms_val > new->vox_high) {
+                silent_frames = 0;
+            }
+            /* If a frame drops below iv_low or is between iv_low and iv_high after
+               dropping below iv_low, increment the silent counter */
+            else if (rms_val < new->vox_low || silent_frames > 0) {
+                ++silent_frames;
+
+                /* Zero the output after a second */
+                if (silent_frames > 25) {
+                    memset(speech_out, 0, nout * sizeof(short));
+                }
+            }
+        }
 
         fwrite(speech_out, sizeof(short), nout, fout);
 

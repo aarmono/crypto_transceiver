@@ -107,9 +107,9 @@ int main(int argc, char *argv[]) {
         if (new->vox_low > 0 && new->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
 
-            /* Reset IV at the start of sound after a second of silence */
+            /* Reset IV at the start of sound after a second of silence (if configured) */
             if (rms_val > new->vox_high) {
-                if (silent_frames >= 25) {
+                if (new->vox_period && (silent_frames >= (25 * new->vox_period))) {
                     fprintf(stderr, "New IV!\n");
                     fread(iv, sizeof(iv), 1, urandom);
                     freedv_set_crypto(freedv, NULL, iv);
@@ -121,8 +121,9 @@ int main(int argc, char *argv[]) {
             else if (rms_val < new->vox_low || silent_frames > 0) {
                 ++silent_frames;
 
-                /* Reset IV every minute of silence */
-                if ((silent_frames % (25 * new->silent_period)) == 0) {
+                /* Reset IV every minute of silence (if configured)*/
+                if (new->silent_period > 0 && 
+                    (silent_frames % (25 * new->silent_period)) == 0) {
                     fprintf(stderr, "New IV!\n");
                     fread(iv, sizeof(iv), 1, urandom);
                     freedv_set_crypto(freedv, NULL, iv);

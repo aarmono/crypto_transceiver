@@ -33,9 +33,12 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             strncpy(cfg->random_file, Value, sizeof(cfg->random_file) - 1);
         }
     }
-    else if (strcasecmp(Section, "Rekeying") ==0) {
+    else if (strcasecmp(Section, "Crypto") ==0) {
         if (strcasecmp(Key, "QuietRekey") == 0) {
             cfg->silent_period = atoi(Value);
+        }
+        if (strcasecmp(Key, "VOXRekey") == 0) {
+            cfg->vox_period = atoi(Value);
         }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {

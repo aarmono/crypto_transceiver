@@ -30,6 +30,8 @@
 #include "freedv_api.h"
 #include "crypto_cfg.h"
 
+static volatile sig_atomic_t reload_config = 0;
+
 static short rms(short vals[], int len) {
     int64_t total = 0;
     for (int i = 0; i < len; ++i) {
@@ -40,7 +42,9 @@ static short rms(short vals[], int len) {
     return (short)sqrt(total / len);
 }
 
-static volatile sig_atomic_t reload_config = 0;
+static void handle_sighup(int sig) {
+    reload_config = 1;
+}
 
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
@@ -60,6 +64,8 @@ int main(int argc, char *argv[]) {
         printf("usage: %s ConfigFile\n", argv[0]);
         exit(1);
     }
+
+    signal(SIGHUP, handle_sighup);
 
     new = calloc(1, sizeof(struct config));
     read_config(argv[1], new);
@@ -162,7 +168,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Unable to open random file: %s\n", new->random_file);
             }
 
-            if (fread(iv, sizeof(iv), 1, urandom) != sizeof(iv)) {
+            if (fread(iv, sizeof(iv), 1, urandom) != 1) {
                 fprintf(stderr, "WARN: did not fully read initialization vector\n");
             }
             if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {

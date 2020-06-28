@@ -43,6 +43,10 @@ static short rms(short vals[], int len) {
     return (short)sqrt(total / len);
 }
 
+static void handle_sighup(int sig) {
+    reload_config = 1;
+}
+
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
     struct config *new = NULL;
@@ -61,6 +65,8 @@ int main(int argc, char *argv[]) {
         printf("usage: %s ConfigFile\n", argv[0]);
         exit(1);
     }
+
+    signal(SIGHUP, handle_sighup);
 
     new = calloc(1, sizeof(struct config));
     read_config(argv[1], new);

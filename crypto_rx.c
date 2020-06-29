@@ -117,6 +117,7 @@ int main(int argc, char *argv[]) {
 
         if (new->vox_low > 0 && new->vox_high > 0) {
             unsigned short rms_val = rms(speech_out, nout);
+            log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
 
             /* Reset counter */
             if (rms_val > new->vox_high) {
@@ -126,6 +127,7 @@ int main(int argc, char *argv[]) {
                dropping below iv_low, increment the silent counter */
             else if (rms_val < new->vox_low || silent_frames > 0) {
                 ++silent_frames;
+                log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
 
                 /* Zero the output after a second */
                 if (silent_frames > 25) {

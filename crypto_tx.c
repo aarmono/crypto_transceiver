@@ -115,11 +115,12 @@ int main(int argc, char *argv[]) {
     while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {
         if (new->vox_low > 0 && new->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
+            log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
 
             /* Reset IV at the start of sound after a second of silence (if configured) */
             if (rms_val > new->vox_high) {
                 if (new->vox_period && (silent_frames >= (25 * new->vox_period))) {
-                    log_message(logger, LOG_INFO, "New IV from VOX");
+                    log_message(logger, LOG_INFO, "New IV from VOX. RMS: %d", (int)rms_val);
                     fread(iv, sizeof(iv), 1, urandom);
                     freedv_set_crypto(freedv, NULL, iv);
                 }
@@ -129,11 +130,12 @@ int main(int argc, char *argv[]) {
                dropping below iv_low, increment the silent counter */
             else if (rms_val < new->vox_low || silent_frames > 0) {
                 ++silent_frames;
+                log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
 
                 /* Reset IV every minute of silence (if configured)*/
                 if (new->silent_period > 0 && 
                     (silent_frames % (25 * new->silent_period)) == 0) {
-                    log_message(logger, LOG_INFO, "New IV from silence");
+                    log_message(logger, LOG_INFO, "New IV from silence. RMS: %d", (int)rms_val);
                     fread(iv, sizeof(iv), 1, urandom);
                     freedv_set_crypto(freedv, NULL, iv);
                 }

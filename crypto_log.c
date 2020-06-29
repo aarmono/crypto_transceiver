@@ -31,14 +31,14 @@ void destroy_logger(crypto_log logger) {
 }
 
 void log_message(crypto_log logger, int level, const char* format, ...) {
-    char buf[256] = { 0 };
-
-    time_t cur_time = time(NULL);
-    struct tm* local_time = localtime(&cur_time);
-    strftime(buf, sizeof(buf) - 1, "%F %X", local_time);
-    fprintf(logger.file, "%s ", buf);
-
     if (level >= logger.level) {
+        char buf[256] = { 0 };
+
+        time_t cur_time = time(NULL);
+        struct tm* local_time = localtime(&cur_time);
+        strftime(buf, sizeof(buf) - 1, "%F %X", local_time);
+        fprintf(logger.file, "%s ", buf);
+
         switch (level) {
             case LOG_DEBUG:
                 fprintf(logger.file, "DEBUG ");

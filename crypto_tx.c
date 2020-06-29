@@ -29,6 +29,7 @@
 
 #include "freedv_api.h"
 #include "crypto_cfg.h"
+#include "crypto_log.h"
 
 static volatile sig_atomic_t reload_config = 0;
 
@@ -61,7 +62,7 @@ int main(int argc, char *argv[]) {
     unsigned char  iv[16];
 
     if (argc < 1) {
-        printf("usage: %s ConfigFile\n", argv[0]);
+        fprintf(stderr, "usage: %s ConfigFile\n", argv[0]);
         exit(1);
     }
 
@@ -70,29 +71,31 @@ int main(int argc, char *argv[]) {
     new = calloc(1, sizeof(struct config));
     read_config(argv[1], new);
 
+    crypto_log logger = create_logger(new->log_file, new->log_level);
+
     open_input_file(old, new, &fin);
     if (fin == NULL) {
-        fprintf(stderr, "Could not open input file: %s\n", new->source_file);
+        log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
         exit(1);
     }
 
     open_output_file(old, new, &fout);
     if (fout == NULL) {
-        fprintf(stderr, "Could not open output file: %s\n", new->dest_file);
+        log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
         exit(1);
     }
 
     open_iv_file(old, new, &urandom);
     if (urandom == NULL) {
-        fprintf(stderr, "Unable to open random file: %s\n", new->random_file);
+        log_message(logger, LOG_ERROR, "Unable to open random file: %s", new->random_file);
         exit(1);
     }
 
     if (fread(iv, sizeof(iv), 1, urandom) != 1) {
-        fprintf(stderr, "WARN: did not fully read initialization vector\n");
+        log_message(logger, LOG_WARN, "Did not fully read initialization vector");
     }
     if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-        fprintf(stderr, "WARN: truncated key\n");
+        log_message(logger, LOG_WARN, "Truncated key");
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
@@ -116,7 +119,7 @@ int main(int argc, char *argv[]) {
             /* Reset IV at the start of sound after a second of silence (if configured) */
             if (rms_val > new->vox_high) {
                 if (new->vox_period && (silent_frames >= (25 * new->vox_period))) {
-                    fprintf(stderr, "New IV!\n");
+                    log_message(logger, LOG_INFO, "New IV from VOX");
                     fread(iv, sizeof(iv), 1, urandom);
                     freedv_set_crypto(freedv, NULL, iv);
                 }
@@ -130,7 +133,7 @@ int main(int argc, char *argv[]) {
                 /* Reset IV every minute of silence (if configured)*/
                 if (new->silent_period > 0 && 
                     (silent_frames % (25 * new->silent_period)) == 0) {
-                    fprintf(stderr, "New IV!\n");
+                    log_message(logger, LOG_INFO, "New IV from silence");
                     fread(iv, sizeof(iv), 1, urandom);
                     freedv_set_crypto(freedv, NULL, iv);
                 }
@@ -141,7 +144,7 @@ int main(int argc, char *argv[]) {
         fwrite(mod_out, sizeof(short), n_nom_modem_samples, fout);
 
         if (reload_config != 0) {
-            fprintf(stderr, "Reloading config\n");
+            log_message(logger, LOG_NOTICE, "Reloading config");
 
             reload_config = 0;
 
@@ -151,28 +154,35 @@ int main(int argc, char *argv[]) {
             }
             read_config(argv[1], new);
 
+            if (strcmp(old->log_file, new->log_file) != 0) {
+                destroy_logger(logger);
+                logger = create_logger(new->log_file, new->log_level);
+            }
+
+            logger.level = new->log_level;
+
             open_input_file(old, new, &fin);
             if (fin == NULL) {
-                fprintf(stderr, "Could not open input file: %s\n", new->source_file);
+                log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
                 exit(1);
             }
 
             open_output_file(old, new, &fout);
             if (fout == NULL) {
-                fprintf(stderr, "Could not open output file: %s\n", new->dest_file);
+                log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
                 exit(1);
             }
 
             open_iv_file(old, new, &urandom);
             if (urandom == NULL) {
-                fprintf(stderr, "Unable to open random file: %s\n", new->random_file);
+                log_message(logger, LOG_ERROR, "Unable to open random file: %s", new->random_file);
             }
 
             if (fread(iv, sizeof(iv), 1, urandom) != 1) {
-                fprintf(stderr, "WARN: did not fully read initialization vector\n");
+                log_message(logger, LOG_WARN, "Did not fully read initialization vector");
             }
             if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-                fprintf(stderr, "WARN: truncated key\n");
+                log_message(logger, LOG_WARN, "Truncated key");
             }
 
             freedv_set_crypto(freedv, key, iv);

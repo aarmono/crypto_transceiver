@@ -30,6 +30,7 @@
 
 #include "freedv_api.h"
 #include "crypto_cfg.h"
+#include "crypto_log.h"
 
 static volatile sig_atomic_t reload_config = 0;
 
@@ -62,7 +63,7 @@ int main(int argc, char *argv[]) {
     unsigned char  iv[16];
     
     if (argc < 1) {
-        printf("usage: %s ConfigFile\n", argv[0]);
+        fprintf(stderr, "usage: %s ConfigFile\n", argv[0]);
         exit(1);
     }
 
@@ -71,20 +72,22 @@ int main(int argc, char *argv[]) {
     new = calloc(1, sizeof(struct config));
     read_config(argv[1], new);
 
+    crypto_log logger = create_logger(new->log_file, new->log_level);
+
     open_input_file(old, new, &fin);
     if (fin == NULL) {
-        fprintf(stderr, "Could not open input file: %s\n", new->source_file);
+        log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
         exit(1);
     }
 
     open_output_file(old, new, &fout);
     if (fout == NULL) {
-        fprintf(stderr, "Could not open output file: %s\n", new->dest_file);
+        log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
         exit(1);
     }
 
     if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-        fprintf(stderr, "WARN: truncated key\n");
+        log_message(logger, LOG_WARN, "Truncated key");
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
@@ -135,7 +138,7 @@ int main(int argc, char *argv[]) {
         fflush(fout);
 
         if (reload_config != 0) {
-            fprintf(stderr, "Reloading config\n");
+            log_message(logger, LOG_ERROR, "Reloading config\n");
 
             reload_config = 0;
 
@@ -145,20 +148,27 @@ int main(int argc, char *argv[]) {
             }
             read_config(argv[1], new);
 
+            if (strcmp(old->log_file, new->log_file) != 0) {
+                destroy_logger(logger);
+                logger = create_logger(new->log_file, new->log_level);
+            }
+
+            logger.level = new->log_level;
+
             open_input_file(old, new, &fin);
             if (fin == NULL) {
-                fprintf(stderr, "Could not open input file: %s\n", new->source_file);
+                log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
                 exit(1);
             }
 
             open_output_file(old, new, &fout);
             if (fout == NULL) {
-                fprintf(stderr, "Could not open output file: %s\n", new->dest_file);
+                log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
                 exit(1);
             }
 
             if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-                fprintf(stderr, "WARN: truncated key\n");
+                log_message(logger, LOG_WARN, "Truncated key");
             }
 
             freedv_set_crypto(freedv, key, iv);

@@ -131,7 +131,8 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        fwrite(speech_out, sizeof(short), nout, fout);
+        fwrite(speech_out, sizeof(short) * nout, 1, fout);
+        fflush(fout);
 
         if (reload_config != 0) {
             fprintf(stderr, "Reloading config\n");
@@ -167,6 +168,9 @@ int main(int argc, char *argv[]) {
     fclose(fin);
     fclose(fout);
     freedv_close(freedv);
+
+    if (old != NULL) free(old);
+    if (new != NULL) free(new);
 
     return 0;
 }

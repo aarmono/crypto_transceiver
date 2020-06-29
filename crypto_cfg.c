@@ -42,7 +42,12 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
-
+        if (strcasecmp(Key, "LogFile") == 0) {
+            strncpy(cfg->log_file, Value, sizeof(cfg->log_file) - 1);
+        }
+        else if (strcasecmp(Key, "LogLevel") == 0) {
+            cfg->log_level = atoi(Value);
+        }
     }
     else if (strcasecmp(Section, "Audio") == 0) {
         if (strcasecmp(Key, "VOXQuiet") == 0) {
@@ -62,7 +67,7 @@ void read_config(const char* config_file, struct config* cfg) {
 }
 
 void open_output_file(const struct config* old, const struct config* new, FILE** f) {
-    if (old == NULL || strcasecmp(old->dest_file, new->dest_file) != 0) {
+    if (old == NULL || strcmp(old->dest_file, new->dest_file) != 0) {
         if (*f != NULL && *f != stdout) fclose(*f);
 
         *f = strcasecmp(new->dest_file, "stdout") == 0 ? stdout : fopen(new->dest_file, "wb");
@@ -71,7 +76,7 @@ void open_output_file(const struct config* old, const struct config* new, FILE**
 }
 
 void open_input_file(const struct config* old, const struct config* new, FILE** f) {
-    if (old == NULL || strcasecmp(old->source_file, new->source_file) != 0) {
+    if (old == NULL || strcmp(old->source_file, new->source_file) != 0) {
         if (*f != NULL && *f != stdin) fclose(*f);
 
         *f = strcasecmp(new->source_file, "stdin") == 0 ? stdin : fopen(new->source_file, "rb");
@@ -80,7 +85,7 @@ void open_input_file(const struct config* old, const struct config* new, FILE** 
 }
 
 void open_iv_file(const struct config* old, const struct config* new, FILE** f) {
-    if (old == NULL || strcasecmp(old->random_file, new->random_file) != 0) {
+    if (old == NULL || strcmp(old->random_file, new->random_file) != 0) {
         if (*f != NULL) fclose(*f);
 
         *f = fopen(new->random_file, "rb");

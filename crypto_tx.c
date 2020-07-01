@@ -117,13 +117,10 @@ int main(int argc, char *argv[]) {
             short rms_val = rms(speech_in, n_speech_samples);
             log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
 
-            /* Reset IV at the start of sound after a second of silence (if configured) */
+            int reset_iv = 0;
+
             if (rms_val > new->vox_high) {
-                if (new->vox_period && (silent_frames >= (25 * new->vox_period))) {
-                    log_message(logger, LOG_INFO, "New IV from VOX. RMS: %d", (int)rms_val);
-                    fread(iv, sizeof(iv), 1, urandom);
-                    freedv_set_crypto(freedv, NULL, iv);
-                }
+                log_message(logger, LOG_INFO, "VOX activated. RMS: %d", (int)rms_val);
                 silent_frames = 0;
             }
             /* If a frame drops below iv_low or is between iv_low and iv_high after
@@ -132,13 +129,25 @@ int main(int argc, char *argv[]) {
                 ++silent_frames;
                 log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
 
+                if (new->vox_period > 0 &&
+                    (silent_frames == (25 * new->vox_period))) {
+                    log_message(logger, LOG_INFO, "New IV from VOX. RMS: %d", (int)rms_val);
+                    reset_iv = 1;
+                }
+
                 /* Reset IV every minute of silence (if configured)*/
-                if (new->silent_period > 0 && 
+                if (new->silent_period > 0 &&
                     (silent_frames % (25 * new->silent_period)) == 0) {
                     log_message(logger, LOG_INFO, "New IV from silence. RMS: %d", (int)rms_val);
-                    fread(iv, sizeof(iv), 1, urandom);
-                    freedv_set_crypto(freedv, NULL, iv);
+                    reset_iv = 1;
                 }
+            }
+
+            if (reset_iv) {
+                if (fread(iv, sizeof(iv), 1, urandom) != 1) {
+                    log_message(logger, LOG_WARN, "Did not fully read initialization vector");
+                }
+                freedv_set_crypto(freedv, NULL, iv);
             }
         }
 

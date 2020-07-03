@@ -4,7 +4,7 @@ project(crypto_transceiver)
 find_path(
   CODEC2_INCLUDE_DIR
   NAMES "freedv_api.h"
-  PATHS "$ENV{HOME}/Git/codec2/src"
+  PATHS "$ENV{HOME}/Git/codec2/src" "$ENV{STAGING_DIR}/usr/include/codec2"
   REQUIRED)
 
 find_library(

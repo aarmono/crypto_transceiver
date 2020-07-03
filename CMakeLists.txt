@@ -20,10 +20,20 @@ include_directories(${CODEC2_INCLUDE_DIR})
 
 add_definitions(-DINI_READONLY)
 
-add_executable(crypto_tx crypto_tx.c minIni.c crypto_cfg.c crypto_log.c)
-#target_include_directories(crypto_tx INTERFACE ${CODEC2_INCLUDE_DIR})
+add_executable(crypto_tx crypto_tx.c minIni.c crypto_cfg.c crypto_log.c crypto_tx.ini)
 target_link_libraries(crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
-add_executable(crypto_rx crypto_rx.c minIni.c crypto_cfg.c crypto_log.c)
-#target_include_directories(crypto_tx INTERFACE ${CODEC2_INCLUDE_DIR})
+add_executable(crypto_rx crypto_rx.c minIni.c crypto_cfg.c crypto_log.c crypto_rx.ini)
 target_link_libraries(crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
+
+install(
+    TARGETS crypto_tx crypto_rx
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT binaries
+)
+
+install(
+  FILES crypto_tx.conf crypto_rx.conf
+  DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}
+  COMPONENT config
+)

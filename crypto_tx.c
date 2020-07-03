@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
     unsigned char  iv[16];
 
-    if (argc < 1) {
+    if (argc < 2) {
         fprintf(stderr, "usage: %s ConfigFile\n", argv[0]);
         exit(1);
     }

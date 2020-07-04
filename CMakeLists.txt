@@ -26,24 +26,3 @@ target_link_libraries(crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 add_executable(crypto_rx crypto_rx.c minIni.c crypto_cfg.c crypto_log.c crypto_rx.ini)
 target_link_libraries(crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
-install(
-    TARGETS crypto_tx crypto_rx
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    COMPONENT binaries
-)
-
-if("${CMAKE_INSTALL_SYSCONFDIR}" STREQUAL "")
-  message(STATUS "Install to staging dir")
-  install(
-    FILES crypto_tx.ini crypto_rx.ini
-    DESTINATION "$ENV{STAGING_DIR}/etc"
-    COMPONENT config
-  )
-else()
-  message(STATUS "install to sysconfdir")
-  install(
-    FILES crypto_tx.ini crypto_rx.ini
-    DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}"
-    COMPONENT config
-  )
-endif()

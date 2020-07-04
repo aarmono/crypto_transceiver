@@ -32,8 +32,18 @@ install(
     COMPONENT binaries
 )
 
-install(
-  FILES crypto_tx.conf crypto_rx.conf
-  DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}
-  COMPONENT config
-)
+if("${CMAKE_INSTALL_SYSCONFDIR}" STREQUAL "")
+  message(STATUS "Install to staging dir")
+  install(
+    FILES crypto_tx.ini crypto_rx.ini
+    DESTINATION "$ENV{STAGING_DIR}/etc"
+    COMPONENT config
+  )
+else()
+  message(STATUS "install to sysconfdir")
+  install(
+    FILES crypto_tx.ini crypto_rx.ini
+    DESTINATION "${CMAKE_INSTALL_SYSCONFDIR}"
+    COMPONENT config
+  )
+endif()

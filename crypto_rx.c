@@ -35,13 +35,18 @@
 static volatile sig_atomic_t reload_config = 0;
 
 static short rms(short vals[], int len) {
-    int64_t total = 0;
-    for (int i = 0; i < len; ++i) {
-        int64_t val = vals[i];
-        total += val * val;
-    }
+    if (len > 0) {
+        int64_t total = 0;
+        for (int i = 0; i < len; ++i) {
+            int64_t val = vals[i];
+            total += val * val;
+        }
 
-    return (short)sqrt(total / len);
+        return (short)sqrt(total / len);
+    }
+    else {
+        return 0;
+    }
 }
 
 static void handle_sighup(int sig) {

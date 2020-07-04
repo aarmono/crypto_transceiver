@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 
             int reset_iv = 0;
 
-            if (rms_val > new->vox_high) {
+            if (rms_val > new->vox_high && silent_frames > 0) {
                 log_message(logger, LOG_INFO, "VOX activated. RMS: %d", (int)rms_val);
                 silent_frames = 0;
             }

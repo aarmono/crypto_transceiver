@@ -113,15 +113,8 @@ int main(int argc, char *argv[]) {
     unsigned short silent_frames = 0;
     nin = freedv_nin(freedv);
     while(fread(demod_in, sizeof(short), nin, fin) == nin) {
-        nout = freedv_rx(freedv, speech_out, demod_in);
-
-       /* IMPORTANT: don't forget to do this in the while loop to
-           ensure we fread the correct number of samples: ie update
-           "nin" before every call to freedv_rx()/freedv_comprx() */
-        nin = freedv_nin(freedv);
-
         if (new->vox_low > 0 && new->vox_high > 0) {
-            unsigned short rms_val = rms(speech_out, nout);
+            unsigned short rms_val = rms(demod_in, nin);
             log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
 
             /* Reset counter */
@@ -136,10 +129,17 @@ int main(int argc, char *argv[]) {
 
                 /* Zero the output after a second */
                 if (silent_frames > 25) {
-                    memset(speech_out, 0, nout * sizeof(short));
+                    memset(demod_in, 0, nin * sizeof(short));
                 }
             }
         }
+
+        nout = freedv_rx(freedv, speech_out, demod_in);
+
+       /* IMPORTANT: don't forget to do this in the while loop to
+           ensure we fread the correct number of samples: ie update
+           "nin" before every call to freedv_rx()/freedv_comprx() */
+        nin = freedv_nin(freedv);
 
         fwrite(speech_out, sizeof(short) * nout, 1, fout);
         fflush(fout);

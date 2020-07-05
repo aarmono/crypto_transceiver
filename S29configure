@@ -1,0 +1,20 @@
+#!/bin/sh
+
+start()
+{
+	printf "Loading Configuration..."
+	mcopy -i /dev/mmcblk0p1 ::config/key /etc/key
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+case "$1" in
+	start|restart|reload)
+		start
+		;;
+	stop)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}" >&2
+		exit 1
+		;;
+esac

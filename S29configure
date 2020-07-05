@@ -2,15 +2,20 @@
 
 start()
 {
+	while [ ! -b /dev/mmcblk0p1 ]
+	do
+		sleep .5
+	done
+
 	echo "Loading sound configuration..."
-	mcopy -t -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state
+	mcopy -t -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state
 
 	echo "Loading key..."
-	mcopy -i /dev/mmcblk0p1 ::config/key /etc/key
+	mcopy -D o -i /dev/mmcblk0p1 ::config/key /etc/key
 
 	echo "Loading crypto configuration..."
-	mcopy -t -i /dev/mmcblk0p1 ::config/crypto_tx.ini /etc/crypto_tx.ini
-	mcopy -t -i /dev/mmcblk0p1 ::config/crypto_rx.ini /etc/crypto_rx.ini
+	mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto_tx.ini /etc/crypto_tx.ini
+	mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto_rx.ini /etc/crypto_rx.ini
 
 	echo "Done"
 }

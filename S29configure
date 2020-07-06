@@ -1,5 +1,8 @@
 #!/bin/sh
 
+NAME="configure.sh"
+DAEMON="/usr/bin/${NAME}"
+
 start()
 {
 	while [ ! -b /dev/mmcblk0p1 ]
@@ -18,6 +21,8 @@ start()
 	mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto_rx.ini /etc/crypto_rx.ini
 
 	echo "Done"
+
+	start-stop-daemon -S -b -q -x "${DAEMON}"
 }
 
 case "$1" in

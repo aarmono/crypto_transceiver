@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NAME="configure.sh"
+NAME="restore.sh"
 DAEMON="/usr/bin/${NAME}"
 
 start()

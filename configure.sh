@@ -7,6 +7,7 @@ done
 
 while [ true ]
 do
+    clear
     read -p 'Type "0" for headset, "1" for radio, or "s" to save and press Enter: ' option
     case "$option" in
         0)

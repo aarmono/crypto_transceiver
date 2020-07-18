@@ -9,7 +9,7 @@ do
     sleep .5
 done
 
-aplay -t wav -D "plughw:1,0" /usr/share/sounds/startup.wav
+aplay -t wav -D "plughw:0,0" /usr/share/sounds/startup.wav
 
 trap _term SIGTERM
 

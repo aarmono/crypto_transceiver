@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -33,6 +34,7 @@
 #include "crypto_log.h"
 
 static volatile sig_atomic_t reload_config = 0;
+static const unsigned short FRAMES_PER_SEC = 25;
 
 static short rms(short vals[], int len) {
     if (len > 0) {
@@ -105,12 +107,16 @@ int main(int argc, char *argv[]) {
     short speech_out[freedv_get_n_max_speech_samples(freedv)];
     short demod_in[freedv_get_n_max_modem_samples(freedv)];
 
+    /* Keep track of the number of consecutive silent frames. Initialize to
+       FRAMES_PER_SEC to suppress output at startup if we aren't receiving
+       anything */
+    unsigned short silent_frames = FRAMES_PER_SEC;
+
     /* We need to work out how many samples the demod needs on each
        call (nin).  This is used to adjust for differences in the tx
        and rx sample clock frequencies.  Note also the number of
        output speech samples "nout" is time varying. */
 
-    unsigned short silent_frames = 0;
     nin = freedv_nin(freedv);
     while(fread(demod_in, sizeof(short), nin, fin) == nin) {
         if (new->vox_low > 0 && new->vox_high > 0) {
@@ -124,11 +130,15 @@ int main(int argc, char *argv[]) {
             /* If a frame drops below iv_low or is between iv_low and iv_high after
                dropping below iv_low, increment the silent counter */
             else if (rms_val < new->vox_low || silent_frames > 0) {
-                ++silent_frames;
+                /* Prevent overflow */
+                if (silent_frames < USHRT_MAX) {
+                    ++silent_frames;
+                }
+
                 log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
 
                 /* Zero the output after a second */
-                if (silent_frames > 25) {
+                if (silent_frames > FRAMES_PER_SEC) {
                     memset(demod_in, 0, nin * sizeof(short));
                 }
             }

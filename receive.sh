@@ -9,6 +9,8 @@ do
     sleep .5
 done
 
+aplay -t wav -D "plughw:1,0" /usr/share/sounds/startup.wav
+
 trap _term SIGTERM
 
 # Record buffer is 40ms; Play buffer is 80ms. A frame length in crypto_tx and

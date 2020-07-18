@@ -19,6 +19,9 @@ do
         s)
             alsactl store && mcopy -t -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state
             ;;
+        l)
+            /sbin/getty -L tty1 115200 vt100
+            ;;
         *)
             "Invalid option"
             ;;

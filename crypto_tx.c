@@ -54,6 +54,10 @@ static void handle_sighup(int sig) {
     reload_config = 1;
 }
 
+#ifndef TEMP_FAILURE_RETRY
+#define TEMP_FAILURE_RETRY(expression) {int result; do result = (int)(expression); while (result == -1 && errno == EINTR); result;}
+#endif
+
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
     struct config *new = NULL;
@@ -162,10 +166,10 @@ int main(int argc, char *argv[]) {
 
                 if (new->vox_cmd[0] != '\0') {
                     int stat = 0;
-                    wait(&stat);
+                    TEMP_FAILURE_RETRY(wait(&stat));
 
                     if (fork() == 0) {
-                        _exit(system(new->vox_cmd));
+                        execl("/bin/sh", "/bin/sh", "-c", new->vox_cmd, NULL);
                     }
                 }
             }

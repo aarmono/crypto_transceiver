@@ -117,6 +117,10 @@ int main(int argc, char *argv[]) {
     int n_nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
     short mod_out[n_nom_modem_samples];
 
+    if (new->ready_cmd[0] != '\0') {
+        system(new->ready_cmd);
+    }
+
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
     while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {

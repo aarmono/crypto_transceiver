@@ -37,10 +37,10 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         if (strcasecmp(Key, "QuietRekey") == 0) {
             cfg->silent_period = atoi(Value);
         }
-        if (strcasecmp(Key, "VOXRekey") == 0) {
+        else if (strcasecmp(Key, "VOXRekey") == 0) {
             cfg->vox_period = atoi(Value);
         }
-        if (strcasecmp(Key, "VOXCmd") == 0) {
+        else if (strcasecmp(Key, "VOXCmd") == 0) {
             strncpy(cfg->vox_cmd, Value, sizeof(cfg->vox_cmd) - 1);
         }
     }
@@ -58,6 +58,9 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
         else if (strcasecmp(Key, "VOXNoise") == 0) {
             cfg->vox_high = atoi(Value);
+        }
+        else if (strcasecmp(Key, "ReadyCmd") == 0) {
+            strncpy(cfg->ready_cmd, Value, sizeof(cfg->ready_cmd) - 1);
         }
     }
 

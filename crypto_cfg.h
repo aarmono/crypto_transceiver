@@ -19,6 +19,7 @@ struct config
     int  silent_period;
     int  vox_period;
     char vox_cmd[80];
+    char ready_cmd[80];
 };
 
 void read_config(const char* config_file, struct config* cfg);

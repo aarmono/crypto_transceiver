@@ -17,7 +17,7 @@ do
             alsamixer -c 1
             ;;
         s)
-            alsactl store && mcopy -t -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state
+            alsactl store && mcopy -t -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && aplay -t wav -D "plug:headset" /usr/share/sounds/ack.wav
             ;;
         l)
             /sbin/getty -L tty1 115200 vt100

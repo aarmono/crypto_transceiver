@@ -50,7 +50,7 @@ void log_message(crypto_log logger, int level, const char* format, ...) {
                 fprintf(logger.file, "NOTICE ");
                 break;
             case LOG_WARN:
-                fprintf(logger.file, "WARN ");
+                fprintf(logger.file, "WARNING ");
                 break;
             case LOG_ERROR:
                 fprintf(logger.file, "ERROR ");

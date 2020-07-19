@@ -106,21 +106,21 @@ int main(int argc, char *argv[]) {
 
     open_input_file(old, new, &fin);
     if (fin == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
+        log_message(logger, LOG_ERROR, "Could not open input stream: %s", new->source_file);
         try_system(new->error_cmd);
         exit(1);
     }
 
     open_output_file(old, new, &fout);
     if (fout == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
+        log_message(logger, LOG_ERROR, "Could not open output stream: %s", new->dest_file);
         try_system(new->error_cmd);
         exit(1);
     }
 
     open_iv_file(old, new, &urandom);
     if (urandom == NULL) {
-        log_message(logger, LOG_ERROR, "Unable to open random file: %s", new->random_file);
+        log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", new->random_file);
         try_system(new->error_cmd);
         exit(1);
     }
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
             int reset_iv = 0;
 
             if (rms_val > new->vox_high && silent_frames > 0) {
-                log_message(logger, LOG_INFO, "VOX activated. RMS: %d", (int)rms_val);
+                log_message(logger, LOG_INFO, "Speech detected. RMS: %d", (int)rms_val);
                 silent_frames = 0;
             }
             /* If a frame drops below iv_low or is between iv_low and iv_high after
@@ -174,14 +174,14 @@ int main(int argc, char *argv[]) {
 
                 if (new->vox_period > 0 &&
                     (silent_frames == (25 * new->vox_period))) {
-                    log_message(logger, LOG_INFO, "New IV from VOX. RMS: %d", (int)rms_val);
+                    log_message(logger, LOG_INFO, "New initialization vector at end of speech. RMS: %d", (int)rms_val);
                     reset_iv = 1;
                 }
 
                 /* Reset IV every minute of silence (if configured)*/
                 if (new->silent_period > 0 &&
                     (silent_frames % (25 * new->silent_period)) == 0) {
-                    log_message(logger, LOG_INFO, "New IV from silence. RMS: %d", (int)rms_val);
+                    log_message(logger, LOG_INFO, "New initialization vector from prolonged silence. RMS: %d", (int)rms_val);
                     reset_iv = 1;
                 }
             }
@@ -223,21 +223,21 @@ int main(int argc, char *argv[]) {
 
             open_input_file(old, new, &fin);
             if (fin == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
+                log_message(logger, LOG_ERROR, "Could not open input stream: %s", new->source_file);
                 try_system(new->error_cmd);
                 exit(1);
             }
 
             open_output_file(old, new, &fout);
             if (fout == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
+                log_message(logger, LOG_ERROR, "Could not open output stream: %s", new->dest_file);
                 try_system(new->error_cmd);
                 exit(1);
             }
 
             open_iv_file(old, new, &urandom);
             if (urandom == NULL) {
-                log_message(logger, LOG_ERROR, "Unable to open random file: %s", new->random_file);
+                log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", new->random_file);
                 try_system(new->error_cmd);
                 exit(1);
             }

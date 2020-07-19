@@ -26,6 +26,8 @@
 #include <errno.h>
 #include <math.h>
 #include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "freedv_api.h"
 #include "crypto_cfg.h"
@@ -153,6 +155,15 @@ int main(int argc, char *argv[]) {
                     log_message(logger, LOG_WARN, "Did not fully read initialization vector");
                 }
                 freedv_set_crypto(freedv, NULL, iv);
+
+                if (new->vox_cmd[0] != '\0') {
+                    int stat = 0;
+                    wait(&stat);
+
+                    if (fork() == 0) {
+                        _exit(system(new->vox_cmd));
+                    }
+                }
             }
         }
 

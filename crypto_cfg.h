@@ -14,10 +14,11 @@ struct config
     char log_file[80];
     int  log_level;
 
-    int vox_low;
-    int vox_high;
-    int silent_period;
-    int vox_period;
+    int  vox_low;
+    int  vox_high;
+    int  silent_period;
+    int  vox_period;
+    char vox_cmd[80];
 };
 
 void read_config(const char* config_file, struct config* cfg);

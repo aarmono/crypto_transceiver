@@ -40,6 +40,9 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         if (strcasecmp(Key, "VOXRekey") == 0) {
             cfg->vox_period = atoi(Value);
         }
+        if (strcasecmp(Key, "VOXCmd") == 0) {
+            strncpy(cfg->vox_cmd, Value, sizeof(cfg->vox_cmd) - 1);
+        }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
         if (strcasecmp(Key, "LogFile") == 0) {

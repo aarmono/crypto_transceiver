@@ -58,6 +58,26 @@ static void handle_sighup(int sig) {
 #define TEMP_FAILURE_RETRY(expression) {int result; do result = (int)(expression); while (result == -1 && errno == EINTR); result;}
 #endif
 
+void try_system_async(const char* cmd) {
+    int stat = 0;
+    TEMP_FAILURE_RETRY(wait(&stat));
+
+    if (cmd != NULL && cmd[0] != '\0') {
+        if (fork() == 0) {
+            execl("/bin/sh", "/bin/sh", "-c", cmd, NULL);
+        }
+    }
+}
+
+int try_system(const char* cmd) {
+    if (cmd != NULL && cmd[0] != '\0') {
+        return system(cmd);
+    }
+    else {
+        return 0;
+    }
+}
+
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
     struct config *new = NULL;
@@ -87,26 +107,36 @@ int main(int argc, char *argv[]) {
     open_input_file(old, new, &fin);
     if (fin == NULL) {
         log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
+        try_system(new->error_cmd);
         exit(1);
     }
 
     open_output_file(old, new, &fout);
     if (fout == NULL) {
         log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
+        try_system(new->error_cmd);
         exit(1);
     }
 
     open_iv_file(old, new, &urandom);
     if (urandom == NULL) {
         log_message(logger, LOG_ERROR, "Unable to open random file: %s", new->random_file);
+        try_system(new->error_cmd);
         exit(1);
     }
 
+    int has_crypto_warn = 0;
     if (fread(iv, sizeof(iv), 1, urandom) != 1) {
         log_message(logger, LOG_WARN, "Did not fully read initialization vector");
+        has_crypto_warn = 1;
     }
     if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
         log_message(logger, LOG_WARN, "Truncated key");
+        has_crypto_warn = 1;
+    }
+
+    if (has_crypto_warn) {
+        try_system(new->error_cmd);
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
@@ -121,9 +151,7 @@ int main(int argc, char *argv[]) {
     int n_nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
     short mod_out[n_nom_modem_samples];
 
-    if (new->ready_cmd[0] != '\0') {
-        system(new->ready_cmd);
-    }
+    try_system(new->ready_cmd);
 
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
@@ -159,18 +187,15 @@ int main(int argc, char *argv[]) {
             }
 
             if (reset_iv) {
-                if (fread(iv, sizeof(iv), 1, urandom) != 1) {
-                    log_message(logger, LOG_WARN, "Did not fully read initialization vector");
-                }
+                int iv_err = fread(iv, sizeof(iv), 1, urandom) != 1;
                 freedv_set_crypto(freedv, NULL, iv);
 
-                if (new->vox_cmd[0] != '\0') {
-                    int stat = 0;
-                    TEMP_FAILURE_RETRY(wait(&stat));
-
-                    if (fork() == 0) {
-                        execl("/bin/sh", "/bin/sh", "-c", new->vox_cmd, NULL);
-                    }
+                if (iv_err) {
+                    try_system_async(new->error_cmd);
+                    log_message(logger, LOG_WARN, "Did not fully read initialization vector");
+                }
+                else {
+                    try_system_async(new->vox_cmd);
                 }
             }
         }
@@ -199,25 +224,36 @@ int main(int argc, char *argv[]) {
             open_input_file(old, new, &fin);
             if (fin == NULL) {
                 log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
+                try_system(new->error_cmd);
                 exit(1);
             }
 
             open_output_file(old, new, &fout);
             if (fout == NULL) {
                 log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
+                try_system(new->error_cmd);
                 exit(1);
             }
 
             open_iv_file(old, new, &urandom);
             if (urandom == NULL) {
                 log_message(logger, LOG_ERROR, "Unable to open random file: %s", new->random_file);
+                try_system(new->error_cmd);
+                exit(1);
             }
 
+            has_crypto_warn = 0;
             if (fread(iv, sizeof(iv), 1, urandom) != 1) {
                 log_message(logger, LOG_WARN, "Did not fully read initialization vector");
+                has_crypto_warn = 1;
             }
             if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger, LOG_WARN, "Truncated key");
+                has_crypto_warn = 1;
+            }
+
+            if (has_crypto_warn) {
+                try_system_async(new->error_cmd);
             }
 
             freedv_set_crypto(freedv, key, iv);

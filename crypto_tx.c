@@ -97,13 +97,13 @@ int main(int argc, char *argv[]) {
 
     open_input_file(old, cur, &fin);
     if (fin == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open input stream: %s", cur->source_file);
+        log_message(logger, LOG_ERROR, "Could not open input voice stream: %s", cur->source_file);
         exit(1);
     }
 
     open_output_file(old, cur, &fout);
     if (fout == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open output stream: %s", cur->dest_file);
+        log_message(logger, LOG_ERROR, "Could not open output data stream: %s", cur->dest_file);
         exit(1);
     }
 
@@ -121,13 +121,16 @@ int main(int argc, char *argv[]) {
     if ( key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
         log_message(logger,
                     LOG_WARN,
-                    "Truncated key: Only %d bytes instead of %d",
+                    "Truncated encryption key: Only %d bytes of a possible %d",
                     (int)key_bytes_read,
                     (int)FREEDV_MASTER_KEY_LENGTH);
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
-    assert(freedv != NULL);
+    if (freedv == NULL) {
+        log_message(logger, LOG_ERROR, "Could not initialize voice modulator");
+        exit(1);
+    }
 
     freedv_set_crypto(freedv, key, iv);
 
@@ -148,25 +151,25 @@ int main(int argc, char *argv[]) {
             int reset_iv = 0;
 
             if (rms_val > cur->vox_high && silent_frames > 0) {
-                log_message(logger, LOG_INFO, "Speech detected. RMS: %d", (int)rms_val);
+                log_message(logger, LOG_INFO, "Voice detected. RMS: %d", (int)rms_val);
                 silent_frames = 0;
             }
             /* If a frame drops below iv_low or is between iv_low and iv_high after
                dropping below iv_low, increment the silent counter */
             else if (rms_val < cur->vox_low || silent_frames > 0) {
                 ++silent_frames;
-                log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
+                log_message(logger, LOG_DEBUG, "Quiet frame. Count: %d", (int)silent_frames);
 
                 if (cur->vox_period > 0 &&
                     (silent_frames == (25 * cur->vox_period))) {
-                    log_message(logger, LOG_INFO, "New initialization vector at end of speech. RMS: %d", (int)rms_val);
+                    log_message(logger, LOG_INFO, "New initialization vector at end of voice. RMS: %d", (int)rms_val);
                     reset_iv = 1;
                 }
 
                 /* Reset IV every minute of silence (if configured)*/
                 if (cur->silent_period > 0 &&
                     (silent_frames % (25 * cur->silent_period)) == 0) {
-                    log_message(logger, LOG_INFO, "New initialization vector from prolonged silence. RMS: %d", (int)rms_val);
+                    log_message(logger, LOG_INFO, "New initialization vector during long silence. RMS: %d", (int)rms_val);
                     reset_iv = 1;
                 }
             }
@@ -177,6 +180,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 freedv_set_crypto(freedv, NULL, iv);
+                try_system_async(cur->vox_cmd);
             }
         }
 
@@ -203,13 +207,13 @@ int main(int argc, char *argv[]) {
 
             open_input_file(old, cur, &fin);
             if (fin == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open input stream: %s", cur->source_file);
+                log_message(logger, LOG_ERROR, "Could not open input voice stream: %s", cur->source_file);
                 exit(1);
             }
 
             open_output_file(old, cur, &fout);
             if (fout == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open output stream: %s", cur->dest_file);
+                log_message(logger, LOG_ERROR, "Could not open output data stream: %s", cur->dest_file);
                 exit(1);
             }
 
@@ -227,7 +231,7 @@ int main(int argc, char *argv[]) {
             if (key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger,
                             LOG_WARN,
-                            "Truncated key: Only %d bytes instead of %d",
+                            "Truncated encryption key: Only %d bytes of a possible %d",
                             (int)key_bytes_read,
                             (int)FREEDV_MASTER_KEY_LENGTH);
             }

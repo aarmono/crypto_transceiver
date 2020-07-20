@@ -33,6 +33,10 @@
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 
+#ifndef TEMP_FAILURE_RETRY
+#define TEMP_FAILURE_RETRY(expression) {int result; do result = (int)(expression); while (result == -1 && errno == EINTR); result;}
+#endif
+
 static volatile sig_atomic_t reload_config = 0;
 
 static short rms(short vals[], int len) {
@@ -54,11 +58,7 @@ static void handle_sighup(int sig) {
     reload_config = 1;
 }
 
-#ifndef TEMP_FAILURE_RETRY
-#define TEMP_FAILURE_RETRY(expression) {int result; do result = (int)(expression); while (result == -1 && errno == EINTR); result;}
-#endif
-
-void try_system_async(const char* cmd) {
+static void try_system_async(const char* cmd) {
     int stat = 0;
     TEMP_FAILURE_RETRY(wait(&stat));
 
@@ -66,15 +66,6 @@ void try_system_async(const char* cmd) {
         if (fork() == 0) {
             execl("/bin/sh", "/bin/sh", "-c", cmd, NULL);
         }
-    }
-}
-
-int try_system(const char* cmd) {
-    if (cmd != NULL && cmd[0] != '\0') {
-        return system(cmd);
-    }
-    else {
-        return 0;
     }
 }
 
@@ -107,28 +98,23 @@ int main(int argc, char *argv[]) {
     open_input_file(old, cur, &fin);
     if (fin == NULL) {
         log_message(logger, LOG_ERROR, "Could not open input stream: %s", cur->source_file);
-        try_system(cur->error_cmd);
         exit(1);
     }
 
     open_output_file(old, cur, &fout);
     if (fout == NULL) {
         log_message(logger, LOG_ERROR, "Could not open output stream: %s", cur->dest_file);
-        try_system(cur->error_cmd);
         exit(1);
     }
 
     open_iv_file(old, cur, &urandom);
     if (urandom == NULL) {
         log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", cur->random_file);
-        try_system(cur->error_cmd);
         exit(1);
     }
 
-    int has_crypto_warn = 0;
     if (fread(iv, 1, sizeof(iv), urandom) != sizeof(iv)) {
         log_message(logger, LOG_WARN, "Did not fully read initialization vector");
-        has_crypto_warn = 1;
     }
 
     size_t key_bytes_read = read_key_file(cur->key_file, key);
@@ -138,11 +124,6 @@ int main(int argc, char *argv[]) {
                     "Truncated key: Only %d bytes instead of %d",
                     (int)key_bytes_read,
                     (int)FREEDV_MASTER_KEY_LENGTH);
-        has_crypto_warn = 1;
-    }
-
-    if (has_crypto_warn) {
-        try_system(cur->error_cmd);
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
@@ -156,8 +137,6 @@ int main(int argc, char *argv[]) {
     short speech_in[n_speech_samples];
     int n_nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
     short mod_out[n_nom_modem_samples];
-
-    try_system(cur->ready_cmd);
 
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
@@ -193,16 +172,11 @@ int main(int argc, char *argv[]) {
             }
 
             if (reset_iv) {
-                int iv_err = fread(iv, sizeof(iv), 1, urandom) != 1;
-                freedv_set_crypto(freedv, NULL, iv);
-
-                if (iv_err) {
-                    try_system_async(cur->error_cmd);
+                if (fread(iv, 1, sizeof(iv), urandom) != sizeof(iv)) {
                     log_message(logger, LOG_WARN, "Did not fully read initialization vector");
                 }
-                else {
-                    try_system_async(cur->vox_cmd);
-                }
+
+                freedv_set_crypto(freedv, NULL, iv);
             }
         }
 
@@ -230,28 +204,23 @@ int main(int argc, char *argv[]) {
             open_input_file(old, cur, &fin);
             if (fin == NULL) {
                 log_message(logger, LOG_ERROR, "Could not open input stream: %s", cur->source_file);
-                try_system(cur->error_cmd);
                 exit(1);
             }
 
             open_output_file(old, cur, &fout);
             if (fout == NULL) {
                 log_message(logger, LOG_ERROR, "Could not open output stream: %s", cur->dest_file);
-                try_system(cur->error_cmd);
                 exit(1);
             }
 
             open_iv_file(old, cur, &urandom);
             if (urandom == NULL) {
                 log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", cur->random_file);
-                try_system(cur->error_cmd);
                 exit(1);
             }
-
-            has_crypto_warn = 0;
+            
             if (fread(iv, 1, sizeof(iv), urandom) != sizeof(iv)) {
                 log_message(logger, LOG_WARN, "Did not fully read initialization vector");
-                has_crypto_warn = 1;
             }
 
             memset(key, 0, sizeof(key));
@@ -262,11 +231,6 @@ int main(int argc, char *argv[]) {
                             "Truncated key: Only %d bytes instead of %d",
                             (int)key_bytes_read,
                             (int)FREEDV_MASTER_KEY_LENGTH);
-                has_crypto_warn = 1;
-            }
-
-            if (has_crypto_warn) {
-                try_system_async(cur->error_cmd);
             }
 
             freedv_set_crypto(freedv, key, iv);

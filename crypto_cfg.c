@@ -51,9 +51,6 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         else if (strcasecmp(Key, "LogLevel") == 0) {
             cfg->log_level = atoi(Value);
         }
-        else if (strcasecmp(Key, "ErrorCmd") == 0) {
-            strncpy(cfg->error_cmd, Value, sizeof(cfg->error_cmd) - 1);
-        }
     }
     else if (strcasecmp(Section, "Audio") == 0) {
         if (strcasecmp(Key, "VOXQuiet") == 0) {
@@ -61,9 +58,6 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
         else if (strcasecmp(Key, "VOXNoise") == 0) {
             cfg->vox_high = atoi(Value);
-        }
-        else if (strcasecmp(Key, "ReadyCmd") == 0) {
-            strncpy(cfg->ready_cmd, Value, sizeof(cfg->ready_cmd) - 1);
         }
     }
 

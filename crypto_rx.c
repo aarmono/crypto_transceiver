@@ -83,22 +83,30 @@ int main(int argc, char *argv[]) {
 
     open_input_file(old, cur, &fin);
     if (fin == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open input file: %s", cur->source_file);
+        log_message(logger, LOG_ERROR, "Could not open input data stream: %s", cur->source_file);
         exit(1);
     }
 
     open_output_file(old, cur, &fout);
     if (fout == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open output file: %s", cur->dest_file);
+        log_message(logger, LOG_ERROR, "Could not open output voice stream: %s", cur->dest_file);
         exit(1);
     }
 
-    if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-        log_message(logger, LOG_WARN, "Truncated key");
+    size_t key_bytes_read = read_key_file(cur->key_file, key);
+    if ( key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+        log_message(logger,
+                    LOG_WARN,
+                    "Truncated decryption key: Only %d bytes of a possible %d",
+                    (int)key_bytes_read,
+                    (int)FREEDV_MASTER_KEY_LENGTH);
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
-    assert(freedv != NULL);
+    if (freedv == NULL) {
+        log_message(logger, LOG_ERROR, "Could not initialize voice demodulator");
+        exit(1);
+    }
 
     freedv_set_crypto(freedv, key, iv);
 
@@ -121,7 +129,7 @@ int main(int argc, char *argv[]) {
     while(fread(demod_in, sizeof(short), nin, fin) == nin) {
         if (cur->vox_low > 0 && cur->vox_high > 0) {
             unsigned short rms_val = rms(demod_in, nin);
-            log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
+            log_message(logger, LOG_DEBUG, "Data RMS: %d", (int)rms_val);
 
             /* Reset counter */
             if (rms_val > cur->vox_high) {
@@ -135,7 +143,7 @@ int main(int argc, char *argv[]) {
                     ++silent_frames;
                 }
 
-                log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
+                log_message(logger, LOG_DEBUG, "Silent input data frame. Count: %d", (int)silent_frames);
 
                 /* Zero the output after a second */
                 if (silent_frames > FRAMES_PER_SEC) {
@@ -155,7 +163,7 @@ int main(int argc, char *argv[]) {
         fflush(fout);
 
         if (reload_config != 0) {
-            log_message(logger, LOG_ERROR, "Reloading config\n");
+            log_message(logger, LOG_ERROR, "Reloading receiver config\n");
 
             reload_config = 0;
 
@@ -174,18 +182,23 @@ int main(int argc, char *argv[]) {
 
             open_input_file(old, cur, &fin);
             if (fin == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open input file: %s", cur->source_file);
+                log_message(logger, LOG_ERROR, "Could not open input data stream: %s", cur->source_file);
                 exit(1);
             }
 
             open_output_file(old, cur, &fout);
             if (fout == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open output file: %s", cur->dest_file);
+                log_message(logger, LOG_ERROR, "Could not open output voice stream: %s", cur->dest_file);
                 exit(1);
             }
 
-            if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-                log_message(logger, LOG_WARN, "Truncated key");
+            key_bytes_read = read_key_file(cur->key_file, key);
+            if ( key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+                log_message(logger,
+                            LOG_WARN,
+                            "Truncated decryption key: Only %d bytes of a possible %d",
+                            (int)key_bytes_read,
+                            (int)FREEDV_MASTER_KEY_LENGTH);
             }
 
             freedv_set_crypto(freedv, key, iv);

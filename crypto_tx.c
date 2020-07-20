@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
     while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {
         if (cur->vox_low > 0 && cur->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
-            log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
+            log_message(logger, LOG_DEBUG, "Voice RMS: %d", (int)rms_val);
 
             int reset_iv = 0;
 

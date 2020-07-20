@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     struct freedv *freedv = NULL;
     int            i;
 
-    unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
+    unsigned char  key[FREEDV_MASTER_KEY_LENGTH] = { 0 };
     unsigned char  iv[16];
 
     if (argc < 2) {
@@ -247,6 +247,8 @@ int main(int argc, char *argv[]) {
                 log_message(logger, LOG_WARN, "Did not fully read initialization vector");
                 has_crypto_warn = 1;
             }
+
+            memset(key, 0, sizeof(key));
             if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger, LOG_WARN, "Truncated key");
                 has_crypto_warn = 1;

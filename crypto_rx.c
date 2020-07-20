@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
         fflush(fout);
 
         if (reload_config != 0) {
-            log_message(logger, LOG_ERROR, "Reloading receiver config\n");
+            log_message(logger, LOG_NOTICE, "Reloading receiver config\n");
 
             reload_config = 0;
 

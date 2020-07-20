@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     struct freedv *freedv = NULL;
     int            i;
 
-    unsigned char  key[FREEDV_MASTER_KEY_LENGTH] = { 0 };
+    unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
     unsigned char  iv[16];
 
     if (argc < 2) {
@@ -218,12 +218,11 @@ int main(int argc, char *argv[]) {
                 log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", cur->random_file);
                 exit(1);
             }
-            
+
             if (fread(iv, 1, sizeof(iv), urandom) != sizeof(iv)) {
                 log_message(logger, LOG_WARN, "Did not fully read initialization vector");
             }
 
-            memset(key, 0, sizeof(key));
             key_bytes_read = read_key_file(cur->key_file, key);
             if (key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger,

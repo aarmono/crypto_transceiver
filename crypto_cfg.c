@@ -96,6 +96,8 @@ void open_iv_file(const struct config* old, const struct config* new, FILE** f) 
 }
 
 size_t read_key_file(const char* key_file, unsigned char key[]) {
+    memset(key, 0, FREEDV_MASTER_KEY_LENGTH);
+
     FILE* f = fopen(key_file, "rb");
     if (f == NULL) return 0;
 

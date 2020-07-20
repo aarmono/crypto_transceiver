@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
         fwrite(mod_out, sizeof(short), n_nom_modem_samples, fout);
 
         if (reload_config != 0) {
-            log_message(logger, LOG_NOTICE, "Reloading config");
+            log_message(logger, LOG_NOTICE, "Reloading transmitter config");
 
             reload_config = 0;
 

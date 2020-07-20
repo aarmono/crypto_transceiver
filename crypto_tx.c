@@ -126,12 +126,18 @@ int main(int argc, char *argv[]) {
     }
 
     int has_crypto_warn = 0;
-    if (fread(iv, sizeof(iv), 1, urandom) != 1) {
+    if (fread(iv, 1, sizeof(iv), urandom) != sizeof(iv)) {
         log_message(logger, LOG_WARN, "Did not fully read initialization vector");
         has_crypto_warn = 1;
     }
-    if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-        log_message(logger, LOG_WARN, "Truncated key");
+
+    size_t key_bytes_read = read_key_file(cur->key_file, key);
+    if ( key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+        log_message(logger,
+                    LOG_WARN,
+                    "Truncated key: Only %d bytes instead of %d",
+                    (int)key_bytes_read,
+                    (int)FREEDV_MASTER_KEY_LENGTH);
         has_crypto_warn = 1;
     }
 
@@ -243,14 +249,19 @@ int main(int argc, char *argv[]) {
             }
 
             has_crypto_warn = 0;
-            if (fread(iv, sizeof(iv), 1, urandom) != 1) {
+            if (fread(iv, 1, sizeof(iv), urandom) != sizeof(iv)) {
                 log_message(logger, LOG_WARN, "Did not fully read initialization vector");
                 has_crypto_warn = 1;
             }
 
             memset(key, 0, sizeof(key));
-            if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
-                log_message(logger, LOG_WARN, "Truncated key");
+            key_bytes_read = read_key_file(cur->key_file, key);
+            if (key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+                log_message(logger,
+                            LOG_WARN,
+                            "Truncated key: Only %d bytes instead of %d",
+                            (int)key_bytes_read,
+                            (int)FREEDV_MASTER_KEY_LENGTH);
                 has_crypto_warn = 1;
             }
 

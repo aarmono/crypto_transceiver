@@ -80,7 +80,7 @@ int try_system(const char* cmd) {
 
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
-    struct config *new = NULL;
+    struct config *cur = NULL;
 
     FILE          *fin = NULL;
     FILE          *fout = NULL;
@@ -99,29 +99,29 @@ int main(int argc, char *argv[]) {
 
     signal(SIGHUP, handle_sighup);
 
-    new = calloc(1, sizeof(struct config));
-    read_config(argv[1], new);
+    cur = calloc(1, sizeof(struct config));
+    read_config(argv[1], cur);
 
-    crypto_log logger = create_logger(new->log_file, new->log_level);
+    crypto_log logger = create_logger(cur->log_file, cur->log_level);
 
-    open_input_file(old, new, &fin);
+    open_input_file(old, cur, &fin);
     if (fin == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open input stream: %s", new->source_file);
-        try_system(new->error_cmd);
+        log_message(logger, LOG_ERROR, "Could not open input stream: %s", cur->source_file);
+        try_system(cur->error_cmd);
         exit(1);
     }
 
-    open_output_file(old, new, &fout);
+    open_output_file(old, cur, &fout);
     if (fout == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open output stream: %s", new->dest_file);
-        try_system(new->error_cmd);
+        log_message(logger, LOG_ERROR, "Could not open output stream: %s", cur->dest_file);
+        try_system(cur->error_cmd);
         exit(1);
     }
 
-    open_iv_file(old, new, &urandom);
+    open_iv_file(old, cur, &urandom);
     if (urandom == NULL) {
-        log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", new->random_file);
-        try_system(new->error_cmd);
+        log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", cur->random_file);
+        try_system(cur->error_cmd);
         exit(1);
     }
 
@@ -130,13 +130,13 @@ int main(int argc, char *argv[]) {
         log_message(logger, LOG_WARN, "Did not fully read initialization vector");
         has_crypto_warn = 1;
     }
-    if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
+    if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
         log_message(logger, LOG_WARN, "Truncated key");
         has_crypto_warn = 1;
     }
 
     if (has_crypto_warn) {
-        try_system(new->error_cmd);
+        try_system(cur->error_cmd);
     }
 
     freedv = freedv_open(FREEDV_MODE_2400B);
@@ -151,36 +151,36 @@ int main(int argc, char *argv[]) {
     int n_nom_modem_samples = freedv_get_n_nom_modem_samples(freedv);
     short mod_out[n_nom_modem_samples];
 
-    try_system(new->ready_cmd);
+    try_system(cur->ready_cmd);
 
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
     while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {
-        if (new->vox_low > 0 && new->vox_high > 0) {
+        if (cur->vox_low > 0 && cur->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
             log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
 
             int reset_iv = 0;
 
-            if (rms_val > new->vox_high && silent_frames > 0) {
+            if (rms_val > cur->vox_high && silent_frames > 0) {
                 log_message(logger, LOG_INFO, "Speech detected. RMS: %d", (int)rms_val);
                 silent_frames = 0;
             }
             /* If a frame drops below iv_low or is between iv_low and iv_high after
                dropping below iv_low, increment the silent counter */
-            else if (rms_val < new->vox_low || silent_frames > 0) {
+            else if (rms_val < cur->vox_low || silent_frames > 0) {
                 ++silent_frames;
                 log_message(logger, LOG_DEBUG, "Silent frame. Count: %d", (int)silent_frames);
 
-                if (new->vox_period > 0 &&
-                    (silent_frames == (25 * new->vox_period))) {
+                if (cur->vox_period > 0 &&
+                    (silent_frames == (25 * cur->vox_period))) {
                     log_message(logger, LOG_INFO, "New initialization vector at end of speech. RMS: %d", (int)rms_val);
                     reset_iv = 1;
                 }
 
                 /* Reset IV every minute of silence (if configured)*/
-                if (new->silent_period > 0 &&
-                    (silent_frames % (25 * new->silent_period)) == 0) {
+                if (cur->silent_period > 0 &&
+                    (silent_frames % (25 * cur->silent_period)) == 0) {
                     log_message(logger, LOG_INFO, "New initialization vector from prolonged silence. RMS: %d", (int)rms_val);
                     reset_iv = 1;
                 }
@@ -191,11 +191,11 @@ int main(int argc, char *argv[]) {
                 freedv_set_crypto(freedv, NULL, iv);
 
                 if (iv_err) {
-                    try_system_async(new->error_cmd);
+                    try_system_async(cur->error_cmd);
                     log_message(logger, LOG_WARN, "Did not fully read initialization vector");
                 }
                 else {
-                    try_system_async(new->vox_cmd);
+                    try_system_async(cur->vox_cmd);
                 }
             }
         }
@@ -208,37 +208,37 @@ int main(int argc, char *argv[]) {
 
             reload_config = 0;
 
-            swap_config(&old, &new);
-            if (new == NULL) {
-                new = calloc(1, sizeof(struct config));
+            swap_config(&old, &cur);
+            if (cur == NULL) {
+                cur = calloc(1, sizeof(struct config));
             }
-            read_config(argv[1], new);
+            read_config(argv[1], cur);
 
-            if (strcmp(old->log_file, new->log_file) != 0) {
+            if (strcmp(old->log_file, cur->log_file) != 0) {
                 destroy_logger(logger);
-                logger = create_logger(new->log_file, new->log_level);
+                logger = create_logger(cur->log_file, cur->log_level);
             }
 
-            logger.level = new->log_level;
+            logger.level = cur->log_level;
 
-            open_input_file(old, new, &fin);
+            open_input_file(old, cur, &fin);
             if (fin == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open input stream: %s", new->source_file);
-                try_system(new->error_cmd);
+                log_message(logger, LOG_ERROR, "Could not open input stream: %s", cur->source_file);
+                try_system(cur->error_cmd);
                 exit(1);
             }
 
-            open_output_file(old, new, &fout);
+            open_output_file(old, cur, &fout);
             if (fout == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open output stream: %s", new->dest_file);
-                try_system(new->error_cmd);
+                log_message(logger, LOG_ERROR, "Could not open output stream: %s", cur->dest_file);
+                try_system(cur->error_cmd);
                 exit(1);
             }
 
-            open_iv_file(old, new, &urandom);
+            open_iv_file(old, cur, &urandom);
             if (urandom == NULL) {
-                log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", new->random_file);
-                try_system(new->error_cmd);
+                log_message(logger, LOG_ERROR, "Unable to open random number generator: %s", cur->random_file);
+                try_system(cur->error_cmd);
                 exit(1);
             }
 
@@ -247,13 +247,13 @@ int main(int argc, char *argv[]) {
                 log_message(logger, LOG_WARN, "Did not fully read initialization vector");
                 has_crypto_warn = 1;
             }
-            if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
+            if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger, LOG_WARN, "Truncated key");
                 has_crypto_warn = 1;
             }
 
             if (has_crypto_warn) {
-                try_system_async(new->error_cmd);
+                try_system_async(cur->error_cmd);
             }
 
             freedv_set_crypto(freedv, key, iv);
@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
     fclose(fout);
 
     if (old != NULL) free(old);
-    if (new != NULL) free(new);
+    if (cur != NULL) free(cur);
     
     return 0;
 }

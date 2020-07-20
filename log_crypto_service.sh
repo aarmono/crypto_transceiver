@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 
+TERMINATE=0
 _term() {
+    TERMINATE=1
     kill -TERM "$child"
 }
 
@@ -23,6 +25,9 @@ done
 
 trap _term SIGTERM
 
-stdbuf -i0 -o0 cut -d ' ' -f 3- "$LOGFILE" | espeak -w /dev/stdout | aplay -t wav -D "plug:headset" - &
-child=$!
-wait "$child"
+while [ $((TERMINATE)) -eq 0 ]
+do
+    stdbuf -i0 -o0 cut -d ' ' -f 3- "$LOGFILE" | espeak -w /dev/stdout | aplay -t wav -D "plug:headset" - &
+    child=$!
+    wait "$child"
+done

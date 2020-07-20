@@ -57,7 +57,7 @@ static void handle_sighup(int sig) {
 
 int main(int argc, char *argv[]) {
     struct config *old = NULL;
-    struct config *new = NULL;
+    struct config *cur = NULL;
 
     FILE          *fin = NULL;
     FILE          *fout = NULL;
@@ -76,24 +76,24 @@ int main(int argc, char *argv[]) {
 
     signal(SIGHUP, handle_sighup);
 
-    new = calloc(1, sizeof(struct config));
-    read_config(argv[1], new);
+    cur = calloc(1, sizeof(struct config));
+    read_config(argv[1], cur);
 
-    crypto_log logger = create_logger(new->log_file, new->log_level);
+    crypto_log logger = create_logger(cur->log_file, cur->log_level);
 
-    open_input_file(old, new, &fin);
+    open_input_file(old, cur, &fin);
     if (fin == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
+        log_message(logger, LOG_ERROR, "Could not open input file: %s", cur->source_file);
         exit(1);
     }
 
-    open_output_file(old, new, &fout);
+    open_output_file(old, cur, &fout);
     if (fout == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
+        log_message(logger, LOG_ERROR, "Could not open output file: %s", cur->dest_file);
         exit(1);
     }
 
-    if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
+    if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
         log_message(logger, LOG_WARN, "Truncated key");
     }
 
@@ -119,17 +119,17 @@ int main(int argc, char *argv[]) {
 
     nin = freedv_nin(freedv);
     while(fread(demod_in, sizeof(short), nin, fin) == nin) {
-        if (new->vox_low > 0 && new->vox_high > 0) {
+        if (cur->vox_low > 0 && cur->vox_high > 0) {
             unsigned short rms_val = rms(demod_in, nin);
             log_message(logger, LOG_DEBUG, "RMS: %d", (int)rms_val);
 
             /* Reset counter */
-            if (rms_val > new->vox_high) {
+            if (rms_val > cur->vox_high) {
                 silent_frames = 0;
             }
             /* If a frame drops below iv_low or is between iv_low and iv_high after
                dropping below iv_low, increment the silent counter */
-            else if (rms_val < new->vox_low || silent_frames > 0) {
+            else if (rms_val < cur->vox_low || silent_frames > 0) {
                 /* Prevent overflow */
                 if (silent_frames < USHRT_MAX) {
                     ++silent_frames;
@@ -159,32 +159,32 @@ int main(int argc, char *argv[]) {
 
             reload_config = 0;
 
-            swap_config(&old, &new);
-            if (new == NULL) {
-                new = calloc(1, sizeof(struct config));
+            swap_config(&old, &cur);
+            if (cur == NULL) {
+                cur = calloc(1, sizeof(struct config));
             }
-            read_config(argv[1], new);
+            read_config(argv[1], cur);
 
-            if (strcmp(old->log_file, new->log_file) != 0) {
+            if (strcmp(old->log_file, cur->log_file) != 0) {
                 destroy_logger(logger);
-                logger = create_logger(new->log_file, new->log_level);
+                logger = create_logger(cur->log_file, cur->log_level);
             }
 
-            logger.level = new->log_level;
+            logger.level = cur->log_level;
 
-            open_input_file(old, new, &fin);
+            open_input_file(old, cur, &fin);
             if (fin == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open input file: %s", new->source_file);
+                log_message(logger, LOG_ERROR, "Could not open input file: %s", cur->source_file);
                 exit(1);
             }
 
-            open_output_file(old, new, &fout);
+            open_output_file(old, cur, &fout);
             if (fout == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open output file: %s", new->dest_file);
+                log_message(logger, LOG_ERROR, "Could not open output file: %s", cur->dest_file);
                 exit(1);
             }
 
-            if (read_key_file(new->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
+            if (read_key_file(cur->key_file, key) != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger, LOG_WARN, "Truncated key");
             }
 
@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
     freedv_close(freedv);
 
     if (old != NULL) free(old);
-    if (new != NULL) free(new);
+    if (cur != NULL) free(cur);
 
     return 0;
 }

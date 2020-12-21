@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
     }
 
     size_t key_bytes_read = read_key_file(cur->key_file, key);
-    if ( key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+    if (cur->key_file[0] != '\0' && key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
         log_message(logger,
                     LOG_WARN,
                     "Truncated encryption key: Only %d bytes of a possible %d",
@@ -132,7 +132,12 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    freedv_set_crypto(freedv, key, iv);
+    if (cur->key_file[0] != '\0') {
+        freedv_set_crypto(freedv, key, iv);
+    }
+    else {
+        log_message(logger, LOG_WARN, "Encryption disabled");
+    }
 
     /* handy functions to set buffer sizes, note tx/modulator always
        returns freedv_get_n_nom_modem_samples() (unlike rx side) */
@@ -144,7 +149,7 @@ int main(int argc, char *argv[]) {
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
     while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {
-        if (cur->vox_low > 0 && cur->vox_high > 0) {
+        if (cur->key_file[0] != '\0' && cur->vox_low > 0 && cur->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
             log_message(logger, LOG_DEBUG, "Voice RMS: %d", (int)rms_val);
 
@@ -228,7 +233,7 @@ int main(int argc, char *argv[]) {
             }
 
             key_bytes_read = read_key_file(cur->key_file, key);
-            if (key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+            if (cur->key_file != '\0' && key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
                 log_message(logger,
                             LOG_WARN,
                             "Truncated encryption key: Only %d bytes of a possible %d",
@@ -236,7 +241,13 @@ int main(int argc, char *argv[]) {
                             (int)FREEDV_MASTER_KEY_LENGTH);
             }
 
-            freedv_set_crypto(freedv, key, iv);
+            if (cur->key_file != '\0') {
+                freedv_set_crypto(freedv, key, iv);
+            }
+            else {
+                log_message(logger, LOG_WARN, "Encryption disabled");
+                freedv_set_crypto(freedv, NULL, NULL);
+            }
         }
     }
     

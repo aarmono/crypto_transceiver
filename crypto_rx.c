@@ -83,13 +83,19 @@ int main(int argc, char *argv[]) {
 
     open_input_file(old, cur, &fin);
     if (fin == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open input data stream: %s", cur->source_file);
+        log_message(logger,
+                    LOG_ERROR,
+                    "Could not open input data stream: %s",
+                    cur->source_file);
         exit(1);
     }
 
     open_output_file(old, cur, &fout);
     if (fout == NULL) {
-        log_message(logger, LOG_ERROR, "Could not open output voice stream: %s", cur->dest_file);
+        log_message(logger,
+                    LOG_ERROR,
+                    "Could not open output voice stream: %s",
+                    cur->dest_file);
         exit(1);
     }
 
@@ -148,7 +154,10 @@ int main(int argc, char *argv[]) {
                     ++silent_frames;
                 }
 
-                log_message(logger, LOG_DEBUG, "Silent input data frame. Count: %d", (int)silent_frames);
+                log_message(logger,
+                            LOG_DEBUG,
+                            "Silent input data frame. Count: %d",
+                            (int)silent_frames);
 
                 /* Zero the output after a second */
                 if (silent_frames > FRAMES_PER_SEC) {
@@ -187,13 +196,19 @@ int main(int argc, char *argv[]) {
 
             open_input_file(old, cur, &fin);
             if (fin == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open input data stream: %s", cur->source_file);
+                log_message(logger,
+                            LOG_ERROR,
+                            "Could not open input data stream: %s",
+                            cur->source_file);
                 exit(1);
             }
 
             open_output_file(old, cur, &fout);
             if (fout == NULL) {
-                log_message(logger, LOG_ERROR, "Could not open output voice stream: %s", cur->dest_file);
+                log_message(logger,
+                            LOG_ERROR,
+                            "Could not open output voice stream: %s",
+                            cur->dest_file);
                 exit(1);
             }
 

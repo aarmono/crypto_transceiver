@@ -34,4 +34,8 @@ static void swap_config(struct config** old, struct config** new) {
     *new = tmp;
 }
 
+static inline int str_has_value(const char* str) {
+    return str != NULL && str[0] != '\0';
+}
+
 #endif

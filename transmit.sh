@@ -13,7 +13,7 @@ trap _term SIGTERM
 
 # Record buffer is 40ms; Play buffer is 80ms. A frame length in crypto_tx and
 # crypto_rx is 40ms
-AUDIODRIVER=alsa AUDIODEV="plughw:0,0" rec -t raw -r 8000 -c 1 -b 16 -e signed-integer --buffer 640 -q - sinc 400 lowpass 3000 | crypto_tx /etc/crypto_tx.ini | aplay -B 160000 -t raw -r 48000 -c 1 -f S16_LE -D "plughw:1,0" - &
+record_voice.sh | crypto_tx /etc/crypto_tx.ini | aplay -B 160000 -t raw -r 48000 -c 1 -f S16_LE -D "plughw:1,0" - &
 child=$!
 aplay -t wav -D "plug:headset" /usr/share/sounds/startup.wav
 wait "$child"

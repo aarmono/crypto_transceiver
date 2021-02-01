@@ -1,0 +1,1 @@
+sinc 400 lowpass 3000

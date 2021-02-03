@@ -1,0 +1,1 @@
+sinc 300-3000 highpass -1 4000 gain 7.7

@@ -51,6 +51,21 @@ static short rms(short vals[], int len) {
     }
 }
 
+static size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file)
+{
+    size_t elems_read = 0;
+    do {
+        elems_read += fread(buffer + elems_read,
+                            sizeof(short),
+                            buffer_elems - elems_read,
+                            file);
+
+    }
+    while (elems_read < buffer_elems && !feof(file) && !ferror(file));
+
+    return elems_read;
+}
+
 static void handle_sighup(int sig) {
     reload_config = 1;
 }
@@ -137,7 +152,7 @@ int main(int argc, char *argv[]) {
        output speech samples "nout" is time varying. */
 
     nin = freedv_nin(freedv);
-    while(fread(demod_in, sizeof(short), nin, fin) == nin) {
+    while(read_input_file(demod_in, nin, fin) == nin) {
         if (cur->vox_low > 0 && cur->vox_high > 0) {
             unsigned short rms_val = rms(demod_in, nin);
             log_message(logger, LOG_DEBUG, "Data RMS: %d", (int)rms_val);

@@ -54,6 +54,21 @@ static short rms(short vals[], int len) {
     }
 }
 
+static size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file)
+{
+    size_t elems_read = 0;
+    do {
+        elems_read += fread(buffer + elems_read,
+                            sizeof(short),
+                            buffer_elems - elems_read,
+                            file);
+
+    }
+    while (elems_read < buffer_elems && !feof(file) && !ferror(file));
+
+    return elems_read;
+}
+
 static void handle_sighup(int sig) {
     reload_config = 1;
 }
@@ -157,7 +172,7 @@ int main(int argc, char *argv[]) {
 
     unsigned short silent_frames = 0;
     /* OK main loop  --------------------------------------- */
-    while(fread(speech_in, sizeof(short), n_speech_samples, fin) == n_speech_samples) {
+    while(read_input_file(speech_in, n_speech_samples, fin) == n_speech_samples) {
         if (str_has_value(cur->key_file) && cur->vox_low > 0 && cur->vox_high > 0) {
             short rms_val = rms(speech_in, n_speech_samples);
             log_message(logger, LOG_DEBUG, "Voice RMS: %d", (int)rms_val);

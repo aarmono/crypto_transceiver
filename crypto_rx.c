@@ -51,8 +51,7 @@ static short rms(short vals[], int len) {
     }
 }
 
-static size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file)
-{
+static size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file) {
     size_t elems_read = 0;
     do {
         elems_read += fread(buffer + elems_read,

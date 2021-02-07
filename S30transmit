@@ -8,7 +8,7 @@ PID_FILE="/var/run/${NAME}.pid"
 start()
 {
 	printf "Starting ${NAME}: "
-	start-stop-daemon -N -10 -S -b -m -p "${PID_FILE}" -q -x "${DAEMON}" -- ${CFG_FILE}
+	start-stop-daemon -S -b -m -p "${PID_FILE}" -q -x "${DAEMON}" -- ${CFG_FILE}
 	[ $? = 0 ] && echo "OK" || echo "FAIL"
 }
 

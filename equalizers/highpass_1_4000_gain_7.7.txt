@@ -1,1 +1,1 @@
-sinc 400-3400 highpass -1 4000 gain 7.7
+sinc 400-3500 highpass -1 4000 gain 7.7

@@ -60,12 +60,24 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->vox_high = atoi(Value);
         }
     }
+    else if (strcasecmp(Section, "Codec") == 0) {
+        if (strcasecmp(Key, "Mode") == 0) {
+            if (!strcasecmp(Value,"1600")) cfg->freedv_mode = FREEDV_MODE_1600;
+            if (!strcasecmp(Value,"700C")) cfg->freedv_mode = FREEDV_MODE_700C;
+            if (!strcasecmp(Value,"700D")) cfg->freedv_mode = FREEDV_MODE_700D;
+            if (!strcasecmp(Value,"700E")) cfg->freedv_mode = FREEDV_MODE_700E;
+            if (!strcasecmp(Value,"2400A")) cfg->freedv_mode = FREEDV_MODE_2400A;
+            if (!strcasecmp(Value,"2400B")) cfg->freedv_mode = FREEDV_MODE_2400B;
+            if (!strcasecmp(Value,"800XA")) cfg->freedv_mode = FREEDV_MODE_800XA;
+        }
+    }
 
     return 1;
 }
 
 void read_config(const char* config_file, struct config* cfg) {
     memset(cfg, 0, sizeof(struct config));
+    cfg->freedv_mode = FREEDV_MODE_2400B;
     ini_browse(ini_callback, (void*)cfg, config_file);
 }
 

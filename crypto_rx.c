@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
                     (int)FREEDV_MASTER_KEY_LENGTH);
     }
 
-    freedv = freedv_open(FREEDV_MODE_2400B);
+    freedv = freedv_open(cur->freedv_mode);
     if (freedv == NULL) {
         log_message(logger, LOG_ERROR, "Could not initialize voice demodulator");
         exit(1);

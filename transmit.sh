@@ -7,6 +7,12 @@ _term() {
     RESTART=0
 }
 
+# Wait for RNG to initialize. This happens once so check outside the loop
+while ! dmesg | grep -q "crng init done"
+do
+    sleep .5
+done
+
 while [ $RESTART -ne 0 ]
 do
 

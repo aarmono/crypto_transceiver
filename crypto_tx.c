@@ -162,6 +162,8 @@ int main(int argc, char *argv[]) {
         log_message(logger, LOG_WARN, "Encryption disabled");
     }
 
+    freedv_set_clip(freedv, cur->freedv_clip);
+
     /* handy functions to set buffer sizes, note tx/modulator always
        returns freedv_get_n_nom_modem_samples() (unlike rx side) */
     int n_speech_samples = freedv_get_n_speech_samples(freedv);
@@ -296,6 +298,8 @@ int main(int argc, char *argv[]) {
                 log_message(logger, LOG_WARN, "Encryption disabled");
                 freedv_set_crypto(freedv, NULL, NULL);
             }
+
+            freedv_set_clip(freedv, cur->freedv_clip);
         }
     }
     

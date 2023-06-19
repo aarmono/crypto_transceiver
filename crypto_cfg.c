@@ -70,6 +70,9 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             if (!strcasecmp(Value,"2400B")) cfg->freedv_mode = FREEDV_MODE_2400B;
             if (!strcasecmp(Value,"800XA")) cfg->freedv_mode = FREEDV_MODE_800XA;
         }
+        else if (strcasecmp(Key, "Clip") ==0) {
+            cfg->freedv_clip = atoi(Value);
+        }
     }
 
     return 1;

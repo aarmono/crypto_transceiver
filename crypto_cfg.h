@@ -21,6 +21,7 @@ struct config
     char vox_cmd[80];
 
     int  freedv_mode;
+    int  freedv_clip;
 };
 
 void read_config(const char* config_file, struct config* cfg);

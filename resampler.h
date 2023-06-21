@@ -8,32 +8,6 @@
 
 #include <samplerate.h>
 
-constexpr short float_to_short(float val)
-{
-    if (val < 0.0f)
-    {
-        const short min_short = std::numeric_limits<short>::min();
-        return std::max(min_short, static_cast<short>(-val * min_short));
-    }
-    else
-    {
-        const short max_short = std::numeric_limits<short>::max();
-        return std::min(max_short, static_cast<short>(val * max_short));
-    }
-}
-
-constexpr float short_to_float(short val)
-{
-    if (val < 0)
-    {
-        return static_cast<float>(-val) / std::numeric_limits<short>::min();
-    }
-    else
-    {
-        return static_cast<float>(val) / std::numeric_limits<short>::max();
-    }
-}
-
 class resampler
 {
 public:
@@ -41,16 +15,6 @@ public:
         : m_source_rate(0),
           m_dest_rate(0)
     {
-        static_assert(float_to_short(1.0f) == std::numeric_limits<short>::max(), "");
-        static_assert(float_to_short(-1.0f) == std::numeric_limits<short>::min(), "");
-        static_assert(float_to_short(0.0f) == 0, "");
-        static_assert(float_to_short(-0.5f) == -16384, "");
-
-        static_assert(short_to_float(std::numeric_limits<short>::max()) == 1.0f, "");
-        static_assert(short_to_float(std::numeric_limits<short>::min()) == -1.0f, "");
-        static_assert(short_to_float(0) == 0.0f, "");
-        static_assert(short_to_float(-16384) == -0.5f, "");
-
         int err = 0;
         m_state = src_new(converter_type, channels, &err);
         if (m_state == nullptr)
@@ -97,19 +61,17 @@ public:
         {
             const size_t prev_size = m_resampled_data.size();
             m_resampled_data.resize(prev_size + count);
-            std::transform(data,
-                           data + count,
-                           m_resampled_data.begin() + prev_size,
-                           short_to_float);
+            src_short_to_float_array(data,
+                                     m_resampled_data.data() + prev_size,
+                                     count);
         }
         else
         {
             const size_t prev_size = m_data_to_resample.size();
             m_data_to_resample.resize(prev_size + count);
-            std::transform(data,
-                           data + count,
-                           m_data_to_resample.begin() + prev_size,
-                           short_to_float);
+            src_short_to_float_array(data,
+                                     m_data_to_resample.data() + prev_size,
+                                     count);
 
             do_resample();
         }
@@ -142,9 +104,9 @@ public:
         }
         else if (count <= available_elems())
         {
-            const auto cend = m_resampled_data.cbegin() + count;
-            std::transform(m_resampled_data.cbegin(), cend, data, float_to_short);
-            m_resampled_data.erase(m_resampled_data.cbegin(), cend);
+            src_float_to_short_array(m_resampled_data.data(), data, count);
+            m_resampled_data.erase(m_resampled_data.cbegin(),
+                                   m_resampled_data.cbegin() + count);
             return true;
         }
         else

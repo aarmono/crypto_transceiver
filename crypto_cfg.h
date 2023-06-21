@@ -1,6 +1,10 @@
 #ifndef CRYPTO_CFG
 #define CRYPTO_CFG
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct config
 {
     char source_file[80];
@@ -26,19 +30,23 @@ struct config
 
 void read_config(const char* config_file, struct config* cfg);
 
-void open_output_file(const struct config* old, const struct config* new, FILE** f);
-void open_input_file(const struct config* old, const struct config* new, FILE** f);
-void open_iv_file(const struct config* old, const struct config* new, FILE** f);
+void open_output_file(const struct config* old, const struct config* next, FILE** f);
+void open_input_file(const struct config* old, const struct config* next, FILE** f);
+void open_iv_file(const struct config* old, const struct config* next, FILE** f);
 size_t read_key_file(const char* key_file, unsigned char key[]);
 
-static void swap_config(struct config** old, struct config** new) {
+static void swap_config(struct config** old, struct config** next) {
     struct config* tmp = *old;
-    *old = *new;
-    *new = tmp;
+    *old = *next;
+    *next = tmp;
 }
 
 static inline int str_has_value(const char* str) {
     return str != NULL && str[0] != '\0';
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -7,16 +7,45 @@ find_path(
   PATHS "$ENV{HOME}/Git/codec2/src" "$ENV{STAGING_DIR}/usr/include/codec2"
   REQUIRED)
 
+find_path(
+  LIBSAMPLERATE_INCLUDE_DIR
+  NAMES "samplerate.h"
+  REQUIRED)
+
+find_path(
+  JACKAUDIO_INCLUDE_DIR
+  NAMES "jack.h"
+  PATHS "$ENV{STAGING_DIR}/usr/include/jack"
+  REQUIRED)
+
 find_library(
   CODEC2_LIB
   "codec2"
   PATHS "$ENV{HOME}/Git/codec2/build_linux/src"
   REQUIRED)
 
+find_library(
+  LIBSAMPLERATE_LIB
+  "samplerate"
+  REQUIRED)
+
+find_library(
+  JACKAUDIO_LIB
+  "jack"
+  REQUIRED)
+
 message(STATUS "CODEC2_INCLUDE_DIR => ${CODEC2_INCLUDE_DIR}")
 message(STATUS "CODEC2_LIB => ${CODEC2_LIB}")
 
+message(STATUS "LIBSAMPLERATE_INCLUDE_DIR => ${LIBSAMPLERATE_INCLUDE_DIR}")
+message(STATUS "LIBSAMPLERATE_LIB => ${LIBSAMPLERATE_LIB}")
+
+message(STATUS "JACKAUDIO_INCLUDE_DIR => ${JACKAUDIO_INCLUDE_DIR}")
+message(STATUS "JACKAUDIO_LIB => ${JACKAUDIO_LIB}")
+
 include_directories(${CODEC2_INCLUDE_DIR})
+include_directories(${LIBSAMPLERATE_INCLUDE_DIR})
+include_directories(${JACKAUDIO_INCLUDE_DIR})
 
 add_definitions(-DINI_READONLY)
 
@@ -29,3 +58,8 @@ target_link_libraries(crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 add_executable(crypto_sample_rate crypto_sample_rate.c minIni.c crypto_cfg.c)
 target_link_libraries(crypto_sample_rate ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
+add_executable(jack_crypto_tx jack_crypto_tx.cpp minIni.c crypto_cfg.c)
+target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} m)
+
+add_executable(jack_crypto_rx jack_crypto_rx.cpp minIni.c crypto_cfg.c)
+target_link_libraries(jack_crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} m)

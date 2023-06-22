@@ -35,10 +35,10 @@ size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file){
 }
 
 void configure_freedv(struct freedv* f){
+    freedv_set_squelch_en(f, 1);
     // Settings borrowed from sm1000_main.c
     const int mode = freedv_get_mode(f);
     switch(mode) {
-        freedv_set_squelch_en(f, 1);
         case FREEDV_MODE_700C:
             freedv_set_snr_squelch_thresh(f, 2.0);
             freedv_set_eq(f, 1);

@@ -18,38 +18,16 @@
   along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
 #include <stdlib.h>
-#include <limits.h>
 #include <stdio.h>
-#include <string.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <signal.h>
-#include <math.h>
 
-#include "freedv_api.h"
+#include "crypto_rx_common.h"
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 
 static volatile sig_atomic_t reload_config = 0;
-static const unsigned short FRAMES_PER_SEC = 25;
-
-static short rms(short vals[], int len) {
-    if (len > 0) {
-        int64_t total = 0;
-        for (int i = 0; i < len; ++i) {
-            int64_t val = vals[i];
-            total += val * val;
-        }
-
-        return (short)sqrt(total / len);
-    }
-    else {
-        return 0;
-    }
-}
 
 static size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file) {
     size_t elems_read = 0;
@@ -70,18 +48,14 @@ static void handle_sighup(int sig) {
 }
 
 int main(int argc, char *argv[]) {
-    struct config *old = NULL;
-    struct config *cur = NULL;
+    const struct config *old = NULL;
+    const struct config *cur = NULL;
 
     FILE          *fin = NULL;
     FILE          *fout = NULL;
 
-    struct freedv *freedv;
+    HCRYPTO_RX*    crypto_rx = NULL;
     int            nin, nout;
-    int            i;
-
-    unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
-    unsigned char  iv[16];
     
     if (argc < 2) {
         fprintf(stderr, "usage: %s ConfigFile\n", argv[0]);
@@ -90,167 +64,75 @@ int main(int argc, char *argv[]) {
 
     signal(SIGHUP, handle_sighup);
 
-    cur = calloc(1, sizeof(struct config));
-    read_config(argv[1], cur);
+    crypto_rx = crypto_rx_create(argv[1]);
+    if (crypto_rx == NULL) {
+        fprintf(stderr, "Could not create crypto_rx object");
+        exit(1);
+    }
 
-    crypto_log logger = create_logger(cur->log_file, cur->log_level);
+    cur = crypto_rx_get_config(crypto_rx);
 
     open_input_file(old, cur, &fin);
     if (fin == NULL) {
-        log_message(logger,
-                    LOG_ERROR,
-                    "Could not open input data stream: %s",
-                    cur->source_file);
+        crypto_rx_log_to_logger(crypto_rx,
+                                LOG_ERROR,
+                                "Could not open input data stream");
         exit(1);
     }
 
     open_output_file(old, cur, &fout);
     if (fout == NULL) {
-        log_message(logger,
-                    LOG_ERROR,
-                    "Could not open output voice stream: %s",
-                    cur->dest_file);
+        crypto_rx_log_to_logger(crypto_rx,
+                                LOG_ERROR,
+                                "Could not open output voice stream");
         exit(1);
-    }
-
-    size_t key_bytes_read = read_key_file(cur->key_file, key);
-    if (str_has_value(cur->key_file) && key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
-        log_message(logger,
-                    LOG_WARN,
-                    "Truncated decryption key: Only %d bytes of a possible %d",
-                    (int)key_bytes_read,
-                    (int)FREEDV_MASTER_KEY_LENGTH);
-    }
-
-    freedv = freedv_open(cur->freedv_mode);
-    if (freedv == NULL) {
-        log_message(logger, LOG_ERROR, "Could not initialize voice demodulator");
-        exit(1);
-    }
-
-    if (str_has_value(cur->key_file)) {
-        freedv_set_crypto(freedv, key, iv);
-    }
-    else {
-        log_message(logger, LOG_WARN, "Encryption disabled");
     }
 
     /* note use of API functions to tell us how big our buffers need to be -----*/
     
-    short speech_out[freedv_get_n_max_speech_samples(freedv)];
-    short demod_in[freedv_get_n_max_modem_samples(freedv)];
+    short speech_out[crypto_rx_max_speech_samples_per_frame(crypto_rx)];
+    short demod_in[crypto_rx_max_modem_samples_per_frame(crypto_rx)];
 
-    /* Keep track of the number of consecutive silent frames. Initialize to
-       FRAMES_PER_SEC to suppress output at startup if we aren't receiving
-       anything */
-    unsigned short silent_frames = FRAMES_PER_SEC;
-
-    /* We need to work out how many samples the demod needs on each
-       call (nin).  This is used to adjust for differences in the tx
-       and rx sample clock frequencies.  Note also the number of
-       output speech samples "nout" is time varying. */
-
-    nin = freedv_nin(freedv);
+    nin = crypto_rx_needed_modem_samples(crypto_rx);
     while(read_input_file(demod_in, nin, fin) == nin) {
-        if (cur->vox_low > 0 && cur->vox_high > 0) {
-            unsigned short rms_val = rms(demod_in, nin);
-            log_message(logger, LOG_DEBUG, "Data RMS: %d", (int)rms_val);
-
-            /* Reset counter */
-            if (rms_val > cur->vox_high) {
-                silent_frames = 0;
-            }
-            /* If a frame drops below iv_low or is between iv_low and iv_high after
-               dropping below iv_low, increment the silent counter */
-            else if (rms_val < cur->vox_low || silent_frames > 0) {
-                /* Prevent overflow */
-                if (silent_frames < USHRT_MAX) {
-                    ++silent_frames;
-                }
-
-                log_message(logger,
-                            LOG_DEBUG,
-                            "Silent input data frame. Count: %d",
-                            (int)silent_frames);
-
-                /* Zero the output after a second */
-                if (silent_frames > FRAMES_PER_SEC) {
-                    memset(demod_in, 0, nin * sizeof(short));
-                }
-            }
-        }
-
-        nout = freedv_rx(freedv, speech_out, demod_in);
+        const int reload_config_this_loop = reload_config;
+        nout = crypto_rx_receive(crypto_rx, speech_out, demod_in, reload_config_this_loop);
 
        /* IMPORTANT: don't forget to do this in the while loop to
            ensure we fread the correct number of samples: ie update
            "nin" before every call to freedv_rx()/freedv_comprx() */
-        nin = freedv_nin(freedv);
+        nin = crypto_rx_needed_modem_samples(crypto_rx);
 
         fwrite(speech_out, sizeof(short) * nout, 1, fout);
         fflush(fout);
 
-        if (reload_config != 0) {
-            log_message(logger, LOG_NOTICE, "Reloading receiver config\n");
-
+        if (reload_config_this_loop != 0) {
             reload_config = 0;
 
-            swap_config(&old, &cur);
-            if (cur == NULL) {
-                cur = calloc(1, sizeof(struct config));
-            }
-            read_config(argv[1], cur);
-
-            if (strcmp(old->log_file, cur->log_file) != 0) {
-                destroy_logger(logger);
-                logger = create_logger(cur->log_file, cur->log_level);
-            }
-
-            logger.level = cur->log_level;
+            old = cur;
+            cur = crypto_rx_get_config(crypto_rx);
 
             open_input_file(old, cur, &fin);
             if (fin == NULL) {
-                log_message(logger,
-                            LOG_ERROR,
-                            "Could not open input data stream: %s",
-                            cur->source_file);
+                crypto_rx_log_to_logger(crypto_rx,
+                                        LOG_ERROR,
+                                        "Could not open input data stream");
                 exit(1);
             }
 
             open_output_file(old, cur, &fout);
             if (fout == NULL) {
-                log_message(logger,
-                            LOG_ERROR,
-                            "Could not open output voice stream: %s",
-                            cur->dest_file);
+                crypto_rx_log_to_logger(crypto_rx,
+                                        LOG_ERROR,
+                                        "Could not open output voice stream");
                 exit(1);
-            }
-
-            key_bytes_read = read_key_file(cur->key_file, key);
-            if (str_has_value(cur->key_file) && key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
-                log_message(logger,
-                            LOG_WARN,
-                            "Truncated decryption key: Only %d bytes of a possible %d",
-                            (int)key_bytes_read,
-                            (int)FREEDV_MASTER_KEY_LENGTH);
-            }
-
-            if (str_has_value(cur->key_file)) {
-                freedv_set_crypto(freedv, key, iv);
-            }
-            else {
-                log_message(logger, LOG_WARN, "Encryption disabled");
-                freedv_set_crypto(freedv, NULL, NULL);
             }
         }
     }
 
     fclose(fin);
     fclose(fout);
-    freedv_close(freedv);
-
-    if (old != NULL) free(old);
-    if (cur != NULL) free(cur);
+    crypto_rx_destroy(crypto_rx);
 
     return 0;
 }

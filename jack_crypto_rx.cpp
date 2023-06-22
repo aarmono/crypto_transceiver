@@ -36,12 +36,10 @@
 #include <jack/jack.h>
 #include <samplerate.h>
 
-#include "freedv_api.h"
-#include "crypto_cfg.h"
-#include "crypto_log.h"
+#include "crypto_rx_common.h"
 #include "resampler.h"
 
-static struct freedv* freedv = NULL;
+static std::unique_ptr<crypto_rx_common> crypto_rx;
 
 static jack_port_t* voice_port = NULL;
 static jack_port_t* modem_port = NULL;
@@ -81,31 +79,31 @@ int process(jack_nframes_t nframes, void *arg)
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
 
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
-    const uint voice_sample_rate = freedv_get_speech_sample_rate(freedv);
-    const uint modem_sample_rate = freedv_get_modem_sample_rate(freedv);
+    const uint voice_sample_rate = crypto_rx->speech_sample_rate();
+    const uint modem_sample_rate = crypto_rx->modem_sample_rate();
 
     input_resampler->set_sample_rates(jack_sample_rate, modem_sample_rate);
     output_resampler->set_sample_rates(voice_sample_rate, jack_sample_rate);
 
     input_resampler->enqueue(modem_frames, nframes);
 
-    const int n_max_modem_samples = freedv_get_n_max_modem_samples(freedv);
-    const int n_max_speech_samples = freedv_get_n_max_speech_samples(freedv);
+    const int n_max_modem_samples = crypto_rx->max_modem_samples_per_frame();
+    const int n_max_speech_samples = crypto_rx->max_speech_samples_per_frame();
 
     short demod_in[n_max_modem_samples];
     short voice_out[n_max_speech_samples];
-    int nin = freedv_nin(freedv);
+    int nin = crypto_rx->needed_modem_samples();
     while (input_resampler->available_elems() >= nin)
     {
         input_resampler->dequeue(demod_in, nin);
 
-        const int nout = freedv_rx(freedv, voice_out, demod_in);
+        const int nout = crypto_rx->receive(voice_out, demod_in);
         output_resampler->enqueue(voice_out, nout);
 
         /* IMPORTANT: don't forget to do this in the while loop to
            ensure we fread the correct number of samples: ie update
            "nin" before every call to freedv_rx()/freedv_comprx() */
-        nin = freedv_nin(freedv);
+        nin = crypto_rx->needed_modem_samples();
     }
 
     if (output_resampler->available_elems() >= nframes)
@@ -120,20 +118,23 @@ int main(int argc, char *argv[])
 {
     const char* client_name = "crypto_rx";
     const char* server_name = NULL;
+    const char* config_file = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;
 
     struct config *cur = NULL;
 
-    if (argc > 1)
+    if (argc > 2)
     {
         server_name = argv[1];
         options = (jack_options_t)(JackNullOption | JackServerName);
+
+        config_file = argv[2];
     }
-    if (argc > 2)
+    else
     {
-        cur = (struct config*)calloc(1, sizeof(struct config));
-        read_config(argv[2], cur);
+        fprintf(stderr, "Usage: crypto_rx <jack server name> <config file>");
+        exit(1);
     }
 
     fprintf(stderr, "Server name: %s\n", server_name ? server_name : "");
@@ -142,16 +143,11 @@ int main(int argc, char *argv[])
     {
         input_resampler.reset(new resampler(SRC_SINC_FASTEST, 1));
         output_resampler.reset(new resampler(SRC_SINC_FASTEST, 1));
+        crypto_rx.reset(new crypto_rx_common(config_file));
     }
     catch (const std::exception& ex)
     {
         fprintf(stderr, "%s", ex.what());
-        exit(1);
-    }
-
-    freedv = freedv_open(cur ? cur->freedv_mode : FREEDV_MODE_700E);
-    if (freedv == NULL) {
-        fprintf(stderr, "Could not initialize voice modulator");
         exit(1);
     }
 

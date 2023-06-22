@@ -29,6 +29,7 @@
 #include <jack/jack.h>
 
 #include "resampler.h"
+#include "crypto_cfg.h"
 #include "crypto_tx_common.h"
 
 static std::unique_ptr<crypto_tx_common> crypto_tx;
@@ -177,6 +178,10 @@ int main(int argc, char *argv[])
         client_name = jack_get_client_name(client);
         fprintf (stderr, "unique name `%s' assigned\n", client_name);
     }
+
+    const struct config* cfg = crypto_tx->get_config();
+    const jack_nframes_t period = get_jack_period(cfg);
+    jack_set_buffer_size(client, period);
 
     /* tell the JACK server to call `process()' whenever
        there is work to be done.

@@ -25,7 +25,13 @@ struct config
     char vox_cmd[80];
 
     int  freedv_mode;
-    int  freedv_clip;
+
+    int  jack_period_700c;
+    int  jack_period_700d;
+    int  jack_period_700e;
+    int  jack_period_800xa;
+    int  jack_period_1600;
+    int  jack_period_2400b;
 };
 
 void read_config(const char* config_file, struct config* cfg);
@@ -34,12 +40,7 @@ void open_output_file(const struct config* old, const struct config* next, FILE*
 void open_input_file(const struct config* old, const struct config* next, FILE** f);
 void open_iv_file(const struct config* old, const struct config* next, FILE** f);
 size_t read_key_file(const char* key_file, unsigned char key[]);
-
-static void swap_config(struct config** old, struct config** next) {
-    struct config* tmp = *old;
-    *old = *next;
-    *next = tmp;
-}
+int get_jack_period(const struct config* cfg);
 
 static inline int str_has_value(const char* str) {
     return str != NULL && str[0] != '\0';

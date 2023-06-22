@@ -114,15 +114,18 @@ int main(int argc, char *argv[]) {
     /* OK main loop  --------------------------------------- */
     while(read_input_file(speech_in, n_speech_samples, fin) == n_speech_samples) {
         int reset_iv = 0;
+        const int reload_config_this_loop = reload_config;
 
-        reset_iv = crypto_tx_transmit(crypto_tx, mod_out, speech_in, reload_config);
+        reset_iv = crypto_tx_transmit(crypto_tx, mod_out, speech_in, reload_config_this_loop);
         fwrite(mod_out, sizeof(short), n_nom_modem_samples, fout);
 
         if (reset_iv) {
             try_system_async(cur->vox_cmd);
         }
 
-        if (reload_config != 0) {
+        if (reload_config_this_loop != 0) {
+            reload_config = 0;
+
             old = cur;
             cur = crypto_tx_get_config(crypto_tx);
 

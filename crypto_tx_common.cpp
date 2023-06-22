@@ -165,6 +165,8 @@ bool crypto_tx_common::transmit(short*       mod_out,
     bool reset_iv = false;
     const int n_speech_samples = freedv_get_n_speech_samples(m_parms->freedv);
     const int n_nom_modem_samples = freedv_get_n_nom_modem_samples(m_parms->freedv);
+    const int speech_samples_per_second = freedv_get_speech_sample_rate(m_parms->freedv);
+    const int speech_frames_per_second = speech_samples_per_second / n_speech_samples;
     unsigned char iv[IV_LEN];
 
     if (str_has_value(m_parms->cur->key_file) &&
@@ -189,8 +191,10 @@ bool crypto_tx_common::transmit(short*       mod_out,
                         "Quiet frame. Count: %d",
                         (int)m_parms->silent_frames);
 
+            const int vox_reset_frames = speech_frames_per_second *
+                                         m_parms->cur->vox_period;
             if (m_parms->cur->vox_period > 0 &&
-                (m_parms->silent_frames == (25 * m_parms->cur->vox_period))) {
+                (m_parms->silent_frames == vox_reset_frames)) {
                 log_message(m_parms->logger,
                             LOG_INFO,
                             "New initialization vector at end of voice. RMS: %d",
@@ -199,8 +203,10 @@ bool crypto_tx_common::transmit(short*       mod_out,
             }
 
             /* Reset IV every minute of silence (if configured)*/
+            const int silent_reset_frames = speech_frames_per_second *
+                                            m_parms->cur->silent_period;
             if (m_parms->cur->silent_period > 0 &&
-                (m_parms->silent_frames % (25 * m_parms->cur->silent_period)) == 0) {
+                (m_parms->silent_frames % silent_reset_frames) == 0) {
                 log_message(m_parms->logger,
                             LOG_INFO,
                             "New initialization vector during long silence. RMS: %d",

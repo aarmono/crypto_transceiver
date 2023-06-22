@@ -34,7 +34,6 @@
 using namespace std;
 
 #define IV_LEN 16
-static const unsigned short FRAMES_PER_SEC = 25;
 
 static short rms(const short vals[], int len) {
     if (len > 0) {
@@ -110,7 +109,7 @@ crypto_rx_common::crypto_rx_common(const char* config_file)
         log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
-    m_parms->silent_frames = FRAMES_PER_SEC;
+    m_parms->silent_frames = modem_frames_per_second();
 }
 
 size_t crypto_rx_common::max_speech_samples_per_frame() const
@@ -148,6 +147,12 @@ void crypto_rx_common::log_to_logger(int level, const char* msg)
     log_message(m_parms->logger, level, "%s", msg);
 }
 
+int crypto_rx_common::modem_frames_per_second() const
+{
+    return freedv_get_modem_sample_rate(m_parms->freedv) /
+           freedv_get_n_nom_modem_samples(m_parms->freedv);
+}
+
 size_t crypto_rx_common::receive(short* speech_out,
                                  short* demod_in,
                                  bool   reload_config)
@@ -175,7 +180,7 @@ size_t crypto_rx_common::receive(short* speech_out,
                         (int)m_parms->silent_frames);
 
             /* Zero the output after a second */
-            if (m_parms->silent_frames > FRAMES_PER_SEC) {
+            if (m_parms->silent_frames > modem_frames_per_second()) {
                 memset(demod_in, 0, nin * sizeof(short));
             }
         }

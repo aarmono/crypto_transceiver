@@ -107,9 +107,9 @@ int main(int argc, char *argv[]) {
     /* handy functions to set buffer sizes, note tx/modulator always
        returns freedv_get_n_nom_modem_samples() (unlike rx side) */
     int n_speech_samples = crypto_tx_speech_samples_per_frame(crypto_tx);
-    short speech_in[n_speech_samples];
     int n_nom_modem_samples = crypto_tx_modem_samples_per_frame(crypto_tx);
-    short mod_out[n_nom_modem_samples];
+    short* speech_in = malloc(sizeof(short) * n_speech_samples);
+    short* mod_out = malloc(sizeof(short) * n_nom_modem_samples);
 
     /* OK main loop  --------------------------------------- */
     while(read_input_file(speech_in, n_speech_samples, fin) == n_speech_samples) {
@@ -129,6 +129,14 @@ int main(int argc, char *argv[]) {
             old = cur;
             cur = crypto_tx_get_config(crypto_tx);
 
+            if (old->freedv_mode != cur->freedv_mode) {
+                n_speech_samples = crypto_tx_speech_samples_per_frame(crypto_tx);
+                n_nom_modem_samples = crypto_tx_modem_samples_per_frame(crypto_tx);
+
+                speech_in = realloc(speech_in, sizeof(short) * n_speech_samples);
+                mod_out = realloc(mod_out, sizeof(short) * n_nom_modem_samples);
+            }
+
             open_input_file(old, cur, &fin);
             if (fin == NULL) {
                 crypto_tx_log_to_logger(crypto_tx,
@@ -147,6 +155,8 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    free(speech_in);
+    free(mod_out);
     crypto_tx_destroy(crypto_tx);
     
     return 0;

@@ -200,6 +200,19 @@ size_t crypto_rx_common::receive(short* speech_out,
 
         m_parms->logger.level = m_parms->cur->log_level;
 
+        if (m_parms->old->freedv_mode != m_parms->cur->freedv_mode) {
+            struct freedv* freedv_new = freedv_open(m_parms->cur->freedv_mode);
+            if (freedv_new == NULL) {
+                log_message(m_parms->logger,
+                            LOG_ERROR,
+                            "Unable to change modulator mode");
+            }
+            else {
+                swap(m_parms->freedv, freedv_new);
+                freedv_close(freedv_new);
+            }
+        }
+
         unsigned char key[FREEDV_MASTER_KEY_LENGTH];
         const size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
         if (str_has_value(m_parms->cur->key_file) &&

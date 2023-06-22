@@ -90,8 +90,8 @@ int main(int argc, char *argv[]) {
 
     /* note use of API functions to tell us how big our buffers need to be -----*/
     
-    short speech_out[crypto_rx_max_speech_samples_per_frame(crypto_rx)];
-    short demod_in[crypto_rx_max_modem_samples_per_frame(crypto_rx)];
+    short* speech_out = malloc(sizeof(short) * crypto_rx_max_speech_samples_per_frame(crypto_rx));
+    short* demod_in = malloc(sizeof(short) * crypto_rx_max_modem_samples_per_frame(crypto_rx));
 
     nin = crypto_rx_needed_modem_samples(crypto_rx);
     while(read_input_file(demod_in, nin, fin) == nin) {
@@ -127,9 +127,16 @@ int main(int argc, char *argv[]) {
                                         "Could not open output voice stream");
                 exit(1);
             }
+
+            if (old->freedv_mode != cur->freedv_mode) {
+                speech_out = realloc(speech_out, sizeof(short) * crypto_rx_max_speech_samples_per_frame(crypto_rx));
+                demod_in = realloc(demod_in, sizeof(short) * crypto_rx_max_modem_samples_per_frame(crypto_rx));
+            }
         }
     }
 
+    free(speech_out);
+    free(demod_in);
     fclose(fin);
     fclose(fout);
     crypto_rx_destroy(crypto_rx);

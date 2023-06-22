@@ -40,11 +40,18 @@ static jack_client_t* client = NULL;
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
 
+static volatile sig_atomic_t reload_config = 0;
+
 static void signal_handler(int sig)
 {
     jack_client_close(client);
     fprintf(stderr, "signal received, exiting ...\n");
     exit(0);
+}
+
+static void handle_sighup(int sig)
+{
+    reload_config = 1;
 }
 
 /**
@@ -79,17 +86,26 @@ int process(jack_nframes_t nframes, void *arg)
 
     input_resampler->enqueue(voice_frames, nframes);
 
-    const int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
-    const int n_speech_samples = crypto_tx->speech_samples_per_frame();
-    short mod_out[n_nom_modem_samples];
-    short voice_in[n_speech_samples];
+    int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
+    int n_speech_samples = crypto_tx->speech_samples_per_frame();
     while (input_resampler->available_elems() >= n_speech_samples)
     {
+        short mod_out[n_nom_modem_samples];
+        short voice_in[n_speech_samples];
         input_resampler->dequeue(voice_in, n_speech_samples);
 
-        crypto_tx->transmit(mod_out, voice_in);
+        const bool reload_config_this_loop = reload_config;
+        crypto_tx->transmit(mod_out, voice_in, reload_config_this_loop);
 
         output_resampler->enqueue(mod_out, n_nom_modem_samples);
+
+        if (reload_config_this_loop) {
+            reload_config = 0;
+
+            // In case the mode changed
+            n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
+            n_speech_samples = crypto_tx->speech_samples_per_frame();
+        }
     }
 
     if (output_resampler->available_elems() >= nframes)
@@ -202,7 +218,7 @@ int main(int argc, char *argv[])
 
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
-    signal(SIGHUP, signal_handler);
+    signal(SIGHUP, handle_sighup);
     signal(SIGINT, signal_handler);
 
     while (true)

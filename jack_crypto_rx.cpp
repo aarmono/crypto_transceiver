@@ -18,14 +18,7 @@
   along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <limits.h>
-#include <errno.h>
-#include <math.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -48,11 +41,18 @@ static jack_client_t* client = NULL;
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
 
+static volatile sig_atomic_t reload_config = 0;
+
 static void signal_handler(int sig)
 {
     jack_client_close(client);
     fprintf(stderr, "signal received, exiting ...\n");
     exit(0);
+}
+
+static void handle_sighup(int sig)
+{
+    reload_config = 1;
 }
 
 /**
@@ -87,23 +87,29 @@ int process(jack_nframes_t nframes, void *arg)
 
     input_resampler->enqueue(modem_frames, nframes);
 
-    const int n_max_modem_samples = crypto_rx->max_modem_samples_per_frame();
-    const int n_max_speech_samples = crypto_rx->max_speech_samples_per_frame();
-
-    short demod_in[n_max_modem_samples];
-    short voice_out[n_max_speech_samples];
     int nin = crypto_rx->needed_modem_samples();
     while (input_resampler->available_elems() >= nin)
     {
+        const int n_max_modem_samples = crypto_rx->max_modem_samples_per_frame();
+        const int n_max_speech_samples = crypto_rx->max_speech_samples_per_frame();
+
+        short demod_in[n_max_modem_samples];
+        short voice_out[n_max_speech_samples];
+
         input_resampler->dequeue(demod_in, nin);
 
-        const int nout = crypto_rx->receive(voice_out, demod_in);
+        const bool reload_config_this_loop = reload_config;
+        const int nout = crypto_rx->receive(voice_out, demod_in, reload_config_this_loop);
         output_resampler->enqueue(voice_out, nout);
 
         /* IMPORTANT: don't forget to do this in the while loop to
            ensure we fread the correct number of samples: ie update
            "nin" before every call to freedv_rx()/freedv_comprx() */
         nin = crypto_rx->needed_modem_samples();
+
+        if (reload_config_this_loop) {
+            reload_config = 0;
+        }
     }
 
     if (output_resampler->available_elems() >= nframes)
@@ -216,7 +222,7 @@ int main(int argc, char *argv[])
 
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
-    signal(SIGHUP, signal_handler);
+    signal(SIGHUP, handle_sighup);
     signal(SIGINT, signal_handler);
 
     while (true)

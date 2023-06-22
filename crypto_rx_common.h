@@ -15,8 +15,11 @@ public:
 
     size_t max_speech_samples_per_frame() const;
     size_t max_modem_samples_per_frame() const;
+    size_t modem_samples_per_frame() const;
 
     size_t needed_modem_samples() const;
+
+    bool is_synced() const;
 
     uint speech_sample_rate() const;
     uint modem_sample_rate() const;
@@ -31,6 +34,9 @@ public:
 
 private:
     struct rx_parms;
+
+private:
+    int modem_frames_per_second() const;
 
 private:
     const std::unique_ptr<rx_parms> m_parms;

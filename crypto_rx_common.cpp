@@ -122,9 +122,19 @@ size_t crypto_rx_common::max_modem_samples_per_frame() const
     return freedv_get_n_max_modem_samples(m_parms->freedv);
 }
 
+size_t crypto_rx_common::modem_samples_per_frame() const
+{
+    return static_cast<size_t>(freedv_get_n_nom_modem_samples(m_parms->freedv));
+}
+
 size_t crypto_rx_common::needed_modem_samples() const
 {
     return freedv_nin(m_parms->freedv);
+}
+
+bool crypto_rx_common::is_synced() const
+{
+    return (freedv_get_rx_status(m_parms->freedv) & FREEDV_RX_SYNC) != 0;
 }
 
 uint crypto_rx_common::speech_sample_rate() const

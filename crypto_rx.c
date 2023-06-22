@@ -24,24 +24,11 @@
 #include <signal.h>
 
 #include "crypto_rx_common.h"
+#include "crypto_common.h"
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 
 static volatile sig_atomic_t reload_config = 0;
-
-static size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file) {
-    size_t elems_read = 0;
-    do {
-        elems_read += fread(buffer + elems_read,
-                            sizeof(short),
-                            buffer_elems - elems_read,
-                            file);
-
-    }
-    while (elems_read < buffer_elems && !feof(file) && !ferror(file));
-
-    return elems_read;
-}
 
 static void handle_sighup(int sig) {
     reload_config = 1;

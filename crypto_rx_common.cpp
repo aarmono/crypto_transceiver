@@ -29,26 +29,10 @@
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 
+#include "crypto_common.h"
 #include "crypto_rx_common.h"
 
 using namespace std;
-
-#define IV_LEN 16
-
-static short rms(const short vals[], int len) {
-    if (len > 0) {
-        int64_t total = 0;
-        for (int i = 0; i < len; ++i) {
-            int64_t val = vals[i];
-            total += val * val;
-        }
-
-        return (short)sqrt(total / len);
-    }
-    else {
-        return 0;
-    }
-}
 
 struct crypto_rx_common::rx_parms
 {
@@ -168,34 +152,6 @@ size_t crypto_rx_common::receive(short* speech_out,
                                  bool   reload_config)
 {
     const int nin = freedv_nin(m_parms->freedv);
-    if (m_parms->cur->vox_low > 0 && m_parms->cur->vox_high > 0) {
-        unsigned short rms_val = rms(demod_in, nin);
-        log_message(m_parms->logger, LOG_DEBUG, "Data RMS: %d", (int)rms_val);
-
-        /* Reset counter */
-        if (rms_val > m_parms->cur->vox_high) {
-            m_parms->silent_frames = 0;
-        }
-        /* If a frame drops below iv_low or is between iv_low and iv_high after
-           dropping below iv_low, increment the silent counter */
-        else if (rms_val < m_parms->cur->vox_low || m_parms->silent_frames > 0) {
-            /* Prevent overflow */
-            if (m_parms->silent_frames < USHRT_MAX) {
-                ++m_parms->silent_frames;
-            }
-
-            log_message(m_parms->logger,
-                        LOG_DEBUG,
-                        "Silent input data frame. Count: %d",
-                        (int)m_parms->silent_frames);
-
-            /* Zero the output after a second */
-            if (m_parms->silent_frames > modem_frames_per_second()) {
-                memset(demod_in, 0, nin * sizeof(short));
-            }
-        }
-    }
-
     const size_t nout = freedv_rx(m_parms->freedv, speech_out, demod_in);
 
     if (reload_config == true) {

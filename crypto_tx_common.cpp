@@ -29,10 +29,9 @@
 #include "crypto_log.h"
 
 #include "crypto_tx_common.h"
+#include "crypto_common.h"
 
 using namespace std;
-
-#define IV_LEN 16
 
 struct crypto_tx_common::tx_parms
 {
@@ -58,21 +57,6 @@ struct crypto_tx_common::tx_parms
     crypto_log     logger;
     unsigned short silent_frames = 0;
 };
-
-static short rms(const short vals[], int len) {
-    if (len > 0) {
-        int64_t total = 0;
-        for (int i = 0; i < len; ++i) {
-            int64_t val = vals[i];
-            total += val * val;
-        }
-
-        return (short)sqrt(total / len);
-    }
-    else {
-        return 0;
-    }
-}
 
 crypto_tx_common::~crypto_tx_common() {}
 
@@ -125,7 +109,7 @@ crypto_tx_common::crypto_tx_common(const char* config_file)
         log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
-    freedv_set_clip(m_parms->freedv, m_parms->cur->freedv_clip);
+    configure_freedv(m_parms->freedv);
 }
 
 size_t crypto_tx_common::speech_samples_per_frame() const
@@ -268,6 +252,7 @@ bool crypto_tx_common::transmit(short*       mod_out,
                             "Unable to change modulator mode");
             }
             else {
+                configure_freedv(freedv_new);
                 swap(m_parms->freedv, freedv_new);
                 freedv_close(freedv_new);
             }
@@ -292,8 +277,6 @@ bool crypto_tx_common::transmit(short*       mod_out,
             log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
             freedv_set_crypto(m_parms->freedv, NULL, NULL);
         }
-
-        freedv_set_clip(m_parms->freedv, m_parms->cur->freedv_clip);
     }
 
     return reset_iv;

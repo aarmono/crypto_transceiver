@@ -75,8 +75,6 @@ int process(jack_nframes_t nframes, void *arg)
 {
     jack_default_audio_sample_t* voice_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
-    jack_default_audio_sample_t* modem_frames =
-        (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
 
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     const uint voice_sample_rate = crypto_tx->speech_sample_rate();
@@ -111,6 +109,8 @@ int process(jack_nframes_t nframes, void *arg)
 
     if (output_resampler->available_elems() >= nframes)
     {
+        jack_default_audio_sample_t* modem_frames =
+            (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
         output_resampler->dequeue(modem_frames, nframes);
     }
 

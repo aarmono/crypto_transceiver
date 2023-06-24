@@ -17,6 +17,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
+#include <sys/random.h>
 
 #include <cstring>
 #include <cmath>
@@ -42,16 +43,12 @@ struct crypto_tx_common::tx_parms
     }
     ~tx_parms()
     {
-        if (old != nullptr) free(old);
         if (cur != nullptr) free(cur);
-        if (urandom != nullptr) fclose(urandom);
         if (freedv != nullptr) freedv_close(freedv);
         destroy_logger(logger);
     }
 
-    struct config* old = nullptr;
     struct config* cur = nullptr;
-    FILE*          urandom = nullptr;
     struct freedv* freedv = nullptr;
     crypto_log     logger;
     unsigned short silent_frames = 0;
@@ -71,16 +68,9 @@ crypto_tx_common::crypto_tx_common(const char* config_file)
     m_parms->logger = create_logger(m_parms->cur->log_file,
                                     m_parms->cur->log_level);
 
-    open_iv_file(m_parms->old, m_parms->cur, &m_parms->urandom);
-    if (m_parms->urandom == NULL) {
-        log_message(m_parms->logger,
-                    LOG_ERROR,
-                    "Unable to open random number generator: %s",
-                    m_parms->cur->random_file);
-        throw std::runtime_error("Unable to open random number generator");
-    }
-
-    if (fread(iv, 1, sizeof(iv), m_parms->urandom) != sizeof(iv)) {
+    // Use getrandom with the urandom device because it will block until the
+    // entropy pool is initialized
+    if (getrandom(iv, sizeof(iv), 0) != sizeof(iv)) {
         log_message(m_parms->logger, LOG_WARN, "Did not fully read initialization vector");
     }
 
@@ -197,7 +187,9 @@ bool crypto_tx_common::transmit(short* mod_out, const short* speech_in)
         }
 
         if (reset_iv) {
-            if (fread(iv, 1, sizeof(iv), m_parms->urandom) != sizeof(iv)) {
+            // Use getrandom with the urandom device because it will block
+            // until the entropy pool is initialized
+            if (getrandom(iv, sizeof(iv), 0) != sizeof(iv)) {
                 log_message(m_parms->logger,
                             LOG_WARN,
                             "Did not fully read initialization vector");

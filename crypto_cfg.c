@@ -13,9 +13,6 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         if (strcasecmp(Key, "KeyFile") == 0) {
             strncpy(cfg->key_file, Value, sizeof(cfg->key_file) - 1);
         }
-        else if (strcasecmp(Key, "RandomFile") == 0) {
-            strncpy(cfg->random_file, Value, sizeof(cfg->random_file) - 1);
-        }
     }
     else if (strcasecmp(Section, "Crypto") ==0) {
         if (strcasecmp(Key, "QuietRekey") == 0) {
@@ -83,14 +80,6 @@ void read_config(const char* config_file, struct config* cfg) {
     memset(cfg, 0, sizeof(struct config));
     cfg->freedv_mode = FREEDV_MODE_2400B;
     ini_browse(ini_callback, (void*)cfg, config_file);
-}
-
-void open_iv_file(const struct config* old, const struct config* new, FILE** f) {
-    if (old == NULL || strcmp(old->random_file, new->random_file) != 0) {
-        if (*f != NULL) fclose(*f);
-
-        *f = fopen(new->random_file, "rb");
-    }
 }
 
 size_t read_key_file(const char* key_file, unsigned char key[]) {

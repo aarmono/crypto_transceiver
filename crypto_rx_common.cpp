@@ -43,14 +43,12 @@ struct crypto_rx_common::rx_parms
     }
     ~rx_parms()
     {
-        if (old != nullptr) free(old);
         if (cur != nullptr) free(cur);
         if (freedv != nullptr) freedv_close(freedv);
         destroy_logger(logger);
     }
 
     const string      config_file;
-    struct config*    old = nullptr;
     struct config*    cur = nullptr;
     struct freedv*    freedv = nullptr;
     crypto_log        logger;

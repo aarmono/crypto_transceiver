@@ -156,64 +156,10 @@ int crypto_rx_common::modem_frames_per_second() const
            freedv_get_n_nom_modem_samples(m_parms->freedv);
 }
 
-size_t crypto_rx_common::receive(short* speech_out,
-                                 short* demod_in,
-                                 bool   reload_config)
+size_t crypto_rx_common::receive(short* speech_out, short* demod_in)
 {
     const int nin = freedv_nin(m_parms->freedv);
     const size_t nout = freedv_rx(m_parms->freedv, speech_out, demod_in);
-
-    if (reload_config == true) {
-        log_message(m_parms->logger, LOG_NOTICE, "Reloading receiver config\n");
-
-        swap(m_parms->old, m_parms->cur);
-        if (m_parms->cur == NULL) {
-            m_parms->cur = static_cast<struct config*>(calloc(1, sizeof(struct config)));
-        }
-        read_config(m_parms->config_file.c_str(), m_parms->cur);
-
-        if (strcmp(m_parms->old->log_file, m_parms->cur->log_file) != 0) {
-            destroy_logger(m_parms->logger);
-            m_parms->logger = create_logger(m_parms->cur->log_file,
-                                            m_parms->cur->log_level);
-        }
-
-        m_parms->logger.level = m_parms->cur->log_level;
-
-        if (m_parms->old->freedv_mode != m_parms->cur->freedv_mode) {
-            struct freedv* freedv_new = freedv_open(m_parms->cur->freedv_mode);
-            if (freedv_new == NULL) {
-                log_message(m_parms->logger,
-                            LOG_ERROR,
-                            "Unable to change modulator mode");
-            }
-            else {
-                swap(m_parms->freedv, freedv_new);
-                freedv_close(freedv_new);
-            }
-        }
-
-        unsigned char key[FREEDV_MASTER_KEY_LENGTH];
-        const size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
-        if (str_has_value(m_parms->cur->key_file) &&
-            key_bytes_read != FREEDV_MASTER_KEY_LENGTH)
-        {
-            log_message(m_parms->logger,
-                        LOG_WARN,
-                        "Truncated decryption key: Only %d bytes of a possible %d",
-                        (int)key_bytes_read,
-                        (int)FREEDV_MASTER_KEY_LENGTH);
-        }
-
-        if (str_has_value(m_parms->cur->key_file)) {
-            unsigned char  iv[IV_LEN];
-            freedv_set_crypto(m_parms->freedv, key, iv);
-        }
-        else {
-            log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
-            freedv_set_crypto(m_parms->freedv, NULL, NULL);
-        }
-    }
 
     return nout;
 }
@@ -260,7 +206,7 @@ void crypto_rx_log_to_logger(HCRYPTO_RX* hnd, int level, const char* msg)
     return reinterpret_cast<crypto_rx_common*>(hnd)->log_to_logger(level, msg);
 }
 
-int crypto_rx_receive(HCRYPTO_RX* hnd, short* speech_out, short* demod_in, int reload_config)
+int crypto_rx_receive(HCRYPTO_RX* hnd, short* speech_out, short* demod_in)
 {
-    return reinterpret_cast<crypto_rx_common*>(hnd)->receive(speech_out, demod_in, reload_config);
+    return reinterpret_cast<crypto_rx_common*>(hnd)->receive(speech_out, demod_in);
 }

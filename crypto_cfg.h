@@ -7,11 +7,6 @@ extern "C" {
 
 struct config
 {
-    char source_file[80];
-    int  source_file_buffer;
-    char dest_file[80];
-    int  dest_file_buffer;
-
     char key_file[80];
     char random_file[80];
 
@@ -36,8 +31,6 @@ struct config
 
 void read_config(const char* config_file, struct config* cfg);
 
-void open_output_file(const struct config* old, const struct config* next, FILE** f);
-void open_input_file(const struct config* old, const struct config* next, FILE** f);
 void open_iv_file(const struct config* old, const struct config* next, FILE** f);
 size_t read_key_file(const char* key_file, unsigned char key[]);
 int get_jack_period(const struct config* cfg);

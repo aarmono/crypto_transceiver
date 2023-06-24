@@ -20,6 +20,7 @@
 
 #include <cstring>
 #include <cmath>
+
 #include <string>
 #include <memory>
 #include <stdexcept>
@@ -35,8 +36,7 @@ using namespace std;
 
 struct crypto_tx_common::tx_parms
 {
-    tx_parms(const char* cfg)
-        : config_file(cfg)
+    tx_parms()
     {
         memset(&logger, 0, sizeof(logger));
     }
@@ -49,7 +49,6 @@ struct crypto_tx_common::tx_parms
         destroy_logger(logger);
     }
 
-    const string   config_file;
     struct config* old = nullptr;
     struct config* cur = nullptr;
     FILE*          urandom = nullptr;
@@ -61,7 +60,7 @@ struct crypto_tx_common::tx_parms
 crypto_tx_common::~crypto_tx_common() {}
 
 crypto_tx_common::crypto_tx_common(const char* config_file)
-    : m_parms(new tx_parms(config_file))
+    : m_parms(new tx_parms())
 {
     unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
     unsigned char  iv[IV_LEN];
@@ -142,9 +141,7 @@ void crypto_tx_common::log_to_logger(int level, const char* msg)
     log_message(m_parms->logger, level, "%s", msg);
 }
 
-bool crypto_tx_common::transmit(short*       mod_out,
-                                const short* speech_in,
-                                bool         reload_config)
+bool crypto_tx_common::transmit(short* mod_out, const short* speech_in)
 {
     bool reset_iv = false;
     const int n_speech_samples = freedv_get_n_speech_samples(m_parms->freedv);
@@ -212,73 +209,6 @@ bool crypto_tx_common::transmit(short*       mod_out,
 
     freedv_tx(m_parms->freedv, mod_out, const_cast<short*>(speech_in));
 
-    if (reload_config == true) {
-        log_message(m_parms->logger, LOG_NOTICE, "Reloading transmitter config");
-
-        swap(m_parms->old, m_parms->cur);
-        if (m_parms->cur == nullptr) {
-            m_parms->cur = static_cast<struct config*>(calloc(1, sizeof(struct config)));
-        }
-        read_config(m_parms->config_file.c_str(), m_parms->cur);
-
-        if (strcmp(m_parms->old->log_file, m_parms->cur->log_file) != 0) {
-            destroy_logger(m_parms->logger);
-            m_parms->logger = create_logger(m_parms->cur->log_file,
-                                            m_parms->cur->log_level);
-        }
-
-        m_parms->logger.level = m_parms->cur->log_level;
-
-        open_iv_file(m_parms->old, m_parms->cur, &m_parms->urandom);
-        if (m_parms->urandom == NULL) {
-            log_message(m_parms->logger,
-                        LOG_ERROR,
-                        "Unable to open random number generator: %s",
-                        m_parms->cur->random_file);
-            throw runtime_error("Unable to open randon number generator");
-        }
-
-        if (fread(iv, 1, sizeof(iv), m_parms->urandom) != sizeof(iv)) {
-            log_message(m_parms->logger,
-                        LOG_WARN,
-                        "Did not fully read initialization vector");
-        }
-
-        if (m_parms->old->freedv_mode != m_parms->cur->freedv_mode) {
-            struct freedv* freedv_new = freedv_open(m_parms->cur->freedv_mode);
-            if (freedv_new == NULL) {
-                log_message(m_parms->logger,
-                            LOG_ERROR,
-                            "Unable to change modulator mode");
-            }
-            else {
-                configure_freedv(freedv_new);
-                swap(m_parms->freedv, freedv_new);
-                freedv_close(freedv_new);
-            }
-        }
-
-        unsigned char key[FREEDV_MASTER_KEY_LENGTH];
-        const size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
-        if (str_has_value(m_parms->cur->key_file) &&
-            key_bytes_read != FREEDV_MASTER_KEY_LENGTH)
-        {
-            log_message(m_parms->logger,
-                        LOG_WARN,
-                        "Truncated encryption key: Only %d bytes of a possible %d",
-                        (int)key_bytes_read,
-                        (int)FREEDV_MASTER_KEY_LENGTH);
-        }
-
-        if (str_has_value(m_parms->cur->key_file)) {
-            freedv_set_crypto(m_parms->freedv, key, iv);
-        }
-        else {
-            log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
-            freedv_set_crypto(m_parms->freedv, NULL, NULL);
-        }
-    }
-
     return reset_iv;
 }
 
@@ -319,11 +249,11 @@ void crypto_tx_log_to_logger(HCRYPTO_TX* hnd, int level, const char* msg)
     return reinterpret_cast<crypto_tx_common*>(hnd)->log_to_logger(level, msg);
 }
 
-int crypto_tx_transmit(HCRYPTO_TX* hnd, short* mod_out, const short* speech_in, int reload_config)
+int crypto_tx_transmit(HCRYPTO_TX* hnd, short* mod_out, const short* speech_in)
 {
     try
     {
-        return reinterpret_cast<crypto_tx_common*>(hnd)->transmit(mod_out, speech_in, reload_config);
+        return reinterpret_cast<crypto_tx_common*>(hnd)->transmit(mod_out, speech_in);
     }
     catch(...)
     {

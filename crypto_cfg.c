@@ -9,23 +9,7 @@
 static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *Value, void *UserData) {
     struct config *cfg = (struct config*)UserData;
 
-    if (strcasecmp(Section, "Audio IO") ==0) {
-        if (strcasecmp(Key, "Source") == 0) {
-            strncpy(cfg->source_file, Value, sizeof(cfg->source_file) - 1);
-        }
-        else if (strcasecmp(Key, "BufferSource") == 0) {
-            cfg->source_file_buffer = strcasecmp(Value, "true") == 0 ||
-                                      strcasecmp(Value, "yes") == 0;
-        }
-        else if (strcasecmp(Key, "Dest") == 0) {
-            strncpy(cfg->dest_file, Value, sizeof(cfg->dest_file) - 1);
-        }
-        else if (strcasecmp(Key, "BufferDest") == 0) {
-            cfg->dest_file_buffer = strcasecmp(Value, "true") == 0 ||
-                                    strcasecmp(Value, "yes") == 0;
-        }
-    }
-    else if (strcasecmp(Section, "Crypto IO") ==0) {
+    if (strcasecmp(Section, "Crypto IO") ==0) {
         if (strcasecmp(Key, "KeyFile") == 0) {
             strncpy(cfg->key_file, Value, sizeof(cfg->key_file) - 1);
         }
@@ -99,24 +83,6 @@ void read_config(const char* config_file, struct config* cfg) {
     memset(cfg, 0, sizeof(struct config));
     cfg->freedv_mode = FREEDV_MODE_2400B;
     ini_browse(ini_callback, (void*)cfg, config_file);
-}
-
-void open_output_file(const struct config* old, const struct config* new, FILE** f) {
-    if (old == NULL || strcmp(old->dest_file, new->dest_file) != 0) {
-        if (*f != NULL && *f != stdout) fclose(*f);
-
-        *f = strcasecmp(new->dest_file, "stdout") == 0 ? stdout : fopen(new->dest_file, "wb");
-        if (*f != NULL && !new->dest_file_buffer) setbuf(*f, NULL);
-    }
-}
-
-void open_input_file(const struct config* old, const struct config* new, FILE** f) {
-    if (old == NULL || strcmp(old->source_file, new->source_file) != 0) {
-        if (*f != NULL && *f != stdin) fclose(*f);
-
-        *f = strcasecmp(new->source_file, "stdin") == 0 ? stdin : fopen(new->source_file, "rb");
-        if (*f != NULL && !new->source_file_buffer) setbuf(*f, NULL);
-    }
 }
 
 void open_iv_file(const struct config* old, const struct config* new, FILE** f) {

@@ -38,10 +38,10 @@
 
 static std::unique_ptr<crypto_rx_common> crypto_rx;
 
-static jack_port_t* voice_port = NULL;
-static jack_port_t* modem_port = NULL;
-static jack_port_t* notification_port = NULL;
-static jack_client_t* client = NULL;
+static jack_port_t* voice_port = nullptr;
+static jack_port_t* modem_port = nullptr;
+static jack_port_t* notification_port = nullptr;
+static jack_client_t* client = nullptr;
 
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
@@ -54,6 +54,8 @@ static std::deque<jack_default_audio_sample_t> notification_buffer;
 
 static volatile sig_atomic_t reload_config = 0;
 static volatile sig_atomic_t initialized = 0;
+
+static const char* config_file = nullptr;
 
 static bool read_wav_file(const char* filepath, audio_buffer_t& buffer_out)
 {
@@ -122,6 +124,22 @@ int process(jack_nframes_t nframes, void *arg)
 {
     jack_default_audio_sample_t* modem_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
+    bool play_notification_sound = false;
+
+    if (reload_config != 0) {
+        reload_config = 0;
+
+        crypto_rx = nullptr;
+        crypto_rx.reset(new crypto_rx_common(config_file));
+
+        play_notification_sound = true;
+    }
+
+    if (initialized != 0) {
+        initialized = 0;
+
+        play_notification_sound = true;
+    }
 
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     const uint voice_sample_rate = crypto_rx->speech_sample_rate();
@@ -132,7 +150,6 @@ int process(jack_nframes_t nframes, void *arg)
 
     input_resampler->enqueue(modem_frames, nframes);
 
-    bool play_notification_sound = false;
     int nin = crypto_rx->needed_modem_samples();
     while (input_resampler->available_elems() >= nin)
     {
@@ -144,26 +161,13 @@ int process(jack_nframes_t nframes, void *arg)
 
         input_resampler->dequeue(demod_in, nin);
 
-        const bool reload_config_this_loop = reload_config;
-        const int nout = crypto_rx->receive(voice_out, demod_in, reload_config_this_loop);
+        const int nout = crypto_rx->receive(voice_out, demod_in);
         output_resampler->enqueue(voice_out, nout);
 
         /* IMPORTANT: don't forget to do this in the while loop to
            ensure we fread the correct number of samples: ie update
            "nin" before every call to freedv_rx()/freedv_comprx() */
         nin = crypto_rx->needed_modem_samples();
-
-        if (reload_config_this_loop) {
-            reload_config = 0;
-
-            play_notification_sound = true;
-        }
-
-        if (initialized != 0) {
-            initialized = 0;
-
-            play_notification_sound = true;
-        }
     }
 
     if (output_resampler->available_elems() >= nframes)
@@ -240,12 +244,11 @@ static bool connect_input_ports(jack_port_t* output_port,
 int main(int argc, char *argv[])
 {
     const char* client_name = "crypto_rx";
-    const char* server_name = NULL;
-    const char* config_file = nullptr;
+    const char* server_name = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;
 
-    struct config *cur = NULL;
+    struct config *cur = nullptr;
 
     if (argc > 2)
     {

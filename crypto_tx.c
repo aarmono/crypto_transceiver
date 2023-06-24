@@ -52,11 +52,8 @@ static void try_system_async(const char* cmd) {
 }
 
 int main(int argc, char *argv[]) {
-    const struct config *old = NULL;
-    const struct config *cur = NULL; 
-
-    FILE *fin = NULL;
-    FILE *fout = NULL;
+    FILE *fin = stdin;
+    FILE *fout = stdout;
 
     HCRYPTO_TX* crypto_tx = NULL;
 
@@ -73,24 +70,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    cur = crypto_tx_get_config(crypto_tx);
-
-    open_input_file(old, cur, &fin);
-    if (fin == NULL) {
-        crypto_tx_log_to_logger(crypto_tx,
-                                LOG_ERROR,
-                                "Could not open input voice stream");
-        exit(1);
-    }
-
-    open_output_file(old, cur, &fout);
-    if (fout == NULL) {
-        crypto_tx_log_to_logger(crypto_tx,
-                                LOG_ERROR,
-                                "Could not open output data stream");
-        exit(1);
-    }
-
     /* handy functions to set buffer sizes, note tx/modulator always
        returns freedv_get_n_nom_modem_samples() (unlike rx side) */
     int n_speech_samples = crypto_tx_speech_samples_per_frame(crypto_tx);
@@ -100,45 +79,24 @@ int main(int argc, char *argv[]) {
 
     /* OK main loop  --------------------------------------- */
     while(read_input_file(speech_in, n_speech_samples, fin) == n_speech_samples) {
-        int reset_iv = 0;
-        const int reload_config_this_loop = reload_config;
-
-        reset_iv = crypto_tx_transmit(crypto_tx, mod_out, speech_in, reload_config_this_loop);
+        crypto_tx_transmit(crypto_tx, mod_out, speech_in);
         fwrite(mod_out, sizeof(short), n_nom_modem_samples, fout);
 
-        if (reset_iv) {
-            try_system_async(cur->vox_cmd);
-        }
-
-        if (reload_config_this_loop != 0) {
+        if (reload_config != 0) {
             reload_config = 0;
 
-            old = cur;
-            cur = crypto_tx_get_config(crypto_tx);
-
-            if (old->freedv_mode != cur->freedv_mode) {
-                n_speech_samples = crypto_tx_speech_samples_per_frame(crypto_tx);
-                n_nom_modem_samples = crypto_tx_modem_samples_per_frame(crypto_tx);
-
-                speech_in = realloc(speech_in, sizeof(short) * n_speech_samples);
-                mod_out = realloc(mod_out, sizeof(short) * n_nom_modem_samples);
-            }
-
-            open_input_file(old, cur, &fin);
-            if (fin == NULL) {
-                crypto_tx_log_to_logger(crypto_tx,
-                            LOG_ERROR,
-                            "Could not open input voice stream");
+            crypto_tx_destroy(crypto_tx);
+            crypto_tx = crypto_tx_create(argv[1]);
+            if (crypto_tx == NULL) {
+                fprintf(stderr, "Could not create crypto_tx object");
                 exit(1);
             }
 
-            open_output_file(old, cur, &fout);
-            if (fout == NULL) {
-                crypto_tx_log_to_logger(crypto_tx,
-                            LOG_ERROR,
-                            "Could not open output data stream");
-                exit(1);
-            }
+            n_speech_samples = crypto_tx_speech_samples_per_frame(crypto_tx);
+            n_nom_modem_samples = crypto_tx_modem_samples_per_frame(crypto_tx);
+
+            speech_in = realloc(speech_in, sizeof(short) * n_speech_samples);
+            mod_out = realloc(mod_out, sizeof(short) * n_nom_modem_samples);
         }
     }
     

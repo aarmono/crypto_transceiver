@@ -23,9 +23,7 @@ public:
 
     void log_to_logger(int level, const char* msg);
 
-    bool transmit(short*       mod_out,
-                  const short* speech_in,
-                  bool         reload_config = false);
+    bool transmit(short* mod_out, const short* speech_in);
 
 private:
     struct tx_parms;
@@ -51,7 +49,7 @@ const struct config* crypto_tx_get_config(HCRYPTO_TX* hnd);
 
 void crypto_tx_log_to_logger(HCRYPTO_TX* hnd, int level, const char* msg);
 
-int crypto_tx_transmit(HCRYPTO_TX* hnd, short* mod_out, const short* speech_in, int reload_config);
+int crypto_tx_transmit(HCRYPTO_TX* hnd, short* mod_out, const short* speech_in);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -34,14 +34,16 @@
 
 static std::unique_ptr<crypto_tx_common> crypto_tx;
 
-static jack_port_t* voice_port = NULL;
-static jack_port_t* modem_port = NULL;
-static jack_client_t* client = NULL;
+static jack_port_t* voice_port = nullptr;
+static jack_port_t* modem_port = nullptr;
+static jack_client_t* client = nullptr;
 
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
 
 static volatile sig_atomic_t reload_config = 0;
+
+static const char* config_file = nullptr;
 
 static void signal_handler(int sig)
 {
@@ -76,6 +78,13 @@ int process(jack_nframes_t nframes, void *arg)
     jack_default_audio_sample_t* voice_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
 
+    if (reload_config != 0) {
+        reload_config = 0;
+
+        crypto_tx = nullptr;
+        crypto_tx.reset(new crypto_tx_common(config_file));
+    }
+
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     const uint voice_sample_rate = crypto_tx->speech_sample_rate();
     const uint modem_sample_rate = crypto_tx->modem_sample_rate();
@@ -85,26 +94,17 @@ int process(jack_nframes_t nframes, void *arg)
 
     input_resampler->enqueue(voice_frames, nframes);
 
-    int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
-    int n_speech_samples = crypto_tx->speech_samples_per_frame();
+    const int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
+    const int n_speech_samples = crypto_tx->speech_samples_per_frame();
     while (input_resampler->available_elems() >= n_speech_samples)
     {
         short mod_out[n_nom_modem_samples];
         short voice_in[n_speech_samples];
         input_resampler->dequeue(voice_in, n_speech_samples);
 
-        const bool reload_config_this_loop = reload_config;
-        crypto_tx->transmit(mod_out, voice_in, reload_config_this_loop);
+        crypto_tx->transmit(mod_out, voice_in);
 
         output_resampler->enqueue(mod_out, n_nom_modem_samples);
-
-        if (reload_config_this_loop) {
-            reload_config = 0;
-
-            // In case the mode changed
-            n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
-            n_speech_samples = crypto_tx->speech_samples_per_frame();
-        }
     }
 
     if (output_resampler->available_elems() >= nframes)
@@ -121,7 +121,6 @@ int main(int argc, char *argv[])
 {
     const char* client_name = "crypto_tx";
     const char* server_name = nullptr;
-    const char* config_file = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;
 

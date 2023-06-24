@@ -16,7 +16,6 @@ struct config
     int  vox_high;
     int  silent_period;
     int  vox_period;
-    char vox_cmd[80];
 
     int  freedv_mode;
 

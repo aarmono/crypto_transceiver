@@ -30,25 +30,10 @@
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 
-#ifndef TEMP_FAILURE_RETRY
-#define TEMP_FAILURE_RETRY(expression) {int result; do result = (int)(expression); while (result == -1 && errno == EINTR); result;}
-#endif
-
 static volatile sig_atomic_t reload_config = 0;
 
 static void handle_sighup(int sig) {
     reload_config = 1;
-}
-
-static void try_system_async(const char* cmd) {
-    int stat = 0;
-    TEMP_FAILURE_RETRY(wait(&stat));
-
-    if (cmd != NULL && cmd[0] != '\0') {
-        if (fork() == 0) {
-            execl("/bin/sh", "/bin/sh", "-c", cmd, NULL);
-        }
-    }
 }
 
 int main(int argc, char *argv[]) {

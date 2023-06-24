@@ -20,14 +20,17 @@
 
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <vector>
+#include <deque>
 #include <memory>
 
 #include <jack/jack.h>
 #include <samplerate.h>
+#include <sndfile.h>
 
 #include "crypto_rx_common.h"
 #include "crypto_cfg.h"
@@ -37,12 +40,55 @@ static std::unique_ptr<crypto_rx_common> crypto_rx;
 
 static jack_port_t* voice_port = NULL;
 static jack_port_t* modem_port = NULL;
+static jack_port_t* notification_port = NULL;
 static jack_client_t* client = NULL;
 
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
 
+typedef std::vector<jack_default_audio_sample_t> audio_buffer_t;
+static audio_buffer_t crypto_startup;
+static audio_buffer_t plain_startup;
+
+static std::deque<jack_default_audio_sample_t> notification_buffer;
+
 static volatile sig_atomic_t reload_config = 0;
+static volatile sig_atomic_t initialized = 0;
+
+static bool read_wav_file(const char* filepath, audio_buffer_t& buffer_out)
+{
+    SF_INFO sfinfo;
+    memset (&sfinfo, 0, sizeof (sfinfo)) ;
+
+    SNDFILE* infile = sf_open (filepath, SFM_READ, &sfinfo);
+    if (infile == nullptr)
+    {
+        return false;
+    }
+
+    if (sfinfo.channels != 1)
+    {
+        return false;
+    }
+
+    const size_t block_len = 1024;
+    audio_buffer_t buffer(block_len);
+    sf_count_t readcount = 0;
+    while ((readcount = sf_readf_float(infile,
+                                       buffer.data() - block_len,
+                                       block_len)) == block_len)
+    {
+        buffer.resize(buffer.size() + block_len);
+    }
+
+    size_t toremove = block_len - readcount;
+    buffer.erase(buffer.cend() - toremove, buffer.cend());
+
+    sf_close (infile);
+    std::swap(buffer_out, buffer);
+
+    return true;
+}
 
 static void signal_handler(int sig)
 {
@@ -76,8 +122,6 @@ int process(jack_nframes_t nframes, void *arg)
 {
     jack_default_audio_sample_t* modem_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
-    jack_default_audio_sample_t* voice_frames =
-        (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
 
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     const uint voice_sample_rate = crypto_rx->speech_sample_rate();
@@ -88,6 +132,7 @@ int process(jack_nframes_t nframes, void *arg)
 
     input_resampler->enqueue(modem_frames, nframes);
 
+    bool play_notification_sound = false;
     int nin = crypto_rx->needed_modem_samples();
     while (input_resampler->available_elems() >= nin)
     {
@@ -110,15 +155,86 @@ int process(jack_nframes_t nframes, void *arg)
 
         if (reload_config_this_loop) {
             reload_config = 0;
+
+            play_notification_sound = true;
+        }
+
+        if (initialized != 0) {
+            initialized = 0;
+
+            play_notification_sound = true;
         }
     }
 
     if (output_resampler->available_elems() >= nframes)
     {
+        jack_default_audio_sample_t* voice_frames =
+            (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
         output_resampler->dequeue(voice_frames, nframes);
     }
 
+    if (play_notification_sound)
+    {
+        const encryption_status crypto_stat = crypto_rx->get_encryption_status();
+        if (crypto_stat == CRYPTO_STATUS_ENCRYPTED) {
+            notification_buffer.insert(notification_buffer.cend(),
+                                       crypto_startup.cbegin(),
+                                       crypto_startup.cend());
+        }
+        else {
+            notification_buffer.insert(notification_buffer.cend(),
+                                       plain_startup.cbegin(),
+                                       plain_startup.cend());
+        }
+    }
+
+    if (notification_buffer.empty() == false)
+    {
+        const jack_nframes_t n_notification_frames =
+            std::min(nframes, static_cast<jack_nframes_t>(notification_buffer.size()));
+        jack_default_audio_sample_t* notification_frames =
+            (jack_default_audio_sample_t*)jack_port_get_buffer(notification_port, n_notification_frames);
+
+        const auto notification_end = notification_buffer.cbegin() + n_notification_frames;
+        std::copy(notification_buffer.cbegin(), notification_end, notification_frames);
+        notification_buffer.erase(notification_buffer.cbegin(), notification_end);
+    }
+
     return 0;
+}
+
+static bool connect_input_ports(jack_port_t* output_port,
+                                const char* input_port_regex)
+{
+    const char** playback_ports = jack_get_ports(client,
+                                                 input_port_regex,
+                                                 NULL,
+                                                 JackPortIsInput);
+    if (playback_ports != NULL && *playback_ports != NULL)
+    {
+        const char* out_port_name = jack_port_name(output_port);
+        for (size_t i = 0; playback_ports[i] != NULL; ++i)
+        {
+            if (jack_connect(client, out_port_name, playback_ports[i]) != 0)
+            {
+                fprintf(stderr,
+                        "Could not connect %s port to %s port\n",
+                        out_port_name,
+                        playback_ports[i]);
+                jack_free(playback_ports);
+                return false;
+            }
+        }
+
+        jack_free(playback_ports);
+        return true;
+    }
+    else
+    {
+        fprintf(stderr, "Could not find ports matching %s\n", input_port_regex);
+        if (playback_ports != NULL) jack_free(playback_ports);
+        return false;
+    }
 }
 
 int main(int argc, char *argv[])
@@ -211,7 +327,13 @@ int main(int argc, char *argv[])
                                     JackPortIsInput,
                                     0);
 
-    if ((voice_port == NULL) || (modem_port == NULL))
+    notification_port = jack_port_register(client,
+                                           "notification_out",
+                                           JACK_DEFAULT_AUDIO_TYPE,
+                                           JackPortIsOutput,
+                                           0);
+
+    if ((voice_port == NULL) || (modem_port == NULL) || (notification_port == NULL))
     {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
@@ -225,10 +347,29 @@ int main(int argc, char *argv[])
         exit (1);
     }
 
+    /* Get the port from which we will get data */
+    if (jack_connect(client, "system:capture_1", jack_port_name(modem_port)) != 0)
+    {
+        fprintf(stderr, "Could not connect modem port");
+        exit (1);
+    }
+
+    if (!connect_input_ports(voice_port, "system:playback_*"))
+    {
+        exit(1);
+    }
+
+    if (!connect_input_ports(notification_port, "system:playback_*"))
+    {
+        exit(1);
+    }
+
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGHUP, handle_sighup);
     signal(SIGINT, signal_handler);
+
+    initialized = 1;
 
     while (true)
     {

@@ -18,6 +18,11 @@ find_path(
   PATHS "$ENV{STAGING_DIR}/usr/include/jack"
   REQUIRED)
 
+find_path(
+  LIBSNDFILE_INCLUDE_DIR
+  NAMES "sndfile.h"
+  REQUIRED)
+
 find_library(
   CODEC2_LIB
   "codec2"
@@ -34,6 +39,11 @@ find_library(
   "jack"
   REQUIRED)
 
+find_library(
+  SNDFILE_LIB
+  "sndfile"
+  REQUIRED)
+
 message(STATUS "CODEC2_INCLUDE_DIR => ${CODEC2_INCLUDE_DIR}")
 message(STATUS "CODEC2_LIB => ${CODEC2_LIB}")
 
@@ -43,9 +53,13 @@ message(STATUS "LIBSAMPLERATE_LIB => ${LIBSAMPLERATE_LIB}")
 message(STATUS "JACKAUDIO_INCLUDE_DIR => ${JACKAUDIO_INCLUDE_DIR}")
 message(STATUS "JACKAUDIO_LIB => ${JACKAUDIO_LIB}")
 
+message(STATUS "LIBSNDFILE_INCLUDE_DIR => ${LIBSNDFILE_INCLUDE_DIR}")
+message(STATUS "SNDFILE_LIB => ${SNDFILE_LIB}")
+
 include_directories(${CODEC2_INCLUDE_DIR})
 include_directories(${LIBSAMPLERATE_INCLUDE_DIR})
 include_directories(${JACKAUDIO_INCLUDE_DIR})
+include_directories(${LIBSNDFILE_INCLUDE_DIR})
 
 add_definitions(-DINI_READONLY)
 
@@ -56,6 +70,7 @@ add_executable(crypto_tx
   minIni.c
   crypto_cfg.c
   crypto_log.c
+  crypto.ini
   crypto_tx.ini)
 target_link_libraries(crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
@@ -66,6 +81,7 @@ add_executable(crypto_rx
   minIni.c
   crypto_cfg.c
   crypto_log.c
+  crypto.ini
   crypto_rx.ini)
 target_link_libraries(crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
@@ -78,7 +94,9 @@ add_executable(jack_crypto_tx
   crypto_common.c
   minIni.c
   crypto_cfg.c
-  crypto_log.c)
+  crypto_log.c
+  crypto.ini
+  crypto_tx.ini)
 target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} m)
 
 add_executable(jack_crypto_rx
@@ -87,5 +105,7 @@ add_executable(jack_crypto_rx
   crypto_common.c
   minIni.c
   crypto_cfg.c
-  crypto_log.c)
-target_link_libraries(jack_crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} m)
+  crypto_log.c
+  crypto.ini
+  crypto_rx.ini)
+target_link_libraries(jack_crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${SNDFILE_LIB} m)

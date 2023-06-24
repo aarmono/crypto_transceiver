@@ -1,6 +1,7 @@
 #ifndef RESAMPLE_H
 #define RESAMPLE_H
 
+#include <cstring>
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
@@ -12,7 +13,30 @@ inline size_t get_max_resampled_frames(size_t src_frames,
                                        uint   src_sample_rate,
                                        uint   dst_sample_rate)
 {
-return ((src_frames * dst_sample_rate) / src_sample_rate) + 1;
+    return ((src_frames * dst_sample_rate) / src_sample_rate) + 1;
+}
+
+static size_t resample_complete_buffer(      int    converter_type,
+                                             int    channels,
+                                       const float* src_data,
+                                             size_t src_frames,
+                                             uint   src_sample_rate,
+                                             float* dst_data,
+                                             size_t dst_max_frames,
+                                             uint   dst_sample_rate)
+{
+    SRC_DATA parms;
+    memset(&parms, sizeof(parms), 0);
+    parms.data_in = src_data;
+    parms.data_out = dst_data;
+
+    parms.input_frames = src_frames;
+    parms.output_frames = dst_max_frames;
+    parms.src_ratio = (double)dst_sample_rate / (double)src_sample_rate;
+
+    src_simple(&parms, converter_type, channels);
+
+    return parms.output_frames_gen;
 }
 
 class resampler

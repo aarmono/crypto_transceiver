@@ -126,15 +126,6 @@ int process(jack_nframes_t nframes, void *arg)
         (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
     bool play_notification_sound = false;
 
-    if (reload_config != 0) {
-        reload_config = 0;
-
-        crypto_rx = nullptr;
-        crypto_rx.reset(new crypto_rx_common(config_file));
-
-        play_notification_sound = true;
-    }
-
     if (initialized != 0) {
         initialized = 0;
 
@@ -241,6 +232,59 @@ static bool connect_input_ports(jack_port_t* output_port,
     }
 }
 
+static void activate_client()
+{
+    const struct config* cfg = crypto_rx->get_config();
+    const jack_nframes_t period = get_jack_period(cfg);
+    jack_set_buffer_size(client, period);
+
+    /* Tell the JACK server that we are ready to roll.  Our
+     * process() callback will start running now. */
+    if (jack_activate (client))
+    {
+        fprintf (stderr, "cannot activate client");
+        exit (1);
+    }
+
+    /* Get the port from which we will get data */
+    if (jack_connect(client, "system:capture_1", jack_port_name(modem_port)) != 0)
+    {
+        fprintf(stderr, "Could not connect modem port");
+        exit (1);
+    }
+
+    if (!connect_input_ports(voice_port, "system:playback_*"))
+    {
+        exit(1);
+    }
+
+    if (!connect_input_ports(notification_port, "system:playback_*"))
+    {
+        exit(1);
+    }
+}
+
+static void initialize_crypto()
+{
+    crypto_rx = nullptr;
+    input_resampler = nullptr;
+    output_resampler = nullptr;
+
+    crypto_rx.reset(new crypto_rx_common(config_file));
+
+    const size_t speech_frames =
+        get_max_resampled_frames(crypto_rx->max_speech_samples_per_frame(),
+                                 crypto_rx->speech_sample_rate(),
+                                 jack_get_sample_rate(client));
+    const size_t modem_frames =
+        get_max_resampled_frames(crypto_rx->max_modem_samples_per_frame(),
+                                 crypto_rx->modem_sample_rate(),
+                                 jack_get_sample_rate(client));
+
+    input_resampler.reset(new resampler(SRC_SINC_FASTEST, 1, modem_frames * 2));
+    output_resampler.reset(new resampler(SRC_SINC_FASTEST, 1, speech_frames * 2));
+}
+
 int main(int argc, char *argv[])
 {
     const char* client_name = "crypto_rx";
@@ -264,18 +308,6 @@ int main(int argc, char *argv[])
     }
 
     fprintf(stderr, "Server name: %s\n", server_name ? server_name : "");
-
-    try
-    {
-        input_resampler.reset(new resampler(SRC_SINC_FASTEST, 1));
-        output_resampler.reset(new resampler(SRC_SINC_FASTEST, 1));
-        crypto_rx.reset(new crypto_rx_common(config_file));
-    }
-    catch (const std::exception& ex)
-    {
-        fprintf(stderr, "%s", ex.what());
-        exit(1);
-    }
 
     /* open a client connection to the JACK server */
 
@@ -301,10 +333,6 @@ int main(int argc, char *argv[])
         client_name = jack_get_client_name(client);
         fprintf (stderr, "unique name `%s' assigned\n", client_name);
     }
-
-    const struct config* cfg = crypto_rx->get_config();
-    const jack_nframes_t period = get_jack_period(cfg);
-    jack_set_buffer_size(client, period);
 
     /* tell the JACK server to call `process()' whenever
        there is work to be done.
@@ -342,30 +370,17 @@ int main(int argc, char *argv[])
         exit (1);
     }
 
-    /* Tell the JACK server that we are ready to roll.  Our
-     * process() callback will start running now. */
-    if (jack_activate (client))
+    try
     {
-        fprintf (stderr, "cannot activate client");
-        exit (1);
+        initialize_crypto();
     }
-
-    /* Get the port from which we will get data */
-    if (jack_connect(client, "system:capture_1", jack_port_name(modem_port)) != 0)
+    catch (const std::exception& ex)
     {
-        fprintf(stderr, "Could not connect modem port");
-        exit (1);
-    }
-
-    if (!connect_input_ports(voice_port, "system:playback_*"))
-    {
+        fprintf(stderr, "%s", ex.what());
         exit(1);
     }
 
-    if (!connect_input_ports(notification_port, "system:playback_*"))
-    {
-        exit(1);
-    }
+    activate_client();
 
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
@@ -376,6 +391,22 @@ int main(int argc, char *argv[])
 
     while (true)
     {
+        if (reload_config != 0)
+        {
+            reload_config = 0;
+
+            jack_deactivate(client);
+            try
+            {
+                initialize_crypto();
+            }
+            catch (const std::exception& ex)
+            {
+                fprintf(stderr, "%s", ex.what());
+                exit(1);
+            }
+            activate_client();
+        }
         sleep(1);
     }
     

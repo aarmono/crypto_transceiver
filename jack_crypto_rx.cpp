@@ -87,6 +87,28 @@ static bool read_wav_file(const char* filepath, audio_buffer_t& buffer_out)
     buffer.erase(buffer.cend() - toremove, buffer.cend());
 
     sf_close (infile);
+
+    const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
+    if (sfinfo.samplerate != jack_sample_rate)
+    {
+        const size_t max_resample_frames =
+            get_max_resampled_frames(buffer.size(), sfinfo.samplerate, jack_sample_rate);
+        audio_buffer_t resample_buffer(max_resample_frames);
+
+        const size_t resample_frames =
+            resample_complete_buffer(SRC_SINC_FASTEST, 1,
+                                     buffer.data(),
+                                     buffer.size(),
+                                     sfinfo.samplerate,
+                                     resample_buffer.data(),
+                                     max_resample_frames,
+                                     jack_sample_rate);
+
+        resample_buffer.resize(resample_frames);
+        std::swap(buffer, resample_buffer);
+    }
+
+
     std::swap(buffer_out, buffer);
 
     return true;

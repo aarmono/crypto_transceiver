@@ -8,13 +8,26 @@
 
 #include <samplerate.h>
 
+inline size_t get_max_resampled_frames(size_t src_frames,
+                                       uint   src_sample_rate,
+                                       uint   dst_sample_rate)
+{
+return ((src_frames * dst_sample_rate) / src_sample_rate) + 1;
+}
+
 class resampler
 {
 public:
-    resampler(int converter_type, int channels)
+    resampler(int converter_type, int channels, size_t initial_capacity = 0)
         : m_source_rate(0),
           m_dest_rate(0)
     {
+        if (initial_capacity > 0)
+        {
+            m_resampled_data.reserve(initial_capacity);
+            m_data_to_resample.reserve(initial_capacity);
+        }
+
         int err = 0;
         m_state = src_new(converter_type, channels, &err);
         if (m_state == nullptr)
@@ -124,8 +137,10 @@ private:
 
     void do_resample()
     {
-        const uint max_output_frames = 
-            ((m_data_to_resample.size() * m_dest_rate) / m_source_rate) + 1;
+        const uint max_output_frames =
+            get_max_resampled_frames(m_data_to_resample.size(),
+                                     m_source_rate,
+                                     m_dest_rate);
 
         const size_t prev_resampled_size = m_resampled_data.size();
 

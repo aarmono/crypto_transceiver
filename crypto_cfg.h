@@ -28,6 +28,13 @@ struct config
 
     char jack_secure_notify_file[80];
     char jack_insecure_notify_file[80];
+
+    char jack_voice_in_port[80];
+    char jack_modem_out_port[80];
+
+    char jack_modem_in_port[80];
+    char jack_voice_out_port[80];
+    char jack_notify_out_port[80];
 };
 
 void read_config(const char* config_file, struct config* cfg);

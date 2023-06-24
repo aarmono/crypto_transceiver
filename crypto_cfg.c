@@ -78,6 +78,31 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
                     Value,
                     sizeof(cfg->jack_insecure_notify_file) - 1);
         }
+        else if (strcasecmp(Key, "VoiceInPort") == 0) {
+            strncpy(cfg->jack_voice_in_port,
+                    Value,
+                    sizeof(cfg->jack_voice_in_port) - 1);
+        }
+        else if (strcasecmp(Key, "ModemOutPort") == 0) {
+            strncpy(cfg->jack_modem_out_port,
+                    Value,
+                    sizeof(cfg->jack_modem_out_port) - 1);
+        }
+        else if (strcasecmp(Key, "ModemInPort") == 0) {
+            strncpy(cfg->jack_modem_in_port,
+                    Value,
+                    sizeof(cfg->jack_modem_in_port) - 1);
+        }
+        else if (strcasecmp(Key, "VoiceOutPort") == 0) {
+            strncpy(cfg->jack_voice_out_port,
+                    Value,
+                    sizeof(cfg->jack_voice_out_port) - 1);
+        }
+        else if (strcasecmp(Key, "NotifyOutPort") == 0) {
+            strncpy(cfg->jack_notify_out_port,
+                    Value,
+                    sizeof(cfg->jack_notify_out_port) - 1);
+        }
     }
 
     return 1;

@@ -269,18 +269,24 @@ static void activate_client()
     }
 
     /* Get the port from which we will get data */
-    if (jack_connect(client, "system:capture_1", jack_port_name(modem_port)) != 0)
+    const char* capture_port_name =
+        *cfg->jack_modem_in_port ? cfg->jack_modem_in_port : "system:capture_1";
+    if (jack_connect(client, capture_port_name, jack_port_name(modem_port)) != 0)
     {
         fprintf(stderr, "Could not connect modem port");
         exit (1);
     }
 
-    if (!connect_input_ports(voice_port, "system:playback_*"))
+    const char* voice_playback_port_regex =
+        *cfg->jack_voice_out_port ? cfg->jack_voice_out_port : "system:playback_*";
+    if (!connect_input_ports(voice_port, voice_playback_port_regex))
     {
         exit(1);
     }
 
-    if (!connect_input_ports(notification_port, "system:playback_*"))
+    const char* notify_playback_port_regex =
+        *cfg->jack_notify_out_port ? cfg->jack_notify_out_port : "system:playback_*";
+    if (!connect_input_ports(notification_port, notify_playback_port_regex))
     {
         exit(1);
     }

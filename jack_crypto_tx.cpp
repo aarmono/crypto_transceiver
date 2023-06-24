@@ -159,13 +159,17 @@ static void activate_client()
     }
 
     /* Get the port from which we will get data */
-    if (jack_connect(client, "system:capture_1", jack_port_name(voice_port)) != 0)
+    const char* capture_port_name =
+        *cfg->jack_voice_in_port ? cfg->jack_voice_in_port : "system:capture_1";
+    if (jack_connect(client, capture_port_name, jack_port_name(voice_port)) != 0)
     {
         fprintf(stderr, "Could not connect modem port");
         exit (1);
     }
 
-    if (!connect_input_ports(modem_port, "system:playback_*"))
+    const char* playback_port_regex =
+        *cfg->jack_modem_out_port ? cfg->jack_modem_out_port : "system:playback_*";
+    if (!connect_input_ports(modem_port, playback_port_regex))
     {
         exit(1);
     }

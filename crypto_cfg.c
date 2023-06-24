@@ -68,6 +68,16 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         else if (strcasecmp(Key, "Period2400B") == 0){
             cfg->jack_period_2400b = atoi(Value);
         }
+        else if (strcasecmp(Key, "SecureNotifyFile") == 0) {
+            strncpy(cfg->jack_secure_notify_file,
+                    Value,
+                    sizeof(cfg->jack_secure_notify_file) - 1);
+        }
+        else if (strcasecmp(Key, "InsecureNotifyFile") == 0) {
+            strncpy(cfg->jack_insecure_notify_file,
+                    Value,
+                    sizeof(cfg->jack_insecure_notify_file) - 1);
+        }
     }
 
     return 1;

@@ -60,7 +60,7 @@ static const char* config_file = nullptr;
 static bool read_wav_file(const char* filepath, audio_buffer_t& buffer_out)
 {
     SF_INFO sfinfo;
-    memset (&sfinfo, 0, sizeof (sfinfo)) ;
+    memset (&sfinfo, 0, sizeof (sfinfo));
 
     SNDFILE* infile = sf_open (filepath, SFM_READ, &sfinfo);
     if (infile == nullptr)
@@ -77,7 +77,7 @@ static bool read_wav_file(const char* filepath, audio_buffer_t& buffer_out)
     audio_buffer_t buffer(block_len);
     sf_count_t readcount = 0;
     while ((readcount = sf_readf_float(infile,
-                                       buffer.data() - block_len,
+                                       (buffer.data() + buffer.size()) - block_len,
                                        block_len)) == block_len)
     {
         buffer.resize(buffer.size() + block_len);
@@ -262,6 +262,8 @@ static void activate_client()
     {
         exit(1);
     }
+
+    initialized = 1;
 }
 
 static void initialize_crypto()
@@ -291,8 +293,6 @@ int main(int argc, char *argv[])
     const char* server_name = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;
-
-    struct config *cur = nullptr;
 
     if (argc > 2)
     {
@@ -380,14 +380,22 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    const struct config* cfg = crypto_rx->get_config();
+    if (cfg->jack_secure_notify_file[0])
+    {
+        read_wav_file(cfg->jack_secure_notify_file, crypto_startup);
+    }
+    if (cfg->jack_insecure_notify_file[0])
+    {
+        read_wav_file(cfg->jack_insecure_notify_file, plain_startup);
+    }
+
     activate_client();
 
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGHUP, handle_sighup);
     signal(SIGINT, signal_handler);
-
-    initialized = 1;
 
     while (true)
     {

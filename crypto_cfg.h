@@ -25,6 +25,9 @@ struct config
     int  jack_period_800xa;
     int  jack_period_1600;
     int  jack_period_2400b;
+
+    char jack_secure_notify_file[80];
+    char jack_insecure_notify_file[80];
 };
 
 void read_config(const char* config_file, struct config* cfg);

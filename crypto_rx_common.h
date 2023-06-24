@@ -7,6 +7,13 @@ struct config;
 
 #include <memory>
 
+enum encryption_status
+{
+    CRYPTO_STATUS_PLAIN,
+    CRYPTO_STATUS_WEAK_KEY,
+    CRYPTO_STATUS_ENCRYPTED
+};
+
 class crypto_rx_common
 {
 public:
@@ -20,6 +27,7 @@ public:
     size_t needed_modem_samples() const;
 
     bool is_synced() const;
+    encryption_status get_encryption_status() const;
 
     uint speech_sample_rate() const;
     uint modem_sample_rate() const;

@@ -49,12 +49,13 @@ struct crypto_rx_common::rx_parms
         destroy_logger(logger);
     }
 
-    const string   config_file;
-    struct config* old = nullptr;
-    struct config* cur = nullptr;
-    struct freedv* freedv = nullptr;
-    crypto_log     logger;
-    unsigned short silent_frames = 0;
+    const string      config_file;
+    struct config*    old = nullptr;
+    struct config*    cur = nullptr;
+    struct freedv*    freedv = nullptr;
+    crypto_log        logger;
+    unsigned short    silent_frames = 0;
+    encryption_status crypto_status = CRYPTO_STATUS_PLAIN;
 };
 
 crypto_rx_common::~crypto_rx_common() {}
@@ -88,8 +89,11 @@ crypto_rx_common::crypto_rx_common(const char* config_file)
 
     if (str_has_value(m_parms->cur->key_file)) {
         freedv_set_crypto(m_parms->freedv, key, iv);
+        m_parms->crypto_status = key_bytes_read == FREEDV_MASTER_KEY_LENGTH ?
+            CRYPTO_STATUS_ENCRYPTED : CRYPTO_STATUS_WEAK_KEY;
     }
     else {
+        m_parms->crypto_status = CRYPTO_STATUS_PLAIN;
         log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
@@ -119,6 +123,11 @@ size_t crypto_rx_common::needed_modem_samples() const
 bool crypto_rx_common::is_synced() const
 {
     return (freedv_get_rx_status(m_parms->freedv) & FREEDV_RX_SYNC) != 0;
+}
+
+encryption_status crypto_rx_common::get_encryption_status() const
+{
+    return m_parms->crypto_status;
 }
 
 uint crypto_rx_common::speech_sample_rate() const

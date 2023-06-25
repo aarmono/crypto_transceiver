@@ -61,8 +61,6 @@ include_directories(${LIBSAMPLERATE_INCLUDE_DIR})
 include_directories(${JACKAUDIO_INCLUDE_DIR})
 include_directories(${LIBSNDFILE_INCLUDE_DIR})
 
-add_definitions(-DINI_READONLY)
-
 add_executable(crypto_tx
   crypto_tx.c
   crypto_tx_common.cpp
@@ -85,6 +83,11 @@ target_link_libraries(crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
 add_executable(iniget iniget.c minIni.c)
 target_link_libraries(iniget ${CMAKE_REQUIRED_LIBRARIES} m)
+target_compile_definitions(iniget PUBLIC -D_GNU_SOURCE)
+
+add_executable(iniset iniget.c minIni.c)
+target_link_libraries(iniset ${CMAKE_REQUIRED_LIBRARIES} m)
+target_compile_definitions(iniset PUBLIC -D_GNU_SOURCE)
 
 add_executable(jack_crypto_tx
   jack_crypto_tx.cpp

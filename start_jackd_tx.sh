@@ -5,8 +5,8 @@ do
     sleep .5
 done
 
-IN_HW=`iniget /etc/crypto.ini JACK VoiceInDevice`
-OUT_HW=`iniget /etc/crypto.ini JACK ModemOutDevice`
+IN_HW=`iniget JACK VoiceInDevice /etc/crypto.ini.sd /etc/crypto.ini`
+OUT_HW=`iniget JACK ModemOutDevice /etc/crypto.ini.sd /etc/crypto.ini`
 
 if [ "$IN_HW" = "$OUT_HW" ]
 then
@@ -15,6 +15,6 @@ else
     HW_ARGS="-C $IN_HW -P $OUT_HW"
 fi
 
-SAMPLE_RATE=`iniget /etc/crypto.ini JACK SampleRateTX`
+SAMPLE_RATE=`iniget JACK SampleRateTX /etc/crypto.ini.sd /etc/crypto.ini`
 
 exec jackd -n tx -d alsa $HW_ARGS -r "$SAMPLE_RATE" -p 1024

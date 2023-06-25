@@ -2,13 +2,13 @@
 
 disable_encryption ()
 {
-    sed 's/^[[:blank:]]*KeyFile/;KeyFile/' /etc/crypto.ini > /etc/crypto.ini.new && mv /etc/crypto.ini.new /etc/crypto.ini
+    sed 's/^[[:blank:]]*KeyFile/;KeyFile/' /etc/crypto.ini > /etc/crypto.ini.new.all && mv /etc/crypto.ini.new /etc/crypto.ini.all
     killall -SIGHUP jack_crypto_tx jack_crypto_rx
 }
 
 enable_encryption ()
 {
-    sed 's/^[[:blank:]]*;[[:blank:]]*KeyFile/KeyFile/' /etc/crypto.ini > /etc/crypto.ini.new && mv /etc/crypto.ini.new /etc/crypto.ini
+    sed 's/^[[:blank:]]*;[[:blank:]]*KeyFile/KeyFile/' /etc/crypto.ini.all > /etc/crypto.ini.new && mv /etc/crypto.ini.new /etc/crypto.ini.all
     killall -SIGHUP jack_crypto_tx jack_crypto_rx
 }
 

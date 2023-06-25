@@ -325,13 +325,13 @@ int main(int argc, char *argv[])
     if (argc > 2)
     {
         server_name = argv[1];
-        options = (jack_options_t)(JackNullOption | JackServerName);
+        options = (jack_options_t)(JackNullOption | JackServerName | JackNoStartServer);
 
         config_file = argv[2];
     }
     else
     {
-        fprintf(stderr, "Usage: crypto_rx <jack server name> <config file>");
+        fprintf(stderr, "Usage: jack_crypto_rx <jack server name> <config file>");
         exit(1);
     }
 

@@ -1,15 +1,26 @@
 #!/usr/bin/env sh
 
+set_encryption ()
+{
+    iniset Crypto Enabled $1 /etc/crypto.ini.sess && cat /etc/crypto.ini /etc/crypto.ini.sd /etc/crypto.ini.sess > /etc/crypto.ini.all
+    killall -SIGHUP jack_crypto_tx jack_crypto_rx
+}
+
 disable_encryption ()
 {
-    sed 's/^[[:blank:]]*KeyFile/;KeyFile/' /etc/crypto.ini > /etc/crypto.ini.new.all && mv /etc/crypto.ini.new /etc/crypto.ini.all
-    killall -SIGHUP jack_crypto_tx jack_crypto_rx
+    set_encryption 0
 }
 
 enable_encryption ()
 {
-    sed 's/^[[:blank:]]*;[[:blank:]]*KeyFile/KeyFile/' /etc/crypto.ini.all > /etc/crypto.ini.new && mv /etc/crypto.ini.new /etc/crypto.ini.all
-    killall -SIGHUP jack_crypto_tx jack_crypto_rx
+    set_encryption 1
+}
+
+toggle_encryption()
+{
+    VAL=`iniget Crypto Enabled /etc/crypto.ini.sess /etc/crypto.ini.sd /etc/crypto.ini`
+    VAL=$(((VAL!=0)^1))
+    set_encryption $VAL
 }
 
 while [ $((`aplay -l | grep -c card`)) -lt 2 ]

@@ -85,7 +85,7 @@ crypto_rx_common::crypto_rx_common(const char* config_file)
         throw runtime_error("Could not initialize voice demodulator");
     }
 
-    if (str_has_value(m_parms->cur->key_file)) {
+    if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled) {
         freedv_set_crypto(m_parms->freedv, key, iv);
         m_parms->crypto_status = key_bytes_read == FREEDV_MASTER_KEY_LENGTH ?
             CRYPTO_STATUS_ENCRYPTED : CRYPTO_STATUS_WEAK_KEY;

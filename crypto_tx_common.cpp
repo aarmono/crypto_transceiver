@@ -51,7 +51,7 @@ struct crypto_tx_common::tx_parms
     struct config* cur = nullptr;
     struct freedv* freedv = nullptr;
     crypto_log     logger;
-    unsigned short silent_frames = 0;
+    unsigned short frames_since_rekey = 0;
 };
 
 crypto_tx_common::~crypto_tx_common() {}
@@ -91,7 +91,7 @@ crypto_tx_common::crypto_tx_common(const char* config_file)
         throw std::runtime_error("Could not initialize voice modulator");
     }
 
-    if (str_has_value(m_parms->cur->key_file)) {
+    if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled) {
         freedv_set_crypto(m_parms->freedv, key, iv);
     }
     else {
@@ -138,55 +138,25 @@ bool crypto_tx_common::transmit(short* mod_out, const short* speech_in)
     const int n_nom_modem_samples = freedv_get_n_nom_modem_samples(m_parms->freedv);
     const int speech_samples_per_second = freedv_get_speech_sample_rate(m_parms->freedv);
     const int speech_frames_per_second = speech_samples_per_second / n_speech_samples;
-    unsigned char iv[IV_LEN];
 
-    if (str_has_value(m_parms->cur->key_file) &&
-        m_parms->cur->vox_low > 0 && m_parms->cur->vox_high > 0)
+    if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled)
     {
-        const short rms_val = rms(speech_in, n_speech_samples);
-        log_message(m_parms->logger, LOG_DEBUG, "Voice RMS: %d", (int)rms_val);
+        ++m_parms->frames_since_rekey;
 
-        if (rms_val > m_parms->cur->vox_high && m_parms->silent_frames > 0) {
+        // Reset IV at regular intervals (if configured)
+        const int rekey_frames = speech_frames_per_second *
+                                 m_parms->cur->rekey_period;
+        if (rekey_frames > 0 && (m_parms->frames_since_rekey % rekey_frames) == 0)
+        {
+            m_parms->frames_since_rekey = 0;
             log_message(m_parms->logger,
                         LOG_INFO,
-                        "Voice detected. RMS: %d",
-                        (int)rms_val);
-            m_parms->silent_frames = 0;
-        }
-        /* If a frame drops below iv_low or is between iv_low and iv_high after
-           dropping below iv_low, increment the silent counter */
-        else if (rms_val < m_parms->cur->vox_low || m_parms->silent_frames > 0) {
-            ++m_parms->silent_frames;
-            log_message(m_parms->logger,
-                        LOG_DEBUG,
-                        "Quiet frame. Count: %d",
-                        (int)m_parms->silent_frames);
-
-            const int vox_reset_frames = speech_frames_per_second *
-                                         m_parms->cur->vox_period;
-            if (m_parms->cur->vox_period > 0 &&
-                (m_parms->silent_frames == vox_reset_frames)) {
-                log_message(m_parms->logger,
-                            LOG_INFO,
-                            "New initialization vector at end of voice. RMS: %d",
-                            (int)rms_val);
-                reset_iv = true;
-            }
-
-            /* Reset IV every minute of silence (if configured)*/
-            const int silent_reset_frames = speech_frames_per_second *
-                                            m_parms->cur->silent_period;
-            if (m_parms->cur->silent_period > 0 &&
-                (m_parms->silent_frames % silent_reset_frames) == 0) {
-                log_message(m_parms->logger,
-                            LOG_INFO,
-                            "New initialization vector during long silence. RMS: %d",
-                            (int)rms_val);
-                reset_iv = true;
-            }
+                        "New initialization vector due to auto rekey");
+            reset_iv = true;
         }
 
         if (reset_iv) {
+            unsigned char iv[IV_LEN];
             // Use getrandom with the urandom device because it will block
             // until the entropy pool is initialized
             if (getrandom(iv, sizeof(iv), 0) != sizeof(iv)) {

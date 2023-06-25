@@ -15,11 +15,11 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
     }
     else if (strcasecmp(Section, "Crypto") ==0) {
-        if (strcasecmp(Key, "QuietRekey") == 0) {
-            cfg->silent_period = atoi(Value);
+        if (strcasecmp(Key, "AutoRekey") == 0) {
+            cfg->rekey_period = atoi(Value);
         }
-        else if (strcasecmp(Key, "VOXRekey") == 0) {
-            cfg->vox_period = atoi(Value);
+        else if (strcasecmp(Key, "Enabled") == 0) {
+            cfg->crypto_enabled = atoi(Value);
         }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
@@ -28,14 +28,6 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
         else if (strcasecmp(Key, "LogLevel") == 0) {
             cfg->log_level = atoi(Value);
-        }
-    }
-    else if (strcasecmp(Section, "Audio") == 0) {
-        if (strcasecmp(Key, "VOXQuiet") == 0) {
-            cfg->vox_low = atoi(Value);
-        }
-        else if (strcasecmp(Key, "VOXNoise") == 0) {
-            cfg->vox_high = atoi(Value);
         }
     }
     else if (strcasecmp(Section, "Codec") == 0) {

@@ -12,10 +12,8 @@ struct config
     char log_file[80];
     int  log_level;
 
-    int  vox_low;
-    int  vox_high;
-    int  silent_period;
-    int  vox_period;
+    int  rekey_period;
+    int  crypto_enabled;
 
     int  freedv_mode;
 

@@ -28,6 +28,8 @@
 
 #include <jack/jack.h>
 
+#include "freedv_api.h"
+
 #include "resampler.h"
 #include "crypto_cfg.h"
 #include "crypto_tx_common.h"
@@ -44,6 +46,27 @@ static std::unique_ptr<resampler> output_resampler;
 static volatile sig_atomic_t reload_config = 0;
 
 static const char* config_file = nullptr;
+
+static int get_jack_period(const struct config* cfg)
+{
+    switch(cfg->freedv_mode)
+    {
+        case FREEDV_MODE_700C:
+            return cfg->jack_tx_period_700c;
+        case FREEDV_MODE_700D:
+            return cfg->jack_tx_period_700d;
+        case FREEDV_MODE_700E:
+            return cfg->jack_tx_period_700e;
+        case FREEDV_MODE_800XA:
+            return cfg->jack_tx_period_800xa;
+        case FREEDV_MODE_1600:
+            return cfg->jack_tx_period_1600;
+        case FREEDV_MODE_2400B:
+            return cfg->jack_tx_period_2400b;
+        default:
+            return 0;
+    }
+}
 
 static void signal_handler(int sig)
 {

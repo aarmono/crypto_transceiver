@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "freedv_api.h"
 #include "crypto_cfg.h"
 #include "minIni.h"
-#include "freedv_api.h"
 
 static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *Value, void *UserData) {
     struct config *cfg = (struct config*)UserData;
@@ -50,24 +50,44 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         }
     }
     else if (strcasecmp(Section, "JACK") == 0) {
-        if (strcasecmp(Key, "Period700C") == 0) {
-            cfg->jack_period_700c = atoi(Value);
+        if (strcasecmp(Key, "TXPeriod700C") == 0) {
+            cfg->jack_tx_period_700c = atoi(Value);
         }
-        else if (strcasecmp(Key, "Period700D") == 0){
-            cfg->jack_period_700d = atoi(Value);
+        else if (strcasecmp(Key, "TXPeriod700D") == 0){
+            cfg->jack_tx_period_700d = atoi(Value);
         }
-        else if (strcasecmp(Key, "Period700E") == 0){
-            cfg->jack_period_700e = atoi(Value);
+        else if (strcasecmp(Key, "TXPeriod700E") == 0){
+            cfg->jack_tx_period_700e = atoi(Value);
         }
-        else if (strcasecmp(Key, "Period800XA") == 0){
-            cfg->jack_period_800xa = atoi(Value);
+        else if (strcasecmp(Key, "TXPeriod800XA") == 0){
+            cfg->jack_tx_period_800xa = atoi(Value);
         }
-        else if (strcasecmp(Key, "Period1600") == 0){
-            cfg->jack_period_1600 = atoi(Value);
+        else if (strcasecmp(Key, "TXPeriod1600") == 0){
+            cfg->jack_tx_period_1600 = atoi(Value);
         }
-        else if (strcasecmp(Key, "Period2400B") == 0){
-            cfg->jack_period_2400b = atoi(Value);
+        else if (strcasecmp(Key, "TXPeriod2400B") == 0){
+            cfg->jack_tx_period_2400b = atoi(Value);
         }
+
+        else if (strcasecmp(Key, "RXPeriod700C") == 0) {
+            cfg->jack_rx_period_700c = atoi(Value);
+        }
+        else if (strcasecmp(Key, "RXPeriod700D") == 0){
+            cfg->jack_rx_period_700d = atoi(Value);
+        }
+        else if (strcasecmp(Key, "RXPeriod700E") == 0){
+            cfg->jack_rx_period_700e = atoi(Value);
+        }
+        else if (strcasecmp(Key, "RXPeriod800XA") == 0){
+            cfg->jack_rx_period_800xa = atoi(Value);
+        }
+        else if (strcasecmp(Key, "RXPeriod1600") == 0){
+            cfg->jack_rx_period_1600 = atoi(Value);
+        }
+        else if (strcasecmp(Key, "RXPeriod2400B") == 0){
+            cfg->jack_rx_period_2400b = atoi(Value);
+        }
+
         else if (strcasecmp(Key, "SecureNotifyFile") == 0) {
             strncpy(cfg->jack_secure_notify_file,
                     Value,
@@ -78,6 +98,7 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
                     Value,
                     sizeof(cfg->jack_insecure_notify_file) - 1);
         }
+
         else if (strcasecmp(Key, "VoiceInPort") == 0) {
             strncpy(cfg->jack_voice_in_port,
                     Value,
@@ -128,26 +149,5 @@ size_t read_key_file(const char* key_file, unsigned char key[]) {
     }
     else {
         return 0;
-    }
-}
-
-int get_jack_period(const struct config* cfg)
-{
-    switch(cfg->freedv_mode)
-    {
-        case FREEDV_MODE_700C:
-            return cfg->jack_period_700c;
-        case FREEDV_MODE_700D:
-            return cfg->jack_period_700d;
-        case FREEDV_MODE_700E:
-            return cfg->jack_period_700e;
-        case FREEDV_MODE_800XA:
-            return cfg->jack_period_800xa;
-        case FREEDV_MODE_1600:
-            return cfg->jack_period_1600;
-        case FREEDV_MODE_2400B:
-            return cfg->jack_period_2400b;
-        default:
-            return 0;
     }
 }

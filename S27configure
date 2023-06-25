@@ -17,15 +17,10 @@ start()
 	mcopy -D o -i /dev/mmcblk0p1 ::config/key /etc/key
 
 	echo "Loading crypto configuration..."
-	mv /etc/crypto_tx.ini /etc/crypto_tx.ini.old && mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto_tx.ini /etc/crypto_tx.ini.sd && cat /etc/crypto_tx.ini.old /etc/crypto_tx.ini.sd > /etc/crypto_tx.ini && rm /etc/crypto_tx.ini.old
+	mv /etc/crypto.ini /etc/crypto.ini.old && mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd && cat /etc/crypto.ini.old /etc/crypto.ini.sd > /etc/crypto.ini && rm /etc/crypto_tx.ini.old
 	if [ $? -ne 0 ]
 	then
-		mv /etc/crypto_tx.ini.old /etc/crypto_tx.ini
-	fi
-	mv /etc/crypto_rx.ini /etc/crypto_rx.ini.old && mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto_rx.ini /etc/crypto_rx.ini.sd && cat /etc/crypto_rx.ini.old /etc/crypto_rx.ini.sd > /etc/crypto_rx.ini && rm /etc/crypto_rx.ini.old
-	if [ $? -ne 0 ]
-	then
-		mv /etc/crypto_rx.ini.old /etc/crypto_rx.ini
+		mv /etc/crypto.ini.old /etc/crypto.ini
 	fi
 
 	echo "Done"

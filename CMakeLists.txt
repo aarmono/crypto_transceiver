@@ -70,8 +70,7 @@ add_executable(crypto_tx
   minIni.c
   crypto_cfg.c
   crypto_log.c
-  crypto.ini
-  crypto_tx.ini)
+  crypto.ini)
 target_link_libraries(crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
 add_executable(crypto_rx
@@ -81,8 +80,7 @@ add_executable(crypto_rx
   minIni.c
   crypto_cfg.c
   crypto_log.c
-  crypto.ini
-  crypto_rx.ini)
+  crypto.ini)
 target_link_libraries(crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} m)
 
 add_executable(iniget iniget.c minIni.c)
@@ -95,8 +93,7 @@ add_executable(jack_crypto_tx
   minIni.c
   crypto_cfg.c
   crypto_log.c
-  crypto.ini
-  crypto_tx.ini)
+  crypto.ini)
 target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} m)
 
 add_executable(jack_crypto_rx
@@ -106,6 +103,5 @@ add_executable(jack_crypto_rx
   minIni.c
   crypto_cfg.c
   crypto_log.c
-  crypto.ini
-  crypto_rx.ini)
+  crypto.ini)
 target_link_libraries(jack_crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${SNDFILE_LIB} m)

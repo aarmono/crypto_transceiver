@@ -1,22 +1,19 @@
 #!/bin/sh
 
-NAME="receive.sh"
-DAEMON="/usr/bin/${NAME}"
-CFG_FILE="/etc/crypto_rx.ini"
-PID_FILE="/var/run/${NAME}.pid"
+NAME="jackd_rx"
+DAEMON="/usr/bin/start_jackd_rx.sh"
 
 start()
 {
 	printf "Starting ${NAME}: "
-	start-stop-daemon -S -b -m -p "${PID_FILE}" -q -x "${DAEMON}" -- ${CFG_FILE}
+	daemon -n ${NAME} -r -L 15 "${DAEMON}"
 	[ $? = 0 ] && echo "OK" || echo "FAIL"
 }
 
 stop()
 {
 	printf "Stopping ${NAME}: "
-	if start-stop-daemon -K -q -s TERM -p "${PID_FILE}"; then
-		rm -f "${PID_FILE}"
+	if daemon --stop -n ${NAME}; then
 		echo "OK"
 	else
 		echo "FAIL"

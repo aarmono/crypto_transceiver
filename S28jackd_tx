@@ -1,0 +1,38 @@
+#!/bin/sh
+
+NAME="jackd_tx"
+DAEMON="/usr/bin/start_jackd_tx.sh"
+
+start()
+{
+	printf "Starting ${NAME}: "
+	daemon -n ${NAME} -r -L 15 "${DAEMON}"
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop()
+{
+	printf "Stopping ${NAME}: "
+	if daemon --stop -n ${NAME}; then
+		echo "OK"
+	else
+		echo "FAIL"
+	fi
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}" >&2
+		exit 1
+		;;
+esac

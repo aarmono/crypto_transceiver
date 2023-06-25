@@ -16,5 +16,6 @@ else
 fi
 
 SAMPLE_RATE=`iniget JACK SampleRateTX /etc/crypto.ini.sd /etc/crypto.ini`
+BUFFERS=`iniget JACK NumBuffers /etc/crypto.ini.sd /etc/crypto.ini`
 
-exec jackd -n tx -d alsa $HW_ARGS -r "$SAMPLE_RATE" -p 1024
+exec jackd -n tx -d alsa $HW_ARGS -r "$SAMPLE_RATE" -p 1024 -n "$BUFFERS"

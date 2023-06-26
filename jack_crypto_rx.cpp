@@ -206,11 +206,18 @@ int process(jack_nframes_t nframes, void *arg)
         nin = crypto_rx->needed_modem_samples();
     }
 
-    if (output_resampler->available_elems() >= nframes)
+    const size_t available_frames =
+        std::min((size_t)nframes, output_resampler->available_elems());
+    const size_t remaining_frames = nframes - available_frames;
+
+    jack_default_audio_sample_t* voice_frames =
+        (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
+    output_resampler->dequeue(voice_frames, available_frames);
+    if (remaining_frames > 0)
     {
-        jack_default_audio_sample_t* voice_frames =
-            (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
-        output_resampler->dequeue(voice_frames, nframes);
+        memset(voice_frames + available_frames,
+               0,
+               sizeof(jack_default_audio_sample_t) * remaining_frames);
     }
 
     if (play_notification_sound)

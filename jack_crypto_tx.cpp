@@ -123,11 +123,18 @@ int process(jack_nframes_t nframes, void *arg)
         output_resampler->enqueue(mod_out, n_nom_modem_samples);
     }
 
-    if (output_resampler->available_elems() >= nframes)
+    const size_t available_frames =
+        std::min((size_t)nframes, output_resampler->available_elems());
+    const size_t remaining_frames = nframes - available_frames;
+
+    jack_default_audio_sample_t* modem_frames =
+        (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
+    output_resampler->dequeue(modem_frames, available_frames);
+    if (remaining_frames > 0)
     {
-        jack_default_audio_sample_t* modem_frames =
-            (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
-        output_resampler->dequeue(modem_frames, nframes);
+        memset(modem_frames + available_frames,
+               0,
+               sizeof(jack_default_audio_sample_t) * remaining_frames);
     }
 
     return 0;

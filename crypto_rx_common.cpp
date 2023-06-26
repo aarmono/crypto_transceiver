@@ -154,10 +154,12 @@ int crypto_rx_common::modem_frames_per_second() const
            freedv_get_n_nom_modem_samples(m_parms->freedv);
 }
 
-size_t crypto_rx_common::receive(short* speech_out, short* demod_in)
+size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
 {
     const int nin = freedv_nin(m_parms->freedv);
     const short modem_rms = rms(demod_in, nin);
+
+    const bool modem_had_signal = m_parms->modem_has_signal;
 
     // RMS-based modem squelch with hysteresis. The built in squelch
     // in FreeDV (especially with the 2400B mode) can sometimes fail at very
@@ -172,24 +174,33 @@ size_t crypto_rx_common::receive(short* speech_out, short* demod_in)
         m_parms-> modem_has_signal = true;
     }
 
-    if (m_parms->modem_has_signal == false)
+    size_t nout = 0;
+    // Only call freedv_rx if there is signal
+    if (m_parms->modem_has_signal == true)
     {
-        memset(demod_in, 0, sizeof(short) * nin);
+        nout = freedv_rx(m_parms->freedv, speech_out, const_cast<short*>(demod_in));
+
+        float snr_est = 0.0;
+        freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);
+        const short speech_rms = rms(speech_out, nout);
+        log_message(m_parms->logger,
+                    LOG_DEBUG,
+                    "nout: %u, SNR est.: %f, modem RMS: %d, speech RMS: %d, has modem signal: %d",
+                    (uint)nout,
+                    snr_est,
+                    (int)modem_rms,
+                    (int)speech_rms,
+                    (int)m_parms->modem_has_signal);
     }
-
-    const size_t nout = freedv_rx(m_parms->freedv, speech_out, demod_in);
-
-    float snr_est = 0.0;
-    freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);
-    const short speech_rms = rms(speech_out, nout);
-    log_message(m_parms->logger,
-                LOG_DEBUG,
-                "nout: %u, SNR est.: %f, modem RMS: %d, speech RMS: %d, has modem signal: %d",
-                (uint)nout,
-                snr_est,
-                (int)modem_rms,
-                (int)speech_rms,
-                (int)m_parms->modem_has_signal);
+    // When the transition from "signal" to "no signal" occurs, signal the modem
+    // needs to resync when the signal returns. Do this at the start of
+    // "loss of signal" instead of the beginning of "acquisition of signal" to
+    // ensure freedv functions called after the last call to receive and during
+    // this one are on a consistent state of the freedv object
+    else if (modem_had_signal == true)
+    {
+        freedv_set_sync(m_parms->freedv, FREEDV_SYNC_UNSYNC);
+    }
 
     return nout;
 }
@@ -236,7 +247,7 @@ void crypto_rx_log_to_logger(HCRYPTO_RX* hnd, int level, const char* msg)
     return reinterpret_cast<crypto_rx_common*>(hnd)->log_to_logger(level, msg);
 }
 
-int crypto_rx_receive(HCRYPTO_RX* hnd, short* speech_out, short* demod_in)
+int crypto_rx_receive(HCRYPTO_RX* hnd, short* speech_out, const short* demod_in)
 {
     return reinterpret_cast<crypto_rx_common*>(hnd)->receive(speech_out, demod_in);
 }

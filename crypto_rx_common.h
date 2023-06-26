@@ -36,7 +36,7 @@ public:
 
     void log_to_logger(int level, const char* msg);
 
-    size_t receive(short* speech_out, short* demod_in);
+    size_t receive(short* speech_out, const short* demod_in);
 
 private:
     struct rx_parms;
@@ -67,7 +67,7 @@ const struct config* crypto_rx_get_config(HCRYPTO_RX* hnd);
 
 void crypto_rx_log_to_logger(HCRYPTO_RX* hnd, int level, const char* msg);
 
-int crypto_rx_receive(HCRYPTO_RX* hnd, short* speech_out, short* demod_in);
+int crypto_rx_receive(HCRYPTO_RX* hnd, short* speech_out, const short* demod_in);
 
 #ifdef __cplusplus
 } // extern "C"

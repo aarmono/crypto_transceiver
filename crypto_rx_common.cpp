@@ -52,8 +52,8 @@ struct crypto_rx_common::rx_parms
     struct config*    cur = nullptr;
     struct freedv*    freedv = nullptr;
     crypto_log        logger;
-    unsigned short    silent_frames = 0;
     encryption_status crypto_status = CRYPTO_STATUS_PLAIN;
+    bool              modem_has_signal = false;
 };
 
 crypto_rx_common::~crypto_rx_common() {}
@@ -95,7 +95,7 @@ crypto_rx_common::crypto_rx_common(const char* config_file)
         log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
-    m_parms->silent_frames = modem_frames_per_second();
+    configure_freedv(m_parms->freedv);
 }
 
 size_t crypto_rx_common::max_speech_samples_per_frame() const
@@ -157,7 +157,39 @@ int crypto_rx_common::modem_frames_per_second() const
 size_t crypto_rx_common::receive(short* speech_out, short* demod_in)
 {
     const int nin = freedv_nin(m_parms->freedv);
+    const short modem_rms = rms(demod_in, nin);
+
+    // RMS-based modem squelch with hysteresis. The built in squelch
+    // in FreeDV (especially with the 2400B mode) can sometimes fail at very
+    // low input signal levels because the modem reports a very high estimated
+    // SNR
+    if (modem_rms <= m_parms->cur->modem_quiet_max_thresh)
+    {
+        m_parms->modem_has_signal = false;
+    }
+    else if (modem_rms > m_parms->cur->modem_signal_min_thresh)
+    {
+        m_parms-> modem_has_signal = true;
+    }
+
+    if (m_parms->modem_has_signal == false)
+    {
+        memset(demod_in, 0, sizeof(short) * nin);
+    }
+
     const size_t nout = freedv_rx(m_parms->freedv, speech_out, demod_in);
+
+    float snr_est = 0.0;
+    freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);
+    const short speech_rms = rms(speech_out, nout);
+    log_message(m_parms->logger,
+                LOG_DEBUG,
+                "nout: %u, SNR est.: %f, modem RMS: %d, speech RMS: %d, has modem signal: %d",
+                (uint)nout,
+                snr_est,
+                (int)modem_rms,
+                (int)speech_rms,
+                (int)m_parms->modem_has_signal);
 
     return nout;
 }

@@ -5,8 +5,15 @@ DAEMON="/usr/bin/start_jackd_rx.sh"
 
 start()
 {
+	ENABLE_LOG=`iniget JACK EnableJACKLogging /etc/crypto.ini.sd /etc/crypto.ini`
+
+	if [ "$ENABLE_LOG" = "1" ]
+	then
+		LOG_ARGS="-o /var/log/jackd_rx"
+	fi
+
 	printf "Starting ${NAME}: "
-	daemon -n ${NAME} -r -L 15 "${DAEMON}"
+	daemon -n ${NAME} -r -L 15 $LOG_ARGS "${DAEMON}"
 	[ $? = 0 ] && echo "OK" || echo "FAIL"
 }
 

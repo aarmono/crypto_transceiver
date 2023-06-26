@@ -26,12 +26,15 @@
 #include <vector>
 #include <memory>
 
+#include <gpiod.h>
+
 #include <jack/jack.h>
 
 #include "freedv_api.h"
 
 #include "resampler.h"
 #include "crypto_cfg.h"
+#include "crypto_log.h"
 #include "crypto_tx_common.h"
 
 static std::unique_ptr<crypto_tx_common> crypto_tx;
@@ -80,6 +83,43 @@ static void handle_sighup(int sig)
     reload_config = 1;
 }
 
+static int bias_flags(const char *option)
+{
+    if (strcasecmp(option, "pull-down") == 0)
+        return GPIOD_CTXLESS_FLAG_BIAS_PULL_DOWN;
+    if (strcasecmp(option, "pull-up") == 0)
+        return GPIOD_CTXLESS_FLAG_BIAS_PULL_UP;
+    if (strcasecmp(option, "disable") == 0)
+        return GPIOD_CTXLESS_FLAG_BIAS_DISABLE;
+    else
+        return 0;
+}
+
+static bool microphone_enabled(const struct config* cfg)
+{
+    if (cfg->ptt_enabled == 0)
+    {
+        return true;
+    }
+    else
+    {
+        int result = gpiod_ctxless_get_value_ext("gpiochip0",
+                                                 cfg->ptt_gpio_num,
+                                                 cfg->ptt_active_low,
+                                                 "jack_crypto_tx",
+                                                 bias_flags(cfg->ptt_gpio_bias));
+        if (result < 0)
+        {
+            crypto_tx->log_to_logger(LOG_ERROR, "Error reading PTT IO");
+            return true;
+        }
+        else
+        {
+            return result;
+        }
+    }
+}
+
 /**
  * JACK calls this shutdown_callback if the server ever shuts down or
  * decides to disconnect the client.
@@ -101,26 +141,34 @@ int process(jack_nframes_t nframes, void *arg)
     jack_default_audio_sample_t* voice_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
 
-    const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
-    const uint voice_sample_rate = crypto_tx->speech_sample_rate();
-    const uint modem_sample_rate = crypto_tx->modem_sample_rate();
-
-    input_resampler->set_sample_rates(jack_sample_rate, voice_sample_rate);
-    output_resampler->set_sample_rates(modem_sample_rate, jack_sample_rate);
-
-    input_resampler->enqueue(voice_frames, nframes);
-
-    const int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
-    const int n_speech_samples = crypto_tx->speech_samples_per_frame();
-    while (input_resampler->available_elems() >= n_speech_samples)
+    if (microphone_enabled(crypto_tx->get_config()))
     {
-        short mod_out[n_nom_modem_samples];
-        short voice_in[n_speech_samples];
-        input_resampler->dequeue(voice_in, n_speech_samples);
+        const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
+        const uint voice_sample_rate = crypto_tx->speech_sample_rate();
+        const uint modem_sample_rate = crypto_tx->modem_sample_rate();
 
-        const size_t nout = crypto_tx->transmit(mod_out, voice_in);
+        input_resampler->set_sample_rates(jack_sample_rate, voice_sample_rate);
+        output_resampler->set_sample_rates(modem_sample_rate, jack_sample_rate);
 
-        output_resampler->enqueue(mod_out, nout);
+        input_resampler->enqueue(voice_frames, nframes);
+
+        const int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
+        const int n_speech_samples = crypto_tx->speech_samples_per_frame();
+        while (input_resampler->available_elems() >= n_speech_samples)
+        {
+            short mod_out[n_nom_modem_samples];
+            short voice_in[n_speech_samples];
+            input_resampler->dequeue(voice_in, n_speech_samples);
+
+            const size_t nout = crypto_tx->transmit(mod_out, voice_in);
+
+            output_resampler->enqueue(mod_out, nout);
+        }
+    }
+    else
+    {
+        // Force a new IV next time the microphone is active
+        crypto_tx->force_rekey_next_frame();
     }
 
     const size_t available_frames =

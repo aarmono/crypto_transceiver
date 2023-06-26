@@ -36,6 +36,20 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->voice_signal_min_thresh = atoi(Value);
         }
     }
+    else if (strcasecmp(Section, "PTT") == 0) {
+        if (strcasecmp(Key, "Enabled") == 0) {
+            cfg->ptt_enabled = atoi(Value);
+        }
+        else if (strcasecmp(Key, "GPIONum") == 0) {
+            cfg->ptt_gpio_num = atoi(Value);
+        }
+        else if (strcasecmp(Key, "ActiveLow") == 0) {
+            cfg->ptt_active_low = atoi(Value);
+        }
+        else if (strcasecmp(Key, "Bias") == 0) {
+            strncpy(cfg->ptt_gpio_bias, Value, sizeof(cfg->ptt_gpio_bias) - 1);
+        }
+    }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
         if (strcasecmp(Key, "LogFile") == 0) {
             strncpy(cfg->log_file, Value, sizeof(cfg->log_file) - 1);

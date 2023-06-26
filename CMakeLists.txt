@@ -23,6 +23,11 @@ find_path(
   NAMES "sndfile.h"
   REQUIRED)
 
+find_path(
+  LIBGPIOD_INCLUDE_DIR
+  NAMES "gpiod.h"
+  REQUIRED)
+
 find_library(
   CODEC2_LIB
   "codec2"
@@ -44,6 +49,11 @@ find_library(
   "sndfile"
   REQUIRED)
 
+find_library(
+  GPIOD_LIB
+  "gpiod"
+  REQUIRED)
+
 message(STATUS "CODEC2_INCLUDE_DIR => ${CODEC2_INCLUDE_DIR}")
 message(STATUS "CODEC2_LIB => ${CODEC2_LIB}")
 
@@ -55,6 +65,9 @@ message(STATUS "JACKAUDIO_LIB => ${JACKAUDIO_LIB}")
 
 message(STATUS "LIBSNDFILE_INCLUDE_DIR => ${LIBSNDFILE_INCLUDE_DIR}")
 message(STATUS "SNDFILE_LIB => ${SNDFILE_LIB}")
+
+message(STATUS "LIBGPIOD_INCLUDE_DIR => ${LIBGPIOD_INCLUDE_DIR}")
+message(STATUS "GPIOD_LIB => ${GPIOD_LIB}")
 
 include_directories(${CODEC2_INCLUDE_DIR})
 include_directories(${LIBSAMPLERATE_INCLUDE_DIR})
@@ -97,7 +110,7 @@ add_executable(jack_crypto_tx
   crypto_cfg.c
   crypto_log.c
   crypto.ini)
-target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} m)
+target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${GPIOD_LIB} m)
 
 add_executable(jack_crypto_rx
   jack_crypto_rx.cpp

@@ -20,6 +20,11 @@ struct config
     int  rekey_period;
     int  crypto_enabled;
 
+    int  ptt_enabled;
+    int  ptt_gpio_num;
+    int  ptt_active_low;
+    char ptt_gpio_bias[80];
+
     int  freedv_mode;
 
     int  jack_tx_period_700c;

@@ -146,11 +146,11 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
     // a full-blown VOX but is primarily intended to detect when a microphone
     // isn't connected to the device or is muted, as a battery saving measure
     // in those scenarios
-    if (speech_rms <= m_parms->cur->voice_quiet_max_thresh)
+    if (speech_rms < m_parms->cur->voice_quiet_max_thresh)
     {
         m_parms->has_voice = false;
     }
-    else if (speech_rms > m_parms->cur->voice_signal_min_thresh)
+    else if (speech_rms >= m_parms->cur->voice_signal_min_thresh)
     {
         m_parms->has_voice = true;
     }

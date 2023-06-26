@@ -165,11 +165,11 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
     // in FreeDV (especially with the 2400B mode) can sometimes fail at very
     // low input signal levels because the modem reports a very high estimated
     // SNR
-    if (modem_rms <= m_parms->cur->modem_quiet_max_thresh)
+    if (modem_rms < m_parms->cur->modem_quiet_max_thresh)
     {
         m_parms->modem_has_signal = false;
     }
-    else if (modem_rms > m_parms->cur->modem_signal_min_thresh)
+    else if (modem_rms >= m_parms->cur->modem_signal_min_thresh)
     {
         m_parms-> modem_has_signal = true;
     }

@@ -12,7 +12,7 @@ extern "C"
 
 struct freedv;
 
-short rms(const short vals[], int len);
+short rms(const short vals[], size_t len);
 
 size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file);
 

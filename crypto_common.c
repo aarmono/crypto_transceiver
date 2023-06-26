@@ -1,19 +1,42 @@
 #include <stdlib.h>
-#include <math.h>
+#include <stdint.h>
 
 #include "freedv_api.h"
 
 #include "crypto_common.h"
 
-short rms(const short vals[], int len) {
+// Square root of integer
+// From: https://en.wikipedia.org/wiki/Integer_square_root
+uint64_t int_sqrt(uint64_t s)
+{
+    // Zero yields zero
+    // One yields one
+    if (s <= 1) 
+        return s;
+
+    // Initial estimate (must be too high)
+    uint64_t x0 = s / 2;
+
+    // Update
+    uint64_t x1 = (x0 + s / x0) / 2;
+
+    while (x1 < x0) // Bound check
+    {
+        x0 = x1;
+        x1 = (x0 + s / x0) / 2;
+    }
+    return x0;
+}
+
+short rms(const short vals[], size_t len) {
     if (len > 0) {
-        int64_t total = 0;
+        uint64_t total = 0;
         for (int i = 0; i < len; ++i) {
             int64_t val = vals[i];
-            total += val * val;
+            total += (uint64_t)(val * val);
         }
 
-        return (short)sqrt(total / len);
+        return (short)int_sqrt(total / len);
     }
     else {
         return 0;

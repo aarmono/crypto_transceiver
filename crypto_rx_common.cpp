@@ -182,15 +182,12 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
 
         float snr_est = 0.0;
         freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);
-        const short speech_rms = rms(speech_out, nout);
         log_message(m_parms->logger,
                     LOG_DEBUG,
-                    "nout: %u, SNR est.: %f, modem RMS: %d, speech RMS: %d, has modem signal: %d",
+                    "nout: %u, SNR est.: %f, modem RMS: %d",
                     (uint)nout,
                     snr_est,
-                    (int)modem_rms,
-                    (int)speech_rms,
-                    (int)m_parms->modem_has_signal);
+                    (int)modem_rms);
     }
     // When the transition from "signal" to "no signal" occurs, signal the modem
     // needs to resync when the signal returns. Do this at the start of

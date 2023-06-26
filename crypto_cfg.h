@@ -12,6 +12,9 @@ struct config
     char log_file[80];
     int  log_level;
 
+    int modem_quiet_max_thresh;
+    int modem_signal_min_thresh;
+
     int  rekey_period;
     int  crypto_enabled;
 

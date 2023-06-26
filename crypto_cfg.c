@@ -22,6 +22,14 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->crypto_enabled = atoi(Value);
         }
     }
+    else if (strcasecmp(Section, "Audio") == 0) {
+        if (strcasecmp(Key, "ModemQuietMaxThresh") == 0) {
+            cfg->modem_quiet_max_thresh = atoi(Value);
+        }
+        else if (strcasecmp(Key, "ModemSignalMinThresh") == 0) {
+            cfg->modem_signal_min_thresh = atoi(Value);
+        }
+    }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
         if (strcasecmp(Key, "LogFile") == 0) {
             strncpy(cfg->log_file, Value, sizeof(cfg->log_file) - 1);

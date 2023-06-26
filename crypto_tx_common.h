@@ -23,7 +23,7 @@ public:
 
     void log_to_logger(int level, const char* msg);
 
-    bool transmit(short* mod_out, const short* speech_in);
+    size_t transmit(short* mod_out, const short* speech_in);
 
 private:
     struct tx_parms;

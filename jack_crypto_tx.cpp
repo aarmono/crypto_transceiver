@@ -118,9 +118,9 @@ int process(jack_nframes_t nframes, void *arg)
         short voice_in[n_speech_samples];
         input_resampler->dequeue(voice_in, n_speech_samples);
 
-        crypto_tx->transmit(mod_out, voice_in);
+        const size_t nout = crypto_tx->transmit(mod_out, voice_in);
 
-        output_resampler->enqueue(mod_out, n_nom_modem_samples);
+        output_resampler->enqueue(mod_out, nout);
     }
 
     const size_t available_frames =

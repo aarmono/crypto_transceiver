@@ -52,6 +52,7 @@ struct crypto_tx_common::tx_parms
     struct freedv* freedv = nullptr;
     crypto_log     logger;
     unsigned short frames_since_rekey = 0;
+    bool           has_voice = false;
 };
 
 crypto_tx_common::~crypto_tx_common() {}
@@ -131,18 +132,34 @@ void crypto_tx_common::log_to_logger(int level, const char* msg)
     log_message(m_parms->logger, level, "%s", msg);
 }
 
-bool crypto_tx_common::transmit(short* mod_out, const short* speech_in)
+size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
 {
-    bool reset_iv = false;
     const int n_speech_samples = freedv_get_n_speech_samples(m_parms->freedv);
     const int n_nom_modem_samples = freedv_get_n_nom_modem_samples(m_parms->freedv);
     const int speech_samples_per_second = freedv_get_speech_sample_rate(m_parms->freedv);
     const int speech_frames_per_second = speech_samples_per_second / n_speech_samples;
 
+    const short speech_rms = rms(speech_in, n_speech_samples);
+    log_message(m_parms->logger, LOG_DEBUG, "speech RMS: %d", (int)speech_rms);
+
+    // Basic RMS-based squelch with hysteresis. This isn't intended to be
+    // a full-blown VOX but is primarily intended to detect when a microphone
+    // isn't connected to the device or is muted, as a battery saving measure
+    // in those scenarios
+    if (speech_rms <= m_parms->cur->voice_quiet_max_thresh)
+    {
+        m_parms->has_voice = false;
+    }
+    else if (speech_rms > m_parms->cur->voice_signal_min_thresh)
+    {
+        m_parms->has_voice = true;
+    }
+
     if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled)
     {
         ++m_parms->frames_since_rekey;
 
+        bool reset_iv = false;
         // Reset IV at regular intervals (if configured)
         const int rekey_frames = speech_frames_per_second *
                                  m_parms->cur->rekey_period;
@@ -169,9 +186,15 @@ bool crypto_tx_common::transmit(short* mod_out, const short* speech_in)
         }
     }
 
-    freedv_tx(m_parms->freedv, mod_out, const_cast<short*>(speech_in));
-
-    return reset_iv;
+    if (m_parms->has_voice == true)
+    {
+        freedv_tx(m_parms->freedv, mod_out, const_cast<short*>(speech_in));
+        return n_nom_modem_samples;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 HCRYPTO_TX* crypto_tx_create(const char* config_file_path)

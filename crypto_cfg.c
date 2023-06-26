@@ -29,6 +29,12 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         else if (strcasecmp(Key, "ModemSignalMinThresh") == 0) {
             cfg->modem_signal_min_thresh = atoi(Value);
         }
+        else if (strcasecmp(Key, "VoiceQuietMaxThresh") == 0) {
+            cfg->voice_quiet_max_thresh = atoi(Value);
+        }
+        else if (strcasecmp(Key, "VoiceSignalMinThresh") == 0) {
+            cfg->voice_signal_min_thresh = atoi(Value);
+        }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
         if (strcasecmp(Key, "LogFile") == 0) {

@@ -14,6 +14,8 @@ struct config
 
     int modem_quiet_max_thresh;
     int modem_signal_min_thresh;
+    int voice_quiet_max_thresh;
+    int voice_signal_min_thresh;
 
     int  rekey_period;
     int  crypto_enabled;

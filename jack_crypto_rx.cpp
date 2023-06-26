@@ -330,7 +330,7 @@ static void initialize_crypto()
     input_resampler = nullptr;
     output_resampler = nullptr;
 
-    crypto_rx.reset(new crypto_rx_common(config_file));
+    crypto_rx.reset(new crypto_rx_common("crypto_rx", config_file));
 
     const size_t speech_frames =
         get_max_resampled_frames(crypto_rx->max_speech_samples_per_frame(),

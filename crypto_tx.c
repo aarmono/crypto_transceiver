@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     signal(SIGHUP, handle_sighup);
 
-    crypto_tx = crypto_tx_create(argv[1]);
+    crypto_tx = crypto_tx_create("crypto_tx", argv[1]);
     if (crypto_tx == NULL) {
         fprintf(stderr, "Could not create crypto_tx object");
         exit(1);
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
             reload_config = 0;
 
             crypto_tx_destroy(crypto_tx);
-            crypto_tx = crypto_tx_create(argv[1]);
+            crypto_tx = crypto_tx_create("crypto_tx", argv[1]);
             if (crypto_tx == NULL) {
                 fprintf(stderr, "Could not create crypto_tx object");
                 exit(1);

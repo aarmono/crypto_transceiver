@@ -57,7 +57,7 @@ struct crypto_tx_common::tx_parms
 
 crypto_tx_common::~crypto_tx_common() {}
 
-crypto_tx_common::crypto_tx_common(const char* config_file)
+crypto_tx_common::crypto_tx_common(const char* name, const char* config_file)
     : m_parms(new tx_parms())
 {
     unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
@@ -66,7 +66,14 @@ crypto_tx_common::crypto_tx_common(const char* config_file)
     m_parms->cur = static_cast<struct config*>(calloc(1, sizeof(struct config)));
     read_config(config_file, m_parms->cur);
 
-    m_parms->logger = create_logger(m_parms->cur->log_file,
+    string config_file_name(m_parms->cur->log_file);
+    size_t name_idx = config_file_name.find("{name}");
+    if (name_idx != string::npos)
+    {
+        config_file_name.replace(name_idx, 6, name);
+    }
+
+    m_parms->logger = create_logger(config_file_name.c_str(),
                                     m_parms->cur->log_level);
 
     // Use getrandom with the urandom device because it will block until the
@@ -197,11 +204,11 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
     }
 }
 
-HCRYPTO_TX* crypto_tx_create(const char* config_file_path)
+HCRYPTO_TX* crypto_tx_create(const char* name, const char* config_file_path)
 {
     try
     {
-        return reinterpret_cast<HCRYPTO_TX*>(new crypto_tx_common(config_file_path));
+        return reinterpret_cast<HCRYPTO_TX*>(new crypto_tx_common(name, config_file_path));
     }
     catch(...)
     {

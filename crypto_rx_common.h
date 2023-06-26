@@ -17,7 +17,7 @@ enum encryption_status
 class crypto_rx_common
 {
 public:
-    crypto_rx_common(const char* config_file_path);
+    crypto_rx_common(const char* name, const char* config_file_path);
     ~crypto_rx_common();
 
     size_t max_speech_samples_per_frame() const;
@@ -55,7 +55,7 @@ extern "C"
 struct HCRYPTO_RX;
 typedef struct HCRYPTO_RX HCRYPTO_RX;
 
-HCRYPTO_RX* crypto_rx_create(const char* config_file_path);
+HCRYPTO_RX* crypto_rx_create(const char* name, const char* config_file_path);
 void crypto_rx_destroy(HCRYPTO_RX* hnd);
 
 int crypto_rx_max_speech_samples_per_frame(HCRYPTO_RX* hnd);

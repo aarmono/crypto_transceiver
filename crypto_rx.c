@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
     signal(SIGHUP, handle_sighup);
 
-    crypto_rx = crypto_rx_create(argv[1]);
+    crypto_rx = crypto_rx_create("crypto_rx", argv[1]);
     if (crypto_rx == NULL) {
         fprintf(stderr, "Could not create crypto_rx object");
         exit(1);
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
             reload_config = 0;
 
             crypto_rx_destroy(crypto_rx);
-            crypto_rx = crypto_rx_create(argv[1]);
+            crypto_rx = crypto_rx_create("crypto_rx", argv[1]);
             if (crypto_rx == NULL) {
                 fprintf(stderr, "Could not create crypto_rx object");
                 exit(1);

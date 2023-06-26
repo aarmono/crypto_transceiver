@@ -10,7 +10,7 @@ struct config;
 class crypto_tx_common
 {
 public:
-    crypto_tx_common(const char* config_file_path);
+    crypto_tx_common(const char* name, const char* config_file_path);
     ~crypto_tx_common();
 
     size_t speech_samples_per_frame() const;
@@ -39,7 +39,7 @@ extern "C"
 struct HCRYPTO_TX;
 typedef struct HCRYPTO_TX HCRYPTO_TX;
 
-HCRYPTO_TX* crypto_tx_create(const char* config_file_path);
+HCRYPTO_TX* crypto_tx_create(const char* name, const char* config_file_path);
 void crypto_tx_destroy(HCRYPTO_TX* hnd);
 
 int crypto_tx_speech_samples_per_frame(HCRYPTO_TX* hnd);

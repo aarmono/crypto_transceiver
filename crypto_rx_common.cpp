@@ -58,7 +58,7 @@ struct crypto_rx_common::rx_parms
 
 crypto_rx_common::~crypto_rx_common() {}
 
-crypto_rx_common::crypto_rx_common(const char* config_file)
+crypto_rx_common::crypto_rx_common(const char* name, const char* config_file)
     : m_parms(new rx_parms(config_file))
 {
     unsigned char  key[FREEDV_MASTER_KEY_LENGTH];
@@ -67,7 +67,15 @@ crypto_rx_common::crypto_rx_common(const char* config_file)
     m_parms->cur = static_cast<struct config*>(calloc(1, sizeof(struct config)));
     read_config(config_file, m_parms->cur);
 
-    m_parms->logger = create_logger(m_parms->cur->log_file, m_parms->cur->log_level);
+    string config_file_name(m_parms->cur->log_file);
+    size_t name_idx = config_file_name.find("{name}");
+    if (name_idx != string::npos)
+    {
+        config_file_name.replace(name_idx, 6, name);
+    }
+
+    m_parms->logger = create_logger(config_file_name.c_str(),
+                                    m_parms->cur->log_level);
 
     size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
     if (str_has_value(m_parms->cur->key_file) &&
@@ -202,11 +210,11 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
     return nout;
 }
 
-HCRYPTO_RX* crypto_rx_create(const char* config_file_path)
+HCRYPTO_RX* crypto_rx_create(const char* name, const char* config_file_path)
 {
     try
     {
-        return reinterpret_cast<HCRYPTO_RX*>(new crypto_rx_common(config_file_path));
+        return reinterpret_cast<HCRYPTO_RX*>(new crypto_rx_common(name, config_file_path));
     }
     catch (...)
     {

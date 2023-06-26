@@ -23,6 +23,8 @@ public:
 
     void log_to_logger(int level, const char* msg);
 
+    void force_rekey_next_frame();
+
     size_t transmit(short* mod_out, const short* speech_in);
 
 private:

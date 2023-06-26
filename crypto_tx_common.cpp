@@ -53,6 +53,7 @@ struct crypto_tx_common::tx_parms
     crypto_log     logger;
     unsigned short frames_since_rekey = 0;
     bool           has_voice = false;
+    bool           force_rekey = false;
 };
 
 crypto_tx_common::~crypto_tx_common() {}
@@ -139,6 +140,11 @@ void crypto_tx_common::log_to_logger(int level, const char* msg)
     log_message(m_parms->logger, level, "%s", msg);
 }
 
+void crypto_tx_common::force_rekey_next_frame()
+{
+    m_parms->force_rekey = true;
+}
+
 size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
 {
     const int n_speech_samples = freedv_get_n_speech_samples(m_parms->freedv);
@@ -166,20 +172,23 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
     {
         ++m_parms->frames_since_rekey;
 
-        bool reset_iv = false;
+        bool reset_iv = m_parms->force_rekey;
         // Reset IV at regular intervals (if configured)
         const int rekey_frames = speech_frames_per_second *
                                  m_parms->cur->rekey_period;
         if (rekey_frames > 0 && (m_parms->frames_since_rekey % rekey_frames) == 0)
         {
-            m_parms->frames_since_rekey = 0;
             log_message(m_parms->logger,
                         LOG_INFO,
                         "New initialization vector due to auto rekey");
             reset_iv = true;
         }
 
-        if (reset_iv) {
+        if (reset_iv)
+        {
+            m_parms->force_rekey = false;
+            m_parms->frames_since_rekey = 0;
+
             unsigned char iv[IV_LEN];
             // Use getrandom with the urandom device because it will block
             // until the entropy pool is initialized

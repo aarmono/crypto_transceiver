@@ -152,18 +152,25 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
     const int speech_samples_per_second = freedv_get_speech_sample_rate(m_parms->freedv);
     const int speech_frames_per_second = speech_samples_per_second / n_speech_samples;
 
-    const short speech_rms = rms(speech_in, n_speech_samples);
-    log_message(m_parms->logger, LOG_DEBUG, "speech RMS: %d", (int)speech_rms);
-
-    // Basic RMS-based squelch with hysteresis. This isn't intended to be
-    // a full-blown VOX but is primarily intended to detect when a microphone
-    // isn't connected to the device or is muted, as a battery saving measure
-    // in those scenarios
-    if (speech_rms < m_parms->cur->voice_quiet_max_thresh)
+    if (m_parms->cur->voice_signal_min_thresh > 0)
     {
-        m_parms->has_voice = false;
+        const short speech_rms = rms(speech_in, n_speech_samples);
+        log_message(m_parms->logger, LOG_DEBUG, "speech RMS: %d", (int)speech_rms);
+
+        // Basic RMS-based squelch with hysteresis. This isn't intended to be
+        // a full-blown VOX but is primarily intended to detect when a microphone
+        // isn't connected to the device or is muted, as a battery saving measure
+        // in those scenarios
+        if (speech_rms < m_parms->cur->voice_quiet_max_thresh)
+        {
+            m_parms->has_voice = false;
+        }
+        else if (speech_rms >= m_parms->cur->voice_signal_min_thresh)
+        {
+            m_parms->has_voice = true;
+        }
     }
-    else if (speech_rms >= m_parms->cur->voice_signal_min_thresh)
+    else
     {
         m_parms->has_voice = true;
     }

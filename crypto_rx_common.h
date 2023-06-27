@@ -21,6 +21,7 @@ public:
     ~crypto_rx_common();
 
     size_t max_speech_samples_per_frame() const;
+    size_t speech_samples_per_frame() const;
     size_t max_modem_samples_per_frame() const;
     size_t modem_samples_per_frame() const;
 

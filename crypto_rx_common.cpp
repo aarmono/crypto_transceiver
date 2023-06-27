@@ -111,6 +111,11 @@ size_t crypto_rx_common::max_speech_samples_per_frame() const
     return freedv_get_n_max_speech_samples(m_parms->freedv);
 }
 
+size_t crypto_rx_common::speech_samples_per_frame() const
+{
+    return static_cast<size_t>(freedv_get_n_speech_samples(m_parms->freedv));
+}
+
 size_t crypto_rx_common::max_modem_samples_per_frame() const
 {
     return freedv_get_n_max_modem_samples(m_parms->freedv);

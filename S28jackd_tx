@@ -5,7 +5,7 @@ DAEMON="/usr/bin/start_jackd_tx.sh"
 
 start()
 {
-	ENABLE_LOG=`iniget JACK EnableJACKLogging /etc/crypto.ini.sd /etc/crypto.ini`
+	ENABLE_LOG=`iniget Diagnostics EnableJACKLogging /etc/crypto.ini.sd /etc/crypto.ini`
 
 	if [ "$ENABLE_LOG" = "1" ]
 	then

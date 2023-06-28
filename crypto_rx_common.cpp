@@ -54,6 +54,7 @@ struct crypto_rx_common::rx_parms
     crypto_log        logger;
     encryption_status crypto_status = CRYPTO_STATUS_PLAIN;
     bool              modem_has_signal = false;
+    int               modem_flush_frames = 0;
 };
 
 crypto_rx_common::~crypto_rx_common() {}
@@ -104,6 +105,7 @@ crypto_rx_common::crypto_rx_common(const char* name, const char* config_file)
     }
 
     configure_freedv(m_parms->freedv);
+    m_parms->modem_flush_frames = m_parms->cur->modem_num_quiet_flush_frames;
 }
 
 size_t crypto_rx_common::max_speech_samples_per_frame() const
@@ -184,12 +186,24 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
     }
     else if (modem_rms >= m_parms->cur->modem_signal_min_thresh)
     {
-        m_parms-> modem_has_signal = true;
+        m_parms->modem_has_signal = true;
+    }
+
+    if (m_parms->modem_has_signal)
+    {
+        m_parms->modem_flush_frames = 0;
+    }
+    else if (m_parms->modem_flush_frames <=
+             m_parms->cur->modem_num_quiet_flush_frames)
+    {
+        ++m_parms->modem_flush_frames;
     }
 
     size_t nout = 0;
-    // Only call freedv_rx if there is signal
-    if (m_parms->modem_has_signal == true)
+    // Only call freedv_rx if there is signal or for the first few
+    // "silent" frames to flush out the system
+    if (m_parms->modem_has_signal == true ||
+        m_parms->modem_flush_frames <= m_parms->cur->modem_num_quiet_flush_frames)
     {
         nout = freedv_rx(m_parms->freedv, speech_out, const_cast<short*>(demod_in));
 
@@ -207,7 +221,7 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
     // "loss of signal" instead of the beginning of "acquisition of signal" to
     // ensure freedv functions called after the last call to receive and during
     // this one are on a consistent state of the freedv object
-    else if (modem_had_signal == true)
+    else
     {
         freedv_set_sync(m_parms->freedv, FREEDV_SYNC_UNSYNC);
     }

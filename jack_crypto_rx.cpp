@@ -34,6 +34,7 @@
 
 #include "freedv_api.h"
 
+#include "crypto_log.h"
 #include "crypto_rx_common.h"
 #include "crypto_cfg.h"
 #include "resampler.h"
@@ -167,7 +168,7 @@ void jack_shutdown(void *arg)
  */
 int process(jack_nframes_t nframes, void *arg)
 {
-    jack_default_audio_sample_t* modem_frames =
+    jack_default_audio_sample_t* const modem_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
     bool play_notification_sound = false;
 
@@ -210,7 +211,7 @@ int process(jack_nframes_t nframes, void *arg)
         std::min((size_t)nframes, output_resampler->available_elems());
     const size_t remaining_frames = nframes - available_frames;
 
-    jack_default_audio_sample_t* voice_frames =
+    jack_default_audio_sample_t* const voice_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
     output_resampler->dequeue(voice_frames, available_frames);
     if (remaining_frames > 0)
@@ -237,14 +238,20 @@ int process(jack_nframes_t nframes, void *arg)
 
     if (notification_buffer.empty() == false)
     {
+        jack_default_audio_sample_t* const notification_frames =
+            (jack_default_audio_sample_t*)jack_port_get_buffer(notification_port, nframes);
+
         const jack_nframes_t n_notification_frames =
             std::min(nframes, static_cast<jack_nframes_t>(notification_buffer.size()));
-        jack_default_audio_sample_t* notification_frames =
-            (jack_default_audio_sample_t*)jack_port_get_buffer(notification_port, n_notification_frames);
-
         const auto notification_end = notification_buffer.cbegin() + n_notification_frames;
         std::copy(notification_buffer.cbegin(), notification_end, notification_frames);
         notification_buffer.erase(notification_buffer.cbegin(), notification_end);
+        if (n_notification_frames < nframes)
+        {
+            memset(notification_frames + n_notification_frames,
+                   0,
+                   (nframes - n_notification_frames));
+        }
     }
 
     return 0;
@@ -286,8 +293,31 @@ static bool connect_input_ports(jack_port_t* output_port,
 
 static void activate_client()
 {
+    char buffer[128] = {0};
     const struct config* cfg = crypto_rx->get_config();
-    const jack_nframes_t period = get_jack_period(cfg);
+    jack_nframes_t period = get_jack_period(cfg);
+    if (period == 0)
+    {
+        const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
+        const uint speech_sample_rate = crypto_rx->speech_sample_rate();
+        const uint speech_samples_per_frame = crypto_rx->speech_samples_per_frame();
+
+        period = get_nom_resampled_frames(speech_samples_per_frame,
+                                          speech_sample_rate,
+                                          jack_sample_rate);
+        snprintf(buffer,
+                 sizeof(buffer),
+                 "Buffer size: %u, Speech frame size: %u, Speech sample rate: %u",
+                 period,
+                 speech_samples_per_frame,
+                 speech_sample_rate);
+    }
+    else
+    {
+        snprintf(buffer, sizeof(buffer), "Buffer size: %u from config file", period);
+    }
+
+    crypto_rx->log_to_logger(LOG_INFO, buffer);
     jack_set_buffer_size(client, period);
 
     /* Tell the JACK server that we are ready to roll.  Our

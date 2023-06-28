@@ -9,6 +9,13 @@
 
 #include <samplerate.h>
 
+inline size_t get_nom_resampled_frames(size_t src_frames,
+                                       uint   src_sample_rate,
+                                       uint   dst_sample_rate)
+{
+    return ((src_frames * dst_sample_rate) + (src_sample_rate / 2)) / src_sample_rate;
+}
+
 inline size_t get_max_resampled_frames(size_t src_frames,
                                        uint   src_sample_rate,
                                        uint   dst_sample_rate)
@@ -152,6 +159,21 @@ public:
         }
     }
 
+    void flush(size_t max_elems_to_flush)
+    {
+        if (m_source_rate != m_dest_rate)
+        {
+            do_resample(max_elems_to_flush);
+        }
+    }
+
+    void reset()
+    {
+        m_data_to_resample.clear();
+        m_resampled_data.clear();
+        src_reset(m_state);
+    }
+
     size_t available_elems() const
     {
         return m_resampled_data.size();
@@ -159,10 +181,10 @@ public:
 
 private:
 
-    void do_resample()
+    void do_resample(size_t max_elems_to_flush = 0)
     {
         const uint max_output_frames =
-            get_max_resampled_frames(m_data_to_resample.size(),
+            get_max_resampled_frames(m_data_to_resample.size() + max_elems_to_flush,
                                      m_source_rate,
                                      m_dest_rate);
 
@@ -177,7 +199,7 @@ private:
         resample_parms.input_frames = m_data_to_resample.size();
         resample_parms.output_frames = max_output_frames;
 
-        resample_parms.end_of_input = 0;
+        resample_parms.end_of_input = max_elems_to_flush != 0;
 
         resample_parms.src_ratio = (double)m_dest_rate / (double)m_source_rate;
 

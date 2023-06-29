@@ -164,14 +164,8 @@ public:
         if (m_source_rate != m_dest_rate)
         {
             do_resample(max_elems_to_flush);
+            src_reset(m_state);
         }
-    }
-
-    void reset()
-    {
-        m_data_to_resample.clear();
-        m_resampled_data.clear();
-        src_reset(m_state);
     }
 
     size_t available_elems() const

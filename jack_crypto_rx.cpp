@@ -168,7 +168,7 @@ void jack_shutdown(void *arg)
  */
 int process(jack_nframes_t nframes, void *arg)
 {
-    jack_default_audio_sample_t* const modem_frames =
+    const jack_default_audio_sample_t* const modem_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
     bool play_notification_sound = false;
 
@@ -181,12 +181,14 @@ int process(jack_nframes_t nframes, void *arg)
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     const uint voice_sample_rate = crypto_rx->speech_sample_rate();
     const uint modem_sample_rate = crypto_rx->modem_sample_rate();
+    const int n_nom_speech_samples = crypto_rx->speech_samples_per_frame();
 
     input_resampler->set_sample_rates(jack_sample_rate, modem_sample_rate);
     output_resampler->set_sample_rates(voice_sample_rate, jack_sample_rate);
 
     input_resampler->enqueue(modem_frames, nframes);
 
+    int nout_this_cycle = 0;
     int nin = crypto_rx->needed_modem_samples();
     while (input_resampler->available_elems() >= nin)
     {
@@ -194,12 +196,13 @@ int process(jack_nframes_t nframes, void *arg)
         const int n_max_speech_samples = crypto_rx->max_speech_samples_per_frame();
 
         short demod_in[n_max_modem_samples];
-        short voice_out[n_max_speech_samples];
+        short voice_out[n_max_speech_samples] = {0};
 
         input_resampler->dequeue(demod_in, nin);
 
         const int nout = crypto_rx->receive(voice_out, demod_in);
         output_resampler->enqueue(voice_out, nout);
+        nout_this_cycle += nout;
 
         /* IMPORTANT: don't forget to do this in the while loop to
            ensure we fread the correct number of samples: ie update
@@ -207,18 +210,50 @@ int process(jack_nframes_t nframes, void *arg)
         nin = crypto_rx->needed_modem_samples();
     }
 
-    const size_t available_frames =
-        std::min((size_t)nframes, output_resampler->available_elems());
-    const size_t remaining_frames = nframes - available_frames;
-
+    const bool output_active = nout_this_cycle >= n_nom_speech_samples;
     jack_default_audio_sample_t* const voice_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
-    output_resampler->dequeue(voice_frames, available_frames);
-    if (remaining_frames > 0)
+    if (output_active)
     {
-        memset(voice_frames + available_frames,
-               0,
-               sizeof(jack_default_audio_sample_t) * remaining_frames);
+        // When the radio is active and modem data is coming in we
+        // are mostly concerned about having enough data to put onto the
+        // voice port during the next time this process runs without
+        // underflowing. So make sure the output buffer is "primed"
+        // before starting to output data onto the port
+        const uint voice_resampled_frames =
+            get_nom_resampled_frames(n_nom_speech_samples,
+                                     voice_sample_rate,
+                                     jack_sample_rate);
+        const uint required_frames =
+            (voice_resampled_frames + (nframes - 1)) / nframes;
+        if (output_resampler->available_elems() >= (nframes * required_frames))
+        {
+            output_resampler->dequeue(voice_frames, nframes);
+        }
+        else
+        {
+            memset(voice_frames,
+                   0,
+                   sizeof(jack_default_audio_sample_t) * nframes);
+        }
+    }
+    else
+    {
+        // If there is a gap in output then flush the output.
+        // This will also reset the libsamplerate state file
+        output_resampler->flush(nframes * 2);
+
+        const size_t available_frames =
+            std::min((size_t)nframes, output_resampler->available_elems());
+        const size_t remaining_frames = nframes - available_frames;
+
+        output_resampler->dequeue(voice_frames, available_frames);
+        if (remaining_frames > 0)
+        {
+            memset(voice_frames + available_frames,
+                   0,
+                   sizeof(jack_default_audio_sample_t) * remaining_frames);
+        }
     }
 
     if (play_notification_sound)

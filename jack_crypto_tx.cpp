@@ -141,7 +141,7 @@ void jack_shutdown(void *arg)
  */
 int process(jack_nframes_t nframes, void *arg)
 {
-    jack_default_audio_sample_t* const voice_frames =
+    const jack_default_audio_sample_t* const voice_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(voice_port, nframes);
     jack_default_audio_sample_t* const modem_frames =
             (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
@@ -199,7 +199,8 @@ int process(jack_nframes_t nframes, void *arg)
         // port. This is surprisingly complicated
 
         // Flush the input resampler to make sure all internal state is
-        // written out
+        // written out. This will also reset the libsamplerate
+        // state file
         input_resampler->flush(n_speech_samples * 2);
 
         // Run all the input data through the modem
@@ -219,11 +220,9 @@ int process(jack_nframes_t nframes, void *arg)
             output_resampler->enqueue(mod_out, nout);
         }
 
-        // Now the input resampler is empty, so reset it as recommended
-        // by the libsamplerate library
-        input_resampler->reset();
         // Now that the output resampler has all the data it will, flush
-        // it to make sure all internal state is written out
+        // it to make sure all internal state is written out. This will
+        // also reset the libsamplerate state file
         output_resampler->flush(nframes * 2);
 
         // Write out as much data to the modem port as we can. There may
@@ -237,13 +236,6 @@ int process(jack_nframes_t nframes, void *arg)
             memset(modem_frames + available_frames,
                    0,
                    sizeof(jack_default_audio_sample_t) * remaining_frames);
-        }
-
-        // Once there is no more data in the output resampler,
-        // reset it as recommended by the libsamplerate library
-        if (output_resampler->available_elems() == 0)
-        {
-            output_resampler->reset();
         }
 
         // Force a new IV next time the microphone is active now that

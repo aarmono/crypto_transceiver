@@ -206,6 +206,11 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
         m_parms->modem_flush_frames <= m_parms->cur->modem_num_quiet_flush_frames)
     {
         nout = freedv_rx(m_parms->freedv, speech_out, const_cast<short*>(demod_in));
+        if (m_parms->modem_has_signal == false)
+        {
+            // If we are flushing frames, Call freedv_rx but discard the output
+            nout = 0;
+        }
 
         float snr_est = 0.0;
         freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);

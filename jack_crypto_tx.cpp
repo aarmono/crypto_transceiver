@@ -146,18 +146,44 @@ int process(jack_nframes_t nframes, void *arg)
     jack_default_audio_sample_t* const modem_frames =
             (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
 
-    const int n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
-    const int n_speech_samples = crypto_tx->speech_samples_per_frame();
+    const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
+    const uint voice_sample_rate = crypto_tx->speech_sample_rate();
+    const uint modem_sample_rate = crypto_tx->modem_sample_rate();
+
+    input_resampler->set_sample_rates(jack_sample_rate, voice_sample_rate);
+    output_resampler->set_sample_rates(modem_sample_rate, jack_sample_rate);
+
+    const size_t n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
+    const size_t n_speech_samples = crypto_tx->speech_samples_per_frame();
     if (microphone_enabled(crypto_tx->get_config()))
     {
-        const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
-        const uint voice_sample_rate = crypto_tx->speech_sample_rate();
-        const uint modem_sample_rate = crypto_tx->modem_sample_rate();
-
-        input_resampler->set_sample_rates(jack_sample_rate, voice_sample_rate);
-        output_resampler->set_sample_rates(modem_sample_rate, jack_sample_rate);
-
         input_resampler->enqueue(voice_frames, nframes);
+
+        const uint voice_resampled_frames =
+            get_nom_resampled_frames(n_speech_samples,
+                                     voice_sample_rate,
+                                     jack_sample_rate);
+
+        // Special case if the jack period is equal to the voice
+        // period. We know we get the correct number of frames
+        // each cycle, so any shortage is due to the samplerate
+        // conversion. So zero-pad the front of the first voice
+        // buffer and send right away
+        if (voice_resampled_frames == nframes)
+        {
+            short mod_out[n_nom_modem_samples];
+            short voice_in[n_speech_samples] = {0};
+
+            const size_t to_deque =
+                std::min(n_speech_samples, input_resampler->available_elems());
+            const size_t offset = n_speech_samples - to_deque;
+
+            input_resampler->dequeue(voice_in + offset, to_deque);
+
+            const size_t nout = crypto_tx->transmit(mod_out, voice_in);
+
+            output_resampler->enqueue(mod_out, nout);
+        }
 
         while (input_resampler->available_elems() >= n_speech_samples)
         {
@@ -179,17 +205,38 @@ int process(jack_nframes_t nframes, void *arg)
             get_nom_resampled_frames(n_nom_modem_samples,
                                      modem_sample_rate,
                                      jack_sample_rate);
-        const uint required_frames =
-            (modem_resampled_frames + (nframes - 1)) / nframes;
-        if (output_resampler->available_elems() >= (nframes * required_frames))
+
+        // Special case if the jack period is equal to the modem period
+        // Just like with the voice, the only time there won't be enough
+        // data is the first frame after a PTT due to the sample rate
+        // conversion. So zero-pad the start of the buffer
+        if (modem_resampled_frames == nframes)
         {
-            output_resampler->dequeue(modem_frames, nframes);
+            const size_t to_deque =
+                std::min((size_t)nframes, output_resampler->available_elems());
+            const size_t offset = nframes - to_deque;
+
+            if (offset > 0)
+            {
+                memset(modem_frames, 0, sizeof(jack_default_audio_sample_t) * offset);
+            }
+            output_resampler->dequeue(modem_frames + offset, to_deque);
         }
         else
         {
-            memset(modem_frames,
-                   0,
-                   sizeof(jack_default_audio_sample_t) * nframes);
+            const uint required_frames =
+                (modem_resampled_frames + (nframes - 1)) / nframes;
+            const uint required_elems = nframes * required_frames;
+            if (output_resampler->available_elems() >= required_elems)
+            {
+                output_resampler->dequeue(modem_frames, nframes);
+            }
+            else
+            {
+                memset(modem_frames,
+                       0,
+                       sizeof(jack_default_audio_sample_t) * nframes);
+            }
         }
     }
     else
@@ -212,7 +259,7 @@ int process(jack_nframes_t nframes, void *arg)
             // input queue (which there should be if the flush worked)
             short voice_in[n_speech_samples] = {0};
             input_resampler->dequeue(voice_in,
-                                     std::min((size_t)n_speech_samples,
+                                     std::min(n_speech_samples,
                                               input_resampler->available_elems()));
 
             const size_t nout = crypto_tx->transmit(mod_out, voice_in);

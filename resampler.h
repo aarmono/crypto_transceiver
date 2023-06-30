@@ -121,6 +121,23 @@ public:
         }
     }
 
+    void enqueue_zeroes(size_t count)
+    {
+        if (count == 0)
+        {
+            return;
+        }
+        else if (m_source_rate == m_dest_rate)
+        {
+            m_resampled_data.resize(m_resampled_data.size() + count, 0.0f);
+        }
+        else
+        {
+            m_data_to_resample.resize(m_data_to_resample.size() + count, 0.0f);
+            do_resample();
+        }
+    }
+
     bool dequeue(float* data, size_t count)
     {
         if (count == 0)
@@ -166,6 +183,12 @@ public:
             do_resample(max_elems_to_flush);
             src_reset(m_state);
         }
+    }
+
+    void clear()
+    {
+        m_data_to_resample.clear();
+        m_resampled_data.clear();
     }
 
     size_t available_elems() const

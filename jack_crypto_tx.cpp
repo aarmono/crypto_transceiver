@@ -50,8 +50,7 @@ static volatile sig_atomic_t reload_config = 0;
 
 static const char* config_file = nullptr;
 
-static bool           last_gpio_value = false;
-static jack_nframes_t last_gpio_time = 0;
+static bool mic_enabled_prev = false;
 
 static int get_jack_period(const struct config* cfg)
 {
@@ -155,36 +154,22 @@ int process(jack_nframes_t nframes, void *arg)
 
     const size_t n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
     const size_t n_speech_samples = crypto_tx->speech_samples_per_frame();
-    if (microphone_enabled(crypto_tx->get_config()))
+    const bool mic_enabled_cur = microphone_enabled(crypto_tx->get_config());
+    if (mic_enabled_cur)
     {
-        input_resampler->enqueue(voice_frames, nframes);
-
-        const uint voice_resampled_frames =
-            get_nom_resampled_frames(n_speech_samples,
-                                     voice_sample_rate,
-                                     jack_sample_rate);
-
-        // Special case if the jack period is equal to the voice
-        // period. We know we get the correct number of frames
-        // each cycle, so any shortage is due to the samplerate
-        // conversion. So zero-pad the front of the first voice
-        // buffer and send right away
-        if (voice_resampled_frames == nframes)
+        // Only "prime" the resamplers on the "rising edge"
+        if (!mic_enabled_prev)
         {
-            short mod_out[n_nom_modem_samples];
-            short voice_in[n_speech_samples] = {0};
+            input_resampler->enqueue_zeroes(nframes);
+            input_resampler->clear();
 
-            const size_t to_deque =
-                std::min(n_speech_samples, input_resampler->available_elems());
-            const size_t offset = n_speech_samples - to_deque;
-
-            input_resampler->dequeue(voice_in + offset, to_deque);
-
-            const size_t nout = crypto_tx->transmit(mod_out, voice_in);
-
-            output_resampler->enqueue(mod_out, nout);
+            output_resampler->enqueue_zeroes(n_nom_modem_samples);
+            output_resampler->clear();
         }
 
+        input_resampler->enqueue(voice_frames, nframes);
+
+        // Now add the remaining frames without zero-padding
         while (input_resampler->available_elems() >= n_speech_samples)
         {
             short mod_out[n_nom_modem_samples];
@@ -196,81 +181,64 @@ int process(jack_nframes_t nframes, void *arg)
             output_resampler->enqueue(mod_out, nout);
         }
 
-        // When the microphone is active and voice data is coming in we
-        // are mostly concerned about having enough data to put onto the
-        // modem port during the next time this process runs without
-        // underflowing. So make sure the output buffer is "primed"
-        // before starting to output data onto the port
         const uint modem_resampled_frames =
             get_nom_resampled_frames(n_nom_modem_samples,
                                      modem_sample_rate,
                                      jack_sample_rate);
-
-        // Special case if the jack period is equal to the modem period
-        // Just like with the voice, the only time there won't be enough
-        // data is the first frame after a PTT due to the sample rate
-        // conversion. So zero-pad the start of the buffer
-        if (modem_resampled_frames == nframes)
+        const uint required_frames =
+            (modem_resampled_frames + (nframes - 1)) / nframes;
+        const uint required_elems = nframes * required_frames;
+        if (output_resampler->available_elems() >= required_elems)
         {
-            const size_t to_deque =
-                std::min((size_t)nframes, output_resampler->available_elems());
-            const size_t offset = nframes - to_deque;
-
-            if (offset > 0)
-            {
-                memset(modem_frames, 0, sizeof(jack_default_audio_sample_t) * offset);
-            }
-            output_resampler->dequeue(modem_frames + offset, to_deque);
+            output_resampler->dequeue(modem_frames, nframes);
         }
         else
         {
-            const uint required_frames =
-                (modem_resampled_frames + (nframes - 1)) / nframes;
-            const uint required_elems = nframes * required_frames;
-            if (output_resampler->available_elems() >= required_elems)
-            {
-                output_resampler->dequeue(modem_frames, nframes);
-            }
-            else
-            {
-                memset(modem_frames,
-                       0,
-                       sizeof(jack_default_audio_sample_t) * nframes);
-            }
+            memset(modem_frames,
+                   0,
+                   sizeof(jack_default_audio_sample_t) * nframes);
         }
     }
     else
     {
-        // When the microphone is off we have to make sure we have flushed
-        // all the voice and modem data out of the system and onto the modem
-        // port. This is surprisingly complicated
-
-        // Flush the input resampler to make sure all internal state is
-        // written out. This will also reset the libsamplerate
-        // state file
-        input_resampler->flush(n_speech_samples * 2);
-
-        // Run all the input data through the modem
-        while (input_resampler->available_elems() != 0)
+        // Only flush on the "falling edge"
+        if (mic_enabled_prev)
         {
-            short mod_out[n_nom_modem_samples];
-            // Initializing this buffer to zero will zero-fill the end
-            // if there aren't a multiple of n_speech_samples in the
-            // input queue (which there should be if the flush worked)
-            short voice_in[n_speech_samples] = {0};
-            input_resampler->dequeue(voice_in,
-                                     std::min(n_speech_samples,
-                                              input_resampler->available_elems()));
+            // When the microphone is off we have to make sure we have flushed
+            // all the voice and modem data out of the system and onto the modem
+            // port.
 
-            const size_t nout = crypto_tx->transmit(mod_out, voice_in);
+            // Flush the input resampler to make sure all internal state is
+            // written out. This will also reset the libsamplerate
+            // state file
+            input_resampler->flush(n_speech_samples * 2);
 
-            output_resampler->enqueue(mod_out, nout);
+            // Run all the input data through the modem
+            while (input_resampler->available_elems() != 0)
+            {
+                short mod_out[n_nom_modem_samples];
+                // Initializing this buffer to zero will zero-fill the end
+                // if there aren't a multiple of n_speech_samples in the
+                // input queue
+                short voice_in[n_speech_samples] = {0};
+                input_resampler->dequeue(voice_in,
+                                         std::min(n_speech_samples,
+                                                  input_resampler->available_elems()));
+
+                const size_t nout = crypto_tx->transmit(mod_out, voice_in);
+
+                output_resampler->enqueue(mod_out, nout);
+            }
+
+            // Now that the output resampler has all the data it will, flush
+            // it to make sure all internal state is written out. This will
+            // also reset the libsamplerate state file
+            output_resampler->flush(nframes * 2);
+
+            // Force a new IV next time the microphone is active now that
+            // the codec is idle
+            crypto_tx->force_rekey_next_frame();
         }
-
-        // Now that the output resampler has all the data it will, flush
-        // it to make sure all internal state is written out. This will
-        // also reset the libsamplerate state file
-        output_resampler->flush(nframes * 2);
 
         // Write out as much data to the modem port as we can. There may
         // be a few cycles' worth of data queued.
@@ -284,11 +252,9 @@ int process(jack_nframes_t nframes, void *arg)
                    0,
                    sizeof(jack_default_audio_sample_t) * remaining_frames);
         }
-
-        // Force a new IV next time the microphone is active now that
-        // the codec is idle
-        crypto_tx->force_rekey_next_frame();
     }
+
+    mic_enabled_prev = mic_enabled_cur;
 
     return 0;
 }

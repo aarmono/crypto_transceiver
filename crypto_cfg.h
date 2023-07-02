@@ -26,6 +26,11 @@ struct config
     int  ptt_active_low;
     char ptt_gpio_bias[80];
 
+    int  ptt_output_gpio_num;
+    int  ptt_output_active_low;
+    char ptt_output_bias[80];
+    char ptt_output_drive[80];
+
     int  freedv_mode;
 
     int  jack_tx_period_700c;

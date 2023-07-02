@@ -97,6 +97,18 @@ static int bias_flags(const char *option)
         return 0;
 }
 
+static int drive_flags(const char *option)
+{
+    if (strcasecmp(option, "open-drain") == 0)
+        return GPIOD_CTXLESS_FLAG_OPEN_DRAIN;
+    if (strcasecmp(option, "open-source") == 0)
+        return GPIOD_CTXLESS_FLAG_OPEN_SOURCE;
+    if (strcasecmp(option, "push-pull") == 0)
+        return 0;
+
+    return 0;
+}
+
 static bool microphone_enabled(const struct config* cfg)
 {
     if (cfg->ptt_enabled == 0)
@@ -120,6 +132,25 @@ static bool microphone_enabled(const struct config* cfg)
             return result;
         }
     }
+}
+
+static void set_ptt_val(const struct config* cfg, bool val)
+{
+    if (cfg->ptt_enabled == 0)
+    {
+        return;
+    }
+
+    const int flags = bias_flags(cfg->ptt_output_bias) |
+                      drive_flags(cfg->ptt_output_bias);
+    gpiod_ctxless_set_value_ext("gpiochip0",
+                                cfg->ptt_output_gpio_num,
+                                val,
+                                cfg->ptt_output_active_low,
+                                "jack_crypto_tx",
+                                nullptr,
+                                nullptr,
+                                flags);
 }
 
 /**
@@ -152,9 +183,11 @@ int process(jack_nframes_t nframes, void *arg)
     input_resampler->set_sample_rates(jack_sample_rate, voice_sample_rate);
     output_resampler->set_sample_rates(modem_sample_rate, jack_sample_rate);
 
+    const struct config* cfg = crypto_tx->get_config();
+
     const size_t n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
     const size_t n_speech_samples = crypto_tx->speech_samples_per_frame();
-    const bool mic_enabled_cur = microphone_enabled(crypto_tx->get_config());
+    const bool mic_enabled_cur = microphone_enabled(cfg);
     if (mic_enabled_cur)
     {
         // Only "prime" the resamplers on the "rising edge"
@@ -166,6 +199,9 @@ int process(jack_nframes_t nframes, void *arg)
             output_resampler->enqueue_zeroes(n_nom_modem_samples);
             output_resampler->clear();
         }
+
+        // Turn on the PTT output
+        set_ptt_val(cfg, true);
 
         input_resampler->enqueue(voice_frames, nframes);
 
@@ -251,6 +287,12 @@ int process(jack_nframes_t nframes, void *arg)
             memset(modem_frames + available_frames,
                    0,
                    sizeof(jack_default_audio_sample_t) * remaining_frames);
+        }
+
+        // Once the buffer is empty turn off the PTT output
+        if (available_frames == 0)
+        {
+            set_ptt_val(cfg, false);
         }
     }
 

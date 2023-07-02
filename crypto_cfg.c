@@ -52,6 +52,18 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         else if (strcasecmp(Key, "Bias") == 0) {
             strncpy(cfg->ptt_gpio_bias, Value, sizeof(cfg->ptt_gpio_bias) - 1);
         }
+        else if (strcasecmp(Key, "OutputGPIONum") == 0) {
+            cfg->ptt_output_gpio_num = atoi(Value);
+        }
+        else if (strcasecmp(Key, "OutputActiveLow") == 0) {
+            cfg->ptt_output_active_low = atoi(Value);
+        }
+        else if (strcasecmp(Key, "OutputBias") == 0) {
+            strncpy(cfg->ptt_output_bias, Value, sizeof(cfg->ptt_output_bias) - 1);
+        }
+        else if (strcasecmp(Key, "OutputDrive") == 0) {
+            strncpy(cfg->ptt_output_drive, Value, sizeof(cfg->ptt_output_drive) - 1);
+        }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {
         if (strcasecmp(Key, "LogFile") == 0) {

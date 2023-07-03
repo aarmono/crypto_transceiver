@@ -2,9 +2,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "gpiod.h"
 #include "freedv_api.h"
 #include "crypto_cfg.h"
 #include "minIni.h"
+
+static int bias_flags(const char *option)
+{
+    if (strcasecmp(option, "pull-down") == 0)
+        return GPIOD_CTXLESS_FLAG_BIAS_PULL_DOWN;
+    if (strcasecmp(option, "pull-up") == 0)
+        return GPIOD_CTXLESS_FLAG_BIAS_PULL_UP;
+    if (strcasecmp(option, "disable") == 0)
+        return GPIOD_CTXLESS_FLAG_BIAS_DISABLE;
+    else
+        return 0;
+}
+
+static int drive_flags(const char *option)
+{
+    if (strcasecmp(option, "open-drain") == 0)
+        return GPIOD_CTXLESS_FLAG_OPEN_DRAIN;
+    if (strcasecmp(option, "open-source") == 0)
+        return GPIOD_CTXLESS_FLAG_OPEN_SOURCE;
+    if (strcasecmp(option, "push-pull") == 0)
+        return 0;
+
+    return 0;
+}
 
 static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *Value, void *UserData) {
     struct config *cfg = (struct config*)UserData;
@@ -50,7 +75,7 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->ptt_active_low = atoi(Value);
         }
         else if (strcasecmp(Key, "Bias") == 0) {
-            strncpy(cfg->ptt_gpio_bias, Value, sizeof(cfg->ptt_gpio_bias) - 1);
+            cfg->ptt_gpio_bias = bias_flags(Value);
         }
         else if (strcasecmp(Key, "OutputGPIONum") == 0) {
             cfg->ptt_output_gpio_num = atoi(Value);
@@ -59,10 +84,10 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->ptt_output_active_low = atoi(Value);
         }
         else if (strcasecmp(Key, "OutputBias") == 0) {
-            strncpy(cfg->ptt_output_bias, Value, sizeof(cfg->ptt_output_bias) - 1);
+            cfg->ptt_output_bias = bias_flags(Value);
         }
         else if (strcasecmp(Key, "OutputDrive") == 0) {
-            strncpy(cfg->ptt_output_drive, Value, sizeof(cfg->ptt_output_drive) - 1);
+            cfg->ptt_output_drive = drive_flags(Value);
         }
     }
     else if (strcasecmp(Section, "Diagnostics") ==0) {

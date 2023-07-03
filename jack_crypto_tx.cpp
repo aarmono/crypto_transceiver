@@ -85,30 +85,6 @@ static void handle_sighup(int sig)
     reload_config = 1;
 }
 
-static int bias_flags(const char *option)
-{
-    if (strcasecmp(option, "pull-down") == 0)
-        return GPIOD_CTXLESS_FLAG_BIAS_PULL_DOWN;
-    if (strcasecmp(option, "pull-up") == 0)
-        return GPIOD_CTXLESS_FLAG_BIAS_PULL_UP;
-    if (strcasecmp(option, "disable") == 0)
-        return GPIOD_CTXLESS_FLAG_BIAS_DISABLE;
-    else
-        return 0;
-}
-
-static int drive_flags(const char *option)
-{
-    if (strcasecmp(option, "open-drain") == 0)
-        return GPIOD_CTXLESS_FLAG_OPEN_DRAIN;
-    if (strcasecmp(option, "open-source") == 0)
-        return GPIOD_CTXLESS_FLAG_OPEN_SOURCE;
-    if (strcasecmp(option, "push-pull") == 0)
-        return 0;
-
-    return 0;
-}
-
 static bool microphone_enabled(const struct config* cfg)
 {
     if (cfg->ptt_enabled == 0)
@@ -121,7 +97,7 @@ static bool microphone_enabled(const struct config* cfg)
                                                  cfg->ptt_gpio_num,
                                                  cfg->ptt_active_low,
                                                  "jack_crypto_tx",
-                                                 bias_flags(cfg->ptt_gpio_bias));
+                                                 cfg->ptt_gpio_bias);
         if (result < 0)
         {
             crypto_tx->log_to_logger(LOG_ERROR, "Error reading PTT IO");
@@ -141,8 +117,7 @@ static void set_ptt_val(const struct config* cfg, bool val)
         return;
     }
 
-    const int flags = bias_flags(cfg->ptt_output_bias) |
-                      drive_flags(cfg->ptt_output_bias);
+    const int flags = cfg->ptt_output_bias | cfg->ptt_output_bias;
     gpiod_ctxless_set_value_ext("gpiochip0",
                                 cfg->ptt_output_gpio_num,
                                 val,

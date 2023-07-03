@@ -24,12 +24,12 @@ struct config
     int  ptt_enabled;
     int  ptt_gpio_num;
     int  ptt_active_low;
-    char ptt_gpio_bias[80];
+    int  ptt_gpio_bias;
 
     int  ptt_output_gpio_num;
     int  ptt_output_active_low;
-    char ptt_output_bias[80];
-    char ptt_output_drive[80];
+    int  ptt_output_bias;
+    int  ptt_output_drive;
 
     int  freedv_mode;
 

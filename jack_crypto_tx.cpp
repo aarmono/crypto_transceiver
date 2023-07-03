@@ -112,20 +112,26 @@ static bool microphone_enabled(const struct config* cfg)
 
 static void set_ptt_val(const struct config* cfg, bool val)
 {
+    static int prev_val = -1;
+    const int cur_val = static_cast<int>(val);
+    const int flags = cfg->ptt_output_bias | cfg->ptt_output_bias;
+
     if (cfg->ptt_enabled == 0)
     {
         return;
     }
-
-    const int flags = cfg->ptt_output_bias | cfg->ptt_output_bias;
-    gpiod_ctxless_set_value_ext("gpiochip0",
-                                cfg->ptt_output_gpio_num,
-                                val,
-                                cfg->ptt_output_active_low,
-                                "jack_crypto_tx",
-                                nullptr,
-                                nullptr,
-                                flags);
+    else if (prev_val != cur_val &&
+             gpiod_ctxless_set_value_ext("gpiochip0",
+                                         cfg->ptt_output_gpio_num,
+                                         cur_val,
+                                         cfg->ptt_output_active_low,
+                                         "jack_crypto_tx",
+                                         nullptr,
+                                         nullptr,
+                                         flags) == 0)
+    {
+        prev_val = cur_val;
+    }
 }
 
 /**

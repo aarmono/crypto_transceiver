@@ -82,6 +82,9 @@ crypto_tx_common::crypto_tx_common(const char* name, const char* config_file)
     if (getrandom(iv, sizeof(iv), 0) != sizeof(iv)) {
         log_message(m_parms->logger, LOG_WARN, "Did not fully read initialization vector");
     }
+    else {
+        log_message(m_parms->logger, LOG_INFO, "Read initialization vector");
+    }
 
     const size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
     if (str_has_value(m_parms->cur->key_file) &&
@@ -203,6 +206,11 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
                 log_message(m_parms->logger,
                             LOG_WARN,
                             "Did not fully read initialization vector");
+            }
+            else {
+                log_message(m_parms->logger,
+                            LOG_INFO,
+                            "Read initialization vector");
             }
 
             freedv_set_crypto(m_parms->freedv, NULL, iv);

@@ -22,6 +22,13 @@ start()
 	echo "Loading crypto configuration..."
 	cp /etc/crypto.ini /etc/crypto.ini.all && mcopy -t -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd && cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all
 
+	echo "Loading seed..."
+	mcopy -D o -n -i /dev/mmcblk0p1 ::seed /var/run/random-seed && dd if=/var/run/random-seed of=/dev/urandom
+	# Use /dev/hwrng instead of /dev/random or /dev/urandom because the former
+	# Will block and the latter will give an "unitialized urandom read" error.
+	# We have the hardware RNG and might as well use it...
+	dd if=/dev/hwrng of=/var/run/random-seed bs=512 count=1 && mcopy -D o -n -i /dev/mmcblk0p1 /var/run/random-seed ::seed
+
 	echo "Done"
 
 	start-stop-daemon -S -b -q -x "${DAEMON}"

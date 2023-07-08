@@ -5,6 +5,9 @@ DAEMON="/usr/bin/${NAME}"
 
 start()
 {
+	echo "0" > /sys/class/leds/led0/brightness
+	echo "0" > /sys/class/leds/led1/brightness
+
 	while [ ! -b /dev/mmcblk0p1 ]
 	do
 		sleep .5

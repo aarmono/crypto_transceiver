@@ -118,6 +118,7 @@ static void set_ptt_val(const struct config* cfg, bool val)
 
     if (cfg->ptt_enabled == 0)
     {
+        prev_val = -1;
         return;
     }
     else if (prev_val != cur_val &&
@@ -251,10 +252,6 @@ int process(jack_nframes_t nframes, void *arg)
             // it to make sure all internal state is written out. This will
             // also reset the libsamplerate state file
             output_resampler->flush(nframes * 2);
-
-            // Force a new IV next time the microphone is active now that
-            // the codec is idle
-            crypto_tx->force_rekey_next_frame();
         }
 
         // Write out as much data to the modem port as we can. There may
@@ -269,6 +266,10 @@ int process(jack_nframes_t nframes, void *arg)
                    0,
                    sizeof(jack_default_audio_sample_t) * remaining_frames);
         }
+
+        // Force a new IV next time the microphone is active now that
+        // the codec is idle
+        crypto_tx->force_rekey_next_frame();
 
         // Once the buffer is empty turn off the PTT output
         if (available_frames == 0)

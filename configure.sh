@@ -364,7 +364,7 @@ main_menu()
                 save_to_sd
                 ;;
             9)
-                exec /sbin/getty -L tty1 115200
+                exec /sbin/getty -L `tty` 115200
                 ;;
         esac
     done

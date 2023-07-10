@@ -293,6 +293,18 @@ save_to_sd()
     fi
 }
 
+reload_from_sd()
+{
+    if mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state && \
+       mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd
+    then
+        alsactl restore
+        dialog --msgbox "Settings Reloaded!" 10 30
+    else
+        dialog --msgbox "Settings Not Reloaded!" 10 30
+    fi
+}
+
 main_menu()
 {
     while [ true ]
@@ -300,15 +312,16 @@ main_menu()
         dialog \
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
-        --menu "Select an option:" 15 60 4 \
+        --menu "Select an option:" 16 60 4 \
         1 "Configure Headset Volume" \
         2 "Configure Radio Volume" \
         3 "Configure Radio Mode" \
         4 "Configure Encryption" \
         5 "Configure Push to Talk" \
-        6 "View SD Card Settings" \
-        7 "Save Settings to SD Card" \
-        8 "Login shell (Advanced Users Only)" 2>$ANSWER
+        6 "View Current Settings" \
+        7 "Reload Settings From SD Card" \
+        8 "Save Current Settings to SD Card" \
+        9 "Login shell (Experts Only)" 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in
@@ -333,9 +346,12 @@ main_menu()
                 --textbox /etc/crypto.ini.sd 30 80
                 ;;
             7)
-                save_to_sd
+                reload_from_sd
                 ;;
             8)
+                save_to_sd
+                ;;
+            9)
                 /sbin/getty -L tty1 115200 vt100
                 ;;
         esac

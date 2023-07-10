@@ -31,8 +31,8 @@ system, attempts to save settings to the SD card will fail.
 
 To revert changes, the "Reload Settings from SD Card" option will reload the
 configuration files from the SD card. Any changes not written to the SD card
-will be lost. This option implicitly performs an "Apply Current Settings" after
-the settings have been loaded form the SD card.
+will be lost. This option automatically performs an "Apply Current Settings"
+after the settings have been loaded form the SD card.
 
 The crypto.ini File
 

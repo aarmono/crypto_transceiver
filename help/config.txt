@@ -45,11 +45,11 @@ the default value for a setting burned into the firmware, select the "Default"
 option. This will remove the value from the user-specific crypto.ini file,
 and the system will go back to using the default setting.
 
-The Login Shell
+Shell Access
 
-The Login Shell provides low-level access to the operating system and system
-services. It is primarily a developer tool. Up until now it has been a "hidden"
-feature now made available in this configuration utility.
+The Shell provides low-level access to the operating system and system services.
+It is primarily a developer tool. Up until now it has been a "hidden" feature
+now made available in this Configuration Utility.
 
 The entire system runs entirely from memory, so it is generally not possible to
 damage the system in a way that cannot be repaired by simply power-cycling it.
@@ -72,8 +72,8 @@ for the root user (or disable the root account) and save the /etc/shadow file
 to the SD card as config/shadow. The system will attempt to copy that file
 to /etc/shadow at start-up. However you would still need to provide the user
 with a Crypto Voice Module with the SD card removed, and you would need to
-trust there is no way to "jailbreak" the Configuration utility (which I'm not
-aware of, but that doesn't mean a way doesn't exist).
+trust there is no way to "jailbreak" the Configuration Utility (I'm not aware of
+one, but that doesn't mean it doesn't exist).
 
 Alternately, fill all unused ports with a non-conductive epoxy so they cannot
 physically be used, thus preventing a user from connecting a keyboard and

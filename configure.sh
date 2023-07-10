@@ -340,7 +340,7 @@ main_menu()
         7 "Reload Settings From SD Card" \
         8 "Save Current Settings to SD Card" \
         M "View Boot Messages" \
-        L "Login Shell (Experts Only)" 2>$ANSWER
+        L "Shell Access (Experts Only)" 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in
@@ -374,7 +374,7 @@ main_menu()
                 save_to_sd
                 ;;
             L)
-                exec /sbin/getty -L `tty` 115200
+                clear && exec /sbin/getty -L `tty` 115200
                 ;;
             M)
                 show_boot_messages

@@ -280,13 +280,18 @@ configure_mode()
     esac
 }
 
+apply_settings()
+{
+    cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all && killall -SIGHUP jack_crypto_tx jack_crypto_rx
+}
+
 save_to_sd()
 {
     if alsactl store && \
        mcopy -t -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && \
        mcopy -t -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
     then
-        cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all && killall -SIGHUP jack_crypto_tx jack_crypto_rx
+        apply_settingss
         dialog --msgbox "Settings Saved!" 10 30
     else
         dialog --msgbox "Settings Not Saved!" 10 30
@@ -299,6 +304,7 @@ reload_from_sd()
        mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd
     then
         alsactl restore
+        apply_settingss
         dialog --msgbox "Settings Reloaded!" 10 30
     else
         dialog --msgbox "Settings Not Reloaded!" 10 30
@@ -312,38 +318,42 @@ main_menu()
         dialog \
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
-        --menu "Select an option:" 16 60 4 \
-        1 "Configure Headset Volume" \
-        2 "Configure Radio Volume" \
-        3 "Configure Radio Mode" \
-        4 "Configure Encryption" \
-        5 "Configure Push to Talk" \
-        6 "View Current Settings" \
+        --menu "Select an option:" 17 60 4 \
+        0 "Configure Headset Volume" \
+        1 "Configure Radio Volume" \
+        2 "Configure Radio Mode" \
+        3 "Configure Encryption" \
+        4 "Configure Push to Talk" \
+        5 "View Current Settings" \
+        6 "Apply Current Settings" \
         7 "Reload Settings From SD Card" \
         8 "Save Current Settings to SD Card" \
         9 "Login shell (Experts Only)" 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in
-            1)
+            0)
                 alsamixer -c 0
                 ;;
-            2)
+            1)
                 alsamixer -c 1
                 ;;
-            3)
+            2)
                 configure_mode
                 ;;
-            4)
+            3)
                 configure_encryption
                 ;;
-            5)
+            4)
                 configure_ptt
                 ;;
-            6)
+            5)
                 dialog \
-                --title "SD Card Settings" \
+                --title "Current Settings" \
                 --textbox /etc/crypto.ini.sd 30 80
+                ;;
+            6)
+                apply_settings
                 ;;
             7)
                 reload_from_sd

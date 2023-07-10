@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
 ANSWER=/tmp/answer
+INPUT=/tmp/input
 
 on_off()
 {
@@ -293,9 +294,9 @@ save_to_sd()
        mcopy -t -n -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
     then
         apply_settingss
-        dialog --msgbox "Settings Saved!" 10 30
+        dialog --msgbox "Settings Saved!" 10 30 2> /dev/null
     else
-        dialog --msgbox "Settings Not Saved!" 10 30
+        dialog --msgbox "Settings Not Saved!" 10 30 2> /dev/null
     fi
 }
 
@@ -306,10 +307,16 @@ reload_from_sd()
     then
         alsactl restore
         apply_settingss
-        dialog --msgbox "Settings Reloaded!" 10 30
+        dialog --msgbox "Settings Reloaded!" 10 30 2&> /dev/null
     else
-        dialog --msgbox "Settings Not Reloaded!" 10 30
+        dialog --msgbox "Settings Not Reloaded!" 10 30 2> /dev/null
     fi
+}
+
+show_boot_messages()
+{
+    dmesg > $INPUT
+    dialog --textbox "$INPUT" 0 0 2> /dev/null
 }
 
 main_menu()
@@ -320,7 +327,7 @@ main_menu()
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
         --hfile "/usr/share/help/config.txt" \
-        --menu "Select an option. Press F1 for Help." 17 60 4 \
+        --menu "Select an option. Press F1 for Help." 18 60 4 \
         0 "Configure Headset Volume" \
         1 "Configure Radio Volume" \
         2 "Configure Radio Mode" \
@@ -330,7 +337,8 @@ main_menu()
         6 "Apply Current Settings" \
         7 "Reload Settings From SD Card" \
         8 "Save Current Settings to SD Card" \
-        9 "Login Shell (Experts Only)" 2>$ANSWER
+        M "View Boot Messages" \
+        L "Login Shell (Experts Only)" 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in
@@ -363,9 +371,11 @@ main_menu()
             8)
                 save_to_sd
                 ;;
-            9)
+            L)
                 exec /sbin/getty -L `tty` 115200
                 ;;
+            M)
+                show_boot_messages
         esac
     done
 }
@@ -374,5 +384,7 @@ while [ $((`aplay -l | grep -c card`)) -lt 2 ]
 do
     sleep .5
 done
+
+dmesg -n 1
 
 main_menu

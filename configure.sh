@@ -22,7 +22,7 @@ configure_ptt_enable()
     dialog \
     --no-tags \
     --title "Configure Push to Talk" \
-    --radiolist "Select an Option" 10 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
     default "Default ($DEFAULT)" `on_off $VAL ""` \
     1       "On"                 `on_off $VAL 1`  \
     0       "Off"                `on_off $VAL 0` 2>$ANSWER
@@ -46,7 +46,7 @@ configure_ptt_pin()
     dialog \
     --no-tags \
     --title "Configure PTT $1 Pin (See: https://pinout.xyz)" \
-    --radiolist "Select an Option" 36 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." 36 60 4 \
     default "Default (GPIO $DEFAULT)" `on_off $VAL ""` \
     0       "GPIO 0"                  `on_off $VAL 0`  \
     1       "GPIO 1"                  `on_off $VAL 1`  \
@@ -99,7 +99,7 @@ configure_ptt_bias()
     dialog \
     --no-tags \
     --title "Configure PTT $1 Bias" \
-    --radiolist "Select an Option" 11 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." 11 60 4 \
     default   "Default ($DEFAULT)" `on_off $VAL ""` \
     pull-up   "pull-up"            `on_off $VAL pull-up` \
     pull-down "pull-down"          `on_off $VAL pull-down` \
@@ -124,7 +124,7 @@ configure_ptt_drive()
     dialog \
     --no-tags \
     --title "Configure PTT $1 Drive" \
-    --radiolist "Select an Option" 11 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." 11 60 4 \
     default     "Default ($DEFAULT)" `on_off $VAL ""` \
     open-drain  "open-drain"         `on_off $VAL open-drain` \
     open-source "open-source"        `on_off $VAL open-source` \
@@ -156,7 +156,7 @@ configure_ptt_active_level()
     dialog \
     --no-tags \
     --title "Configure PTT $1 Active Level" \
-    --radiolist "Select an Option" 10 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
     default "Default ($DEFAULT)" `on_off $VAL ""` \
     1       "Active Low"         `on_off $VAL 1`  \
     0       "Active High"        `on_off $VAL 0` 2>$ANSWER
@@ -178,7 +178,7 @@ configure_ptt()
     do
         dialog \
         --title "PTT Configuration" \
-        --menu "Select an option:" 15 60 4 \
+        --menu "Select a PTT option to configure." 15 60 4 \
         1 "Enable PTT" \
         2 "Configure Input GPIO Pin" \
         3 "Configure Input Pin Bias" \
@@ -236,7 +236,7 @@ configure_encryption()
     dialog \
     --no-tags \
     --title "Configure Encryption" \
-    --radiolist "Select an Option" 10 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
     default "Default ($DEFAULT)" `on_off $VAL ""` \
     1       "On"                 `on_off $VAL 1`  \
     0       "Off"                `on_off $VAL 0` 2>$ANSWER
@@ -260,13 +260,14 @@ configure_mode()
     dialog \
     --no-tags \
     --title "Configure Radio Mode" \
-    --radiolist "Select a Mode" 14 60 4 \
+    --hfile "/usr/share/help/freedv.txt" \
+    --radiolist "Select a mode or \"Default\" to use the system default. Press F1 for more information." 15 60 4 \
     default "Default ($DEFAULT)"    `on_off $VAL ""`    \
-    700C    "700C (HF/SSB)"         `on_off $VAL 700C`  \
-    700D    "700D (HF/SSB)"         `on_off $VAL 700D`  \
-    700E    "700E (HF/SSB)"         `on_off $VAL 700E`  \
+    700C    "700C  (HF/SSB)"        `on_off $VAL 700C`  \
+    700D    "700D  (HF/SSB)"        `on_off $VAL 700D`  \
+    700E    "700E  (HF/SSB)"        `on_off $VAL 700E`  \
     800XA   "800XA (Any)"           `on_off $VAL 800XA` \
-    1600    "1600 (HF/SSB)"         `on_off $VAL 1600`  \
+    1600    "1600  (HF/SSB)"        `on_off $VAL 1600`  \
     2400B   "2400B (Narrowband FM)" `on_off $VAL 2400B` 2>$ANSWER
 
     option=`cat $ANSWER`
@@ -288,8 +289,8 @@ apply_settings()
 save_to_sd()
 {
     if alsactl store && \
-       mcopy -t -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && \
-       mcopy -t -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
+       mcopy -t -n -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && \
+       mcopy -t -n -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
     then
         apply_settingss
         dialog --msgbox "Settings Saved!" 10 30
@@ -318,7 +319,8 @@ main_menu()
         dialog \
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
-        --menu "Select an option:" 17 60 4 \
+        --hfile "/usr/share/help/config.txt" \
+        --menu "Select an option. Press F1 for Help." 17 60 4 \
         0 "Configure Headset Volume" \
         1 "Configure Radio Volume" \
         2 "Configure Radio Mode" \
@@ -328,7 +330,7 @@ main_menu()
         6 "Apply Current Settings" \
         7 "Reload Settings From SD Card" \
         8 "Save Current Settings to SD Card" \
-        9 "Login shell (Experts Only)" 2>$ANSWER
+        9 "Login Shell (Experts Only)" 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in

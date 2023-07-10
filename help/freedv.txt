@@ -1,0 +1,108 @@
+The following is excerpted from the codec2 project documentation and edited
+for formatting and to remove modes not supported by this system. The original
+document is available here:
+https://github.com/drowe67/codec2/blob/master/README_freedv.md
+
+FreeDV HF Modes
+
+These are designed for use with a HF SSB radio.
+
+| Mode  | Date | Codec       | Modem                                | RF BW |
+| ----- | ---- | ----------- | ------------------------------------ | ----- |
+| 1600  | 2012 | Codec2 1300 | 14 DQPSK + 1 DBPSK pilot carrier     | 1125  |
+| 700C  | 2017 | Codec2 700C | 14 carrier coherent QPSK + diversity | 1500  |
+| 700D  | 2018 | Codec2 700C | 17 carrier coherent OFDM/QPSK        | 1000  |
+| 700E  | 2020 | Codec2 700C | 21 carrier coherent OFDM/QPSK        | 1500  |
+
+| Mode  | Raw bits/s | FEC            | Text bits/s | SNR min | Multipath |
+| ----- | ---------- | -------------- | ----------- | ------- | --------- |
+| 1600  | 1600       | Golay (23,12)  | 25          |  4      | poor      |
+| 700C  | 1400       | -              | -           |  2      | good      |
+| 700D  | 1900       | LDPC (224,112) | 25          | -2      | fair      |
+| 700E  | 3000       | LDPC (112,56)  | 25          |  1      | good      |
+
+Notes:
+
+* "Raw bits/s" is the number of payload bits/s carried over the channel by the
+  modem.  This consists of codec frames, FEC parity bits, unprotected text,
+  and synchronisation information such as pilot and unique word bits.  The
+  estimates are open to interpretation for the OFDM waveforms due to pilot
+  symbol and cyclic prefix considerations (see spreadsheet).
+
+* "RF BW" is the bandwidth of the RF signal over the air.  FreeDV is more
+  bandwidth efficient than SSB.
+
+* "Multipath" is the relative resilience of the mode to multipath fading,
+  the biggest problem digital voice faces on HF radio channels.  Analog SSB
+  would be rated as "good".
+
+* "Text" is a side channel for low bit rate text such as your location and
+  call sign.  It is generally unprotected by FEC, and encoded with varicode.
+  The exception is if reliable_text support is turned on
+  (see reliable_text.c/h); this results in text protected by LDPC(112,56) FEC
+  with interleaving.
+
+* "SNR Min" is for an AWGN channel (no multipath/fading).
+
+* All of the modems use multiple parallel carriers running at a low symbol
+  rate of around 50 Hz.  This helps combat the effects of multipath channels.
+
+* Some of the Codec 2 modes (2400/1300/700C etc) happen to match the name of a
+  FreeDV mode.  For example FreeDV 700C uses Codec 2 700C for voice compression.
+  However FreeDV 700D also uses Codec 2 700C for voice compression, but has
+  a very different modem waveform to FreeDV 700C.  Sorry for the confusing
+  nomenclature.
+
+* Coherent demodulation gives much better performance than differential, at
+  the cost of some additional complexity.  Pilot symbols are transmitted
+  regularly to allow the demod to estimate the reference phase of each carrier.
+
+* The 1600 and 700C waveforms use parallel tone modems, later modes use OFDM.
+  OFDM gives tighter carrier packing which allows higher bit rates, but tends
+  to suffer more from frequency offsets and delay spread.
+
+* At medium to high SNRs, FreeDV 700C performs well (better than 700D) on fast
+  fading multipath channels with large delay spread due its parallel tone design
+  and high pilot symbol rate.  It employs transmit diversity which delivers
+  BER performance similar to modes using FEC.  FreeDV 700C also has a short
+  frame (40ms), so syncs fast with low latency.  Fast sync is useful on marginal
+  channels that move between unusable and barely usable.
+
+* FreeDV 700D uses an OFDM modem and was optimised for low SNR channels, with
+  strong FEC but a low pilot symbol rate and modest (2ms) cyclic prefix which
+  means its performance degrades on multipath channels with fast (> 1Hz) fading.
+  The use of strong FEC makes this mode quite robust to other channel
+  impairments, such as static crashes, urban HF noise, and in-band interference.
+
+* FEC was added fairly recently to FreeDV modes.  The voice codecs we use work
+  OK at bit error rates of a few %, and packet error rates of 10%. Raw bit error
+  rates on multipath channels often exceed 10%.  For reasonable latency
+  (say 40ms) we need small codewords. Thus to be useful we require a FEC code
+  that works at over 10% raw BER, has 1% output (coded) bit error rate, and a
+  codeword of around 100 bits.  Digital voice has unusual requirements, most FEC
+  codes are designed for data which is intolerant of any bit errors, and few
+  operate over 10% raw BER.  Powerful FEC codes have long block lengths
+  (1000's of bits) which leads to long latency.  However LDPC codes come close,
+  and can also "clean up" other channel errors caused by static and
+  interference. The use of OFDM means we now have "room" for the extra bits
+  required for FEC, so there is little cost in adding it, apart from latency.
+
+FreeDV VHF Modes
+
+These modes use constant amplitude modulation like FSK or FM, and are designed
+for VHF and above.  However 800XA can be run over HF or VHF on a SSB radio.
+
+| Mode  | Date | Codec2 | Modem              | RF BW     |
+| ----- | ---- | ------ | ------------------ | --------- |
+| 2400B | 2016 | 1300   | baseband/analog FM | analog FM |
+| 800XA | 2017 | 700C   | 4FSK               | 2000      |
+
+| Mode  | Raw bits/s | FEC           | Text bits/s |
+| ----- | -----------| ------------- | ----------- |
+| 2400B | 2400       | Golay (23,12) | 50          |
+| 800XA | 800        | -             | N           |
+
+FreeDV 2400B mode
+
+FreeDV 2400B is a mode designed for VHF radio. FreeDV 2400B is designed to pass
+through commodity FM radios. 

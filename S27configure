@@ -22,6 +22,9 @@ start()
 	echo "Loading crypto configuration..."
 	cp /etc/crypto.ini /etc/crypto.ini.all && mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd && cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all
 
+	echo "Loading shadow..."
+	mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/shadow /etc/shadow && chown root:root /etc/shadow && chmod 000 /etc/shadow
+
 	echo "Done"
 
 	start-stop-daemon -S -b -q -x "${DAEMON}"

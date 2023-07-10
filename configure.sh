@@ -307,7 +307,7 @@ reload_from_sd()
     then
         alsactl restore
         apply_settingss
-        dialog --msgbox "Settings Reloaded!" 10 30 2&> /dev/null
+        dialog --msgbox "Settings Reloaded!" 10 30 2> /dev/null
     else
         dialog --msgbox "Settings Not Reloaded!" 10 30 2> /dev/null
     fi
@@ -316,7 +316,9 @@ reload_from_sd()
 show_boot_messages()
 {
     dmesg > $INPUT
-    dialog --textbox "$INPUT" 0 0 2> /dev/null
+    dialog \
+    --title "Boot Messagaes" \
+    --textbox "$INPUT" 0 0 2> /dev/null
 }
 
 main_menu()
@@ -360,7 +362,7 @@ main_menu()
             5)
                 dialog \
                 --title "Current Settings" \
-                --textbox /etc/crypto.ini.sd 30 80
+                --textbox /etc/crypto.ini.sd 30 80 2> /dev/null
                 ;;
             6)
                 apply_settings

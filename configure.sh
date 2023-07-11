@@ -102,9 +102,9 @@ configure_ptt_bias()
     --title "Configure PTT $1 Bias" \
     --radiolist "Select an option or \"Default\" to use the system default." 11 60 4 \
     default   "Default ($DEFAULT)" `on_off $VAL ""` \
-    pull-up   "pull-up"            `on_off $VAL pull-up` \
-    pull-down "pull-down"          `on_off $VAL pull-down` \
-    disable   "disable"            `on_off $VAL disable` 2>$ANSWER
+    pull-up   "Pull-up"            `on_off $VAL pull-up` \
+    pull-down "Pull-down"          `on_off $VAL pull-down` \
+    disable   "Disable"            `on_off $VAL disable` 2>$ANSWER
 
     option=`cat $ANSWER`
     case "$option" in
@@ -127,9 +127,9 @@ configure_ptt_drive()
     --title "Configure PTT $1 Drive" \
     --radiolist "Select an option or \"Default\" to use the system default." 11 60 4 \
     default     "Default ($DEFAULT)" `on_off $VAL ""` \
-    open-drain  "open-drain"         `on_off $VAL open-drain` \
-    open-source "open-source"        `on_off $VAL open-source` \
-    push-pull   "push-pull"          `on_off $VAL push-pull` 2>$ANSWER
+    open-drain  "Open-drain"         `on_off $VAL open-drain` \
+    open-source "Open-source"        `on_off $VAL open-source` \
+    push-pull   "Push-pull"          `on_off $VAL push-pull` 2>$ANSWER
 
     option=`cat $ANSWER`
     case "$option" in

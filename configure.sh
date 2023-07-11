@@ -293,7 +293,7 @@ save_to_sd()
        mcopy -t -n -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && \
        mcopy -t -n -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
     then
-        apply_settingss
+        apply_settings
         dialog --msgbox "Settings Saved!" 10 30 2> /dev/null
     else
         dialog --msgbox "Settings Not Saved!" 10 30 2> /dev/null
@@ -306,7 +306,7 @@ reload_from_sd()
        mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd
     then
         alsactl restore
-        apply_settingss
+        apply_settings
         dialog --msgbox "Settings Reloaded!" 10 30 2> /dev/null
     else
         dialog --msgbox "Settings Not Reloaded!" 10 30 2> /dev/null

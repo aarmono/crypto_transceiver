@@ -294,9 +294,9 @@ save_to_sd()
        mcopy -t -n -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
     then
         apply_settings
-        dialog --msgbox "Settings Saved!" 10 30 2> /dev/null
+        dialog --msgbox "Settings Saved!" 0 0 2> /dev/null
     else
-        dialog --msgbox "Settings Not Saved!" 10 30 2> /dev/null
+        dialog --msgbox "Settings Not Saved!" 0 0 2> /dev/null
     fi
 }
 
@@ -307,9 +307,9 @@ reload_from_sd()
     then
         alsactl restore
         apply_settings
-        dialog --msgbox "Settings Reloaded!" 10 30 2> /dev/null
+        dialog --msgbox "Settings Reloaded!" 0 0 2> /dev/null
     else
-        dialog --msgbox "Settings Not Reloaded!" 10 30 2> /dev/null
+        dialog --msgbox "Settings Not Reloaded!" 0 0 2> /dev/null
     fi
 }
 

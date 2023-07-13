@@ -295,6 +295,8 @@ assign_audio_device()
     hw:USB_UL "Upper Left"  `on_off $VAL hw:USB_UL` \
     hw:USB_UR "Upper Right" `on_off $VAL hw:USB_UR` 2>$ANSWER
 
+    RET=$?
+
     option=`cat $ANSWER`
     case "$option" in
         hw:USB_LL | hw:USB_LR | hw:USB_UL | hw:USB_UR)
@@ -303,13 +305,12 @@ assign_audio_device()
         "")
             ;;
     esac
+
+    return $RET
 }
 
-assign_audio_devices()
+apply_settings()
 {
-    assign_audio_device Headset VoiceDevice
-    assign_audio_device Radio ModemDevice
-
     cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all
 
     /etc/init.d/S31jack_crypto_rx stop &> /dev/null
@@ -326,9 +327,19 @@ assign_audio_devices()
     /etc/init.d/S31jack_crypto_rx start &> /dev/null
 }
 
-apply_settings()
+assign_audio_devices()
 {
-    cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all && killall -SIGHUP jack_crypto_tx jack_crypto_rx
+    RESTART=1
+    if assign_audio_device Headset VoiceDevice
+    then
+        RESTART=0
+        assign_audio_device Radio ModemDevice
+    fi
+
+    if [ $RESTART -eq 0 ]
+    then
+        apply_settings
+    fi
 }
 
 save_to_sd()

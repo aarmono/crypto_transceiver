@@ -1,12 +1,25 @@
 #!/usr/bin/env sh
 
-while [ $((`aplay -l | grep -c card`)) -lt 2 ]
-do
-    sleep .5
-done
+dev_active()
+{
+    if echo "$1" | grep -q USB
+    then
+        aplay -l | grep -q "$1"
+    else
+        aplay -l | grep -q "card $1"
+    fi
+}
 
 IN_HW=`iniget JACK VoiceDevice /etc/crypto.ini.sd /etc/crypto.ini`
 OUT_HW=`iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini`
+
+IN_DEV=`echo "$IN_HW" | sed -e 's/hw://g'`
+OUT_DEV=`echo "$OUT_HW" | sed -e 's/hw://g'`
+
+while ! dev_active "$IN_DEV" || ! dev_active "$OUT_DEV"
+do
+    sleep .5
+done
 
 if [ "$IN_HW" = "$OUT_HW" ]
 then

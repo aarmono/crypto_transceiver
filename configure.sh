@@ -463,20 +463,7 @@ main_menu()
     done
 }
 
-dev_active()
-{
-    if echo "$1" | grep -q USB
-    then
-        aplay -l | grep -q "$1"
-    else
-        aplay -l | grep -q "card $1"
-    fi
-}
-
-VOICE_DEV=`iniget JACK VoiceDevice /etc/crypto.ini.sd /etc/crypto.ini | sed -e 's/hw://g'`
-MODEM_DEV=`iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini | sed -e 's/hw://g'`
-
-while ! dev_active "$VOICE_DEV" || ! dev_active "$MODEM_DEV"
+while [ $((`aplay -l | grep -c card`)) -lt 2 ]
 do
     sleep .5
 done

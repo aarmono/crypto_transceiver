@@ -5,8 +5,8 @@ do
     sleep .5
 done
 
-IN_HW=`iniget JACK ModemInDevice /etc/crypto.ini.sd /etc/crypto.ini`
-OUT_HW=`iniget JACK VoiceOutDevice /etc/crypto.ini.sd /etc/crypto.ini`
+IN_HW=`iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini`
+OUT_HW=`iniget JACK VoiceDevice /etc/crypto.ini.sd /etc/crypto.ini`
 
 if [ "$IN_HW" = "$OUT_HW" ]
 then

@@ -282,6 +282,50 @@ configure_mode()
     esac
 }
 
+assign_audio_device()
+{
+    VAL=`iniget JACK $2 /etc/crypto.ini.sd /etc/crypto.ini`
+
+    dialog \
+    --no-tags \
+    --title "Assign $1 Audio Device" \
+    --radiolist "When facing the USB ports, select the USB port to assign to the $1 audio device" 12 60 4\
+    hw:USB_LL "Lower Left"  `on_off $VAL hw:USB_LL` \
+    hw:USB_LR "Lower Right" `on_off $VAL hw:USB_LR` \
+    hw:USB_UL "Upper Left"  `on_off $VAL hw:USB_UL` \
+    hw:USB_UR "Upper Right" `on_off $VAL hw:USB_UR` 2>$ANSWER
+
+    option=`cat $ANSWER`
+    case "$option" in
+        hw:USB_LL | hw:USB_LR | hw:USB_UL | hw:USB_UR)
+            iniset JACK $2 "$option" /etc/crypto.ini.sd
+            ;;
+        "")
+            ;;
+    esac
+}
+
+assign_audio_devices()
+{
+    assign_audio_device Headset VoiceDevice
+    assign_audio_device Radio ModemDevice
+
+    cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all
+
+    /etc/init.d/S31jack_crypto_rx stop &> /dev/null
+    /etc/init.d/S30jack_crypto_tx stop &> /dev/null
+    /etc/init.d/S29jackd_rx stop &> /dev/null
+    /etc/init.d/S28jackd_tx stop &> /dev/null
+
+    # Sometimes the services don't come up reliably without the sleep
+    sleep .5
+
+    /etc/init.d/S28jackd_tx start &> /dev/null
+    /etc/init.d/S29jackd_rx start &> /dev/null
+    /etc/init.d/S30jack_crypto_tx start &> /dev/null
+    /etc/init.d/S31jack_crypto_rx start &> /dev/null
+}
+
 apply_settings()
 {
     cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all && killall -SIGHUP jack_crypto_tx jack_crypto_rx
@@ -289,7 +333,7 @@ apply_settings()
 
 save_to_sd()
 {
-    if alsactl store && \
+    if rm -f /var/lib/alsa/asound.state && alsactl store && \
        mcopy -t -n -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && \
        mcopy -t -n -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
     then
@@ -329,26 +373,27 @@ main_menu()
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
         --hfile "/usr/share/help/config.txt" \
-        --menu "Select an option. Press F1 for Help." 18 60 4 \
+        --menu "Select an option. Press F1 for Help." 19 60 4 \
         0 "Configure Headset Volume" \
         1 "Configure Radio Volume" \
         2 "Configure Radio Mode" \
         3 "Configure Encryption" \
         4 "Configure Push to Talk" \
-        5 "View Current Settings" \
-        6 "Apply Current Settings" \
-        7 "Reload Settings From SD Card" \
-        8 "Save Current Settings to SD Card" \
+        5 "Assign Audio Devices" \
+        V "View Current Settings" \
+        A "Apply Current Settings" \
+        R "Reload Settings From SD Card" \
+        S "Save Current Settings to SD Card" \
         M "View Boot Messages" \
         L "Shell Access (Experts Only)" 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in
             0)
-                alsamixer -c 0
+                alsamixer -D `iniget JACK VoiceDevice /etc/crypto.ini.sd /etc/crypto.ini`
                 ;;
             1)
-                alsamixer -c 1
+                alsamixer -D `iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini`
                 ;;
             2)
                 configure_mode
@@ -360,17 +405,20 @@ main_menu()
                 configure_ptt
                 ;;
             5)
+                assign_audio_devices
+                ;;
+            V)
                 dialog \
                 --title "Current Settings" \
                 --textbox /etc/crypto.ini.sd 30 80 2> /dev/null
                 ;;
-            6)
+            A)
                 apply_settings
                 ;;
-            7)
+            R)
                 reload_from_sd
                 ;;
-            8)
+            S)
                 save_to_sd
                 ;;
             L)

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NAME="restore.sh"
+NAME="seed.sh"
 DAEMON="/usr/bin/${NAME}"
 
 start()

@@ -349,7 +349,8 @@ reload_from_sd()
     if mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state && \
        mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd
     then
-        alsactl restore
+        aplay -l | grep -o -E 'USB_[UL][LR]' | xargs restore.sh &> /dev/null
+
         apply_settings
         dialog --msgbox "Settings Reloaded!" 0 0 2> /dev/null
     else

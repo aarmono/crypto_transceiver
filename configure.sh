@@ -319,12 +319,25 @@ apply_settings()
     /etc/init.d/S28jackd_tx stop &> /dev/null
 
     # Sometimes the services don't come up reliably without the sleep
-    sleep .5
+    sleep 1
 
     /etc/init.d/S28jackd_tx start &> /dev/null
     /etc/init.d/S29jackd_rx start &> /dev/null
     /etc/init.d/S30jack_crypto_tx start &> /dev/null
     /etc/init.d/S31jack_crypto_rx start &> /dev/null
+}
+
+alsa_restore()
+{
+    aplay -l | grep -o -E 'USB_[UL][LR]' | xargs restore.sh &> /dev/null
+}
+
+reload_asound_from_sd()
+{
+    if mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state
+    then
+        alsa_restore
+    fi
 }
 
 assign_audio_devices()
@@ -338,6 +351,14 @@ assign_audio_devices()
 
     if [ $RESTART -eq 0 ]
     then
+        # The most common use case for assigning audio devices is to
+        # go from everything unassigned to everything assigned. Since
+        # at startup the scripts will "fix" the in-memory asound.state
+        # by using the device number, reload it so that it can be updated
+        # with the actual user port assignments
+        # If the user re-assigns the audio devices after already having
+        # done so, they will have to update the audio volume settings.
+        reload_asound_from_sd
         apply_settings
     fi
 }
@@ -360,9 +381,9 @@ reload_from_sd()
     if mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state && \
        mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd
     then
-        aplay -l | grep -o -E 'USB_[UL][LR]' | xargs restore.sh &> /dev/null
-
+        alsa_restore
         apply_settings
+
         dialog --msgbox "Settings Reloaded!" 0 0 2> /dev/null
     else
         dialog --msgbox "Settings Not Reloaded!" 0 0 2> /dev/null

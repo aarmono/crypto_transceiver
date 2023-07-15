@@ -11,7 +11,7 @@ done
 
 # Seed the RNG with random data from the SD card, if available
 echo "Seeding RNG"
-mcopy -D o -n -i /dev/mmcblk0p1 ::seed /var/run/random-seed && dd if=/var/run/random-seed of=/dev/urandom
+mcopy -D o -n -i /dev/mmcblk0p1 ::seed /var/run/random-seed && dd if=/var/run/random-seed of=/dev/urandom bs=512
 
 echo "Loading sound configuration..."
 mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state

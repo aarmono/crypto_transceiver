@@ -10,7 +10,7 @@ start()
 
 	while [ ! -b /dev/mmcblk0p1 ]
 	do
-		sleep .5
+		sleep .1
 	done
 
 	echo "Loading sound configuration..."

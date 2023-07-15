@@ -18,7 +18,7 @@ OUT_DEV=`echo "$OUT_HW" | sed -e 's/hw://g'`
 
 while ! dev_active "$IN_DEV" || ! dev_active "$OUT_DEV"
 do
-    sleep .5
+    sleep .1
 done
 
 if [ "$IN_HW" = "$OUT_HW" ]

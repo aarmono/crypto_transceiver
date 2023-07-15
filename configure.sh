@@ -398,6 +398,33 @@ show_boot_messages()
     --textbox "$INPUT" 0 0 2> /dev/null
 }
 
+dev_active()
+{
+    NAME=`echo "$1" | sed -e 's/hw://g'`
+    if echo "$NAME" | grep -q USB
+    then
+        aplay -l | grep -q "$NAME"
+    else
+        aplay -l | grep -q "card $NAME"
+    fi
+}
+
+start_alsamixer()
+{
+    DEV=`iniget JACK "$1" /etc/crypto.ini.sd /etc/crypto.ini`
+    while true
+    do
+        if dev_active "$DEV"
+        then
+            alsamixer -D "$DEV"
+            return
+        elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry? " 0 0 2> /dev/null
+        then
+            return
+        fi
+    done
+}
+
 main_menu()
 {
     while [ true ]
@@ -423,10 +450,10 @@ main_menu()
         option=`cat $ANSWER`
         case "$option" in
             0)
-                alsamixer -D `iniget JACK VoiceDevice /etc/crypto.ini.sd /etc/crypto.ini`
+                start_alsamixer VoiceDevice Headset
                 ;;
             1)
-                alsamixer -D `iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini`
+                start_alsamixer ModemDevice Radio
                 ;;
             2)
                 configure_mode
@@ -462,11 +489,6 @@ main_menu()
         esac
     done
 }
-
-while [ $((`aplay -l | grep -c card`)) -lt 2 ]
-do
-    sleep .5
-done
 
 dmesg -n 1
 

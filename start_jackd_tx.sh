@@ -10,6 +10,11 @@ dev_active()
     fi
 }
 
+while [ ! -e /var/run/initialized ]
+do
+    sleep .1
+done
+
 IN_HW=`iniget JACK VoiceDevice /etc/crypto.ini.sd /etc/crypto.ini`
 OUT_HW=`iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini`
 

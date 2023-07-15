@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NAME="seed.sh"
+NAME="initialize.sh"
 DAEMON="/usr/bin/${NAME}"
 
 start()

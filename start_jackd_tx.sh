@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+trap 'exit 0' INT TERM
 
 dev_active()
 {

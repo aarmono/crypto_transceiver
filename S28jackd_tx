@@ -5,11 +5,16 @@ DAEMON="/usr/bin/start_jackd_tx.sh"
 
 start()
 {
+	while [ ! -e /var/run/initialized ]
+	do
+		inotifywait -qq -t 1 --include initialized -e create /var/run/
+	done
+
 	ENABLE_LOG=`iniget Diagnostics EnableJACKLogging /etc/crypto.ini.sd /etc/crypto.ini`
 
 	if [ "$ENABLE_LOG" = "1" ]
 	then
-		LOG_ARGS="-o /var/log/jackd_tx"
+		LOG_ARGS="-o /var/log/jackd_tx.log"
 	fi
 
 	printf "Starting ${NAME}: "

@@ -7,7 +7,7 @@ echo "0" > /sys/class/leds/led1/brightness
 # Wait for the SD card to be available
 while [ ! -b /dev/mmcblk0p1 ]
 do
-    sleep .1
+    inotifywait -qq -t 1 --include mmcblk0p1 -e create /dev/
 done
 
 # Seed the RNG with random data from the SD card, if available

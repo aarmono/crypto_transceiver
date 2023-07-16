@@ -13,7 +13,7 @@ dev_active()
 
 while [ ! -e /var/run/initialized ]
 do
-    sleep .1
+    inotifywait -qq -t 1 --include initialized -e create /var/run/
 done
 
 IN_HW=`iniget JACK ModemDevice /etc/crypto.ini.sd /etc/crypto.ini`

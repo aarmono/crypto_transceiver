@@ -1,7 +1,9 @@
 #!/usr/bin/env sh
-trap "kill %1; exit" INT TERM
+trap 'exit 0' INT TERM
 
-jack_wait -s rx -w &
-wait
+while jack_wait -s rx -c | grep -q "not running"
+do
+    sleep .1
+done
 
 exec jack_crypto_rx rx /etc/crypto.ini.all

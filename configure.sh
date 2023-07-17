@@ -2,6 +2,8 @@
 
 . /etc/profile.d/shell_functions.sh
 
+exec 2>/dev/null
+
 ANSWER=/tmp/answer
 INPUT=/tmp/input
 
@@ -361,9 +363,9 @@ save_to_sd()
        save_sd_sound_config && save_sd_crypto_config
     then
         apply_settings
-        dialog --msgbox "Settings Saved!" 0 0 2> /dev/null
+        dialog --msgbox "Settings Saved!" 0 0
     else
-        dialog --msgbox "Settings Not Saved!" 0 0 2> /dev/null
+        dialog --msgbox "Settings Not Saved!" 0 0
     fi
 }
 
@@ -374,9 +376,9 @@ reload_from_sd()
         alsa_restore
         apply_settings
 
-        dialog --msgbox "Settings Reloaded!" 0 0 2> /dev/null
+        dialog --msgbox "Settings Reloaded!" 0 0
     else
-        dialog --msgbox "Settings Not Reloaded!" 0 0 2> /dev/null
+        dialog --msgbox "Settings Not Reloaded!" 0 0
     fi
 }
 
@@ -385,7 +387,7 @@ show_boot_messages()
     dmesg > $INPUT
     dialog \
     --title "Boot Messagaes" \
-    --textbox "$INPUT" 0 0 2> /dev/null
+    --textbox "$INPUT" 0 0
 }
 
 start_alsamixer()
@@ -397,7 +399,7 @@ start_alsamixer()
         then
             alsamixer -D "$DEV"
             return
-        elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry? " 0 0 2> /dev/null
+        elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry? " 0 0
         then
             return
         fi
@@ -449,7 +451,7 @@ main_menu()
             V)
                 dialog \
                 --title "Current Settings" \
-                --textbox "$CRYPTO_INI_USR" 30 80 2> /dev/null
+                --textbox "$CRYPTO_INI_USR" 30 80
                 ;;
             A)
                 apply_settings

@@ -16,7 +16,7 @@ alias mcopy_text="mcopy -t -n -D o -i $SD_DEV"
 alias mcopy_bin="mcopy -D o -n -i $SD_DEV"
 
 # Lists the sound devices in the system
-alias aplay_ls="aplay -l 2>/dev/null"
+alias aplay_ls="aplay -l"
 
 # Loads the sound card config from the SD card
 alias load_sd_sound_config="mcopy_text ::config/asound.state $ASOUND_CFG"
@@ -43,7 +43,7 @@ alias save_sd_seed="dd if=/dev/random of=$SEED_FILE bs=512 count=1 && mcopy_bin 
 alias gen_combined_crypto_config="cat $CRYPTO_INI_SYS $CRYPTO_INI_USR > $CRYPTO_INI_ALL"
 
 # Restores ALSA sound config for all sound cards
-alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh &> /dev/null"
+alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh"
 
 # Takes a sound card name and strips off the "hw:"
 # prefix if it is present

@@ -3,16 +3,15 @@
 NAME="jackd_tx"
 DAEMON="/usr/bin/start_jackd_tx.sh"
 
+. /etc/profile.d/shell_functions.sh
+
 start()
 {
-	while [ ! -e /var/run/initialized ]
-	do
-		inotifywait -qq -t 1 --include initialized -e create /var/run/
-	done
+	wait_initialized
 
-	ENABLE_LOG=`iniget Diagnostics EnableJACKLogging /etc/crypto.ini.sd /etc/crypto.ini`
+	ENABLE_LOG=`get_config_val Diagnostics EnableJACKLogging`
 
-	if [ "$ENABLE_LOG" = "1" ]
+	if test "$ENABLE_LOG" = "1"
 	then
 		LOG_ARGS="-o /var/log/jackd_tx.log"
 	fi
@@ -25,7 +24,12 @@ start()
 stop()
 {
 	printf "Stopping ${NAME}: "
-	if daemon --stop -n ${NAME}; then
+	if daemon --stop -n ${NAME}
+	then
+		while daemon --running -n ${NAME}
+		do
+			sleep .1
+		done
 		echo "OK"
 	else
 		echo "FAIL"

@@ -1,34 +1,33 @@
 #!/usr/bin/env sh
 trap 'exit 0' INT TERM
 
+. /etc/profile.d/shell_functions.sh
+
 echo "0" > /sys/class/leds/led0/brightness
 echo "0" > /sys/class/leds/led1/brightness
 
 # Wait for the SD card to be available
-while [ ! -b /dev/mmcblk0p1 ]
-do
-    inotifywait -qq -t 1 --include mmcblk0p1 -e create /dev/
-done
+wait_sd
 
 # Seed the RNG with random data from the SD card, if available
 echo "Seeding RNG"
-mcopy -D o -n -i /dev/mmcblk0p1 ::seed /var/run/random-seed && dd if=/var/run/random-seed of=/dev/urandom bs=512
+seed_rng_with_sd
 
 echo "Loading sound configuration..."
-mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state
+load_sd_sound_config
 
 echo "Loading key..."
-mcopy -D o -n -i /dev/mmcblk0p1 ::config/key /etc/key
+load_sd_key
 
 echo "Loading crypto configuration..."
-cp /etc/crypto.ini /etc/crypto.ini.all && mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd && cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all
+load_sd_crypto_config
 
 echo "Loading shadow..."
-mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/shadow /etc/shadow && chown root:root /etc/shadow && chmod 000 /etc/shadow
+mcopy_text ::config/shadow /etc/shadow && chown root:root /etc/shadow && chmod 000 /etc/shadow
 
 touch /var/run/initialized
 echo "Done"
 
 # Put a new seed onto the SD card. This call will block until the RNG is
 # initialized, so this needs to run in a background process (it is)
-dd if=/dev/random of=/var/run/random-seed bs=512 count=1 && mcopy -D o -n -i /dev/mmcblk0p1 /var/run/random-seed ::seed
+save_sd_seed

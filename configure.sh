@@ -1,19 +1,21 @@
 #!/usr/bin/env sh
 
+. /etc/profile.d/shell_functions.sh
+
 ANSWER=/tmp/answer
 INPUT=/tmp/input
 
 on_off()
 {
-  if [ "$1" = "$2" ] ; then echo on ; else echo off ; fi
+    test "$1" = "$2" && echo on || echo off
 }
 
 configure_ptt_enable()
 {
-    VAL=`iniget PTT Enabled /etc/crypto.ini.sd`
-    DEFAULT=`iniget PTT Enabled /etc/crypto.ini`
+    VAL=`get_user_config_val PTT Enabled`
+    DEFAULT=`get_sys_config_val PTT Enabled`
 
-    if [ "$DEFAULT" = "0" ]
+    if test "$DEFAULT" = "0"
     then
         DEFAULT=Off
     else
@@ -31,18 +33,18 @@ configure_ptt_enable()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset PTT Enabled "" /etc/crypto.ini.sd
+            set_config_val PTT Enabled ""
             ;;
         0|1)
-            iniset PTT Enabled $option /etc/crypto.ini.sd
+            set_config_val PTT Enabled $option
             ;;
     esac
 }
 
 configure_ptt_pin()
 {
-    VAL=`iniget PTT $2 /etc/crypto.ini.sd`
-    DEFAULT=`iniget PTT $2 /etc/crypto.ini`
+    VAL=`get_user_config_val PTT $2`
+    DEFAULT=`get_sys_config_val PTT $2`
 
     dialog \
     --no-tags \
@@ -81,21 +83,21 @@ configure_ptt_pin()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset PTT $2 "" /etc/crypto.ini.sd
+            set_config_val PTT $2 ""
             ;;
         0|1|2|3|4|5|6|7|8|9| \
         10|11|12|13|14|15|16| \
         17|18|19|20|21|22|23| \
         24|25|26|27)
-            iniset PTT $2 $option /etc/crypto.ini.sd
+            set_config_val PTT $2 $option
             ;;
     esac
 }
 
 configure_ptt_bias()
 {
-    VAL=`iniget PTT $2 /etc/crypto.ini.sd`
-    DEFAULT=`iniget PTT $2 /etc/crypto.ini`
+    VAL=`get_user_config_val PTT $2`
+    DEFAULT=`get_sys_config_val PTT $2`
 
     dialog \
     --no-tags \
@@ -109,18 +111,18 @@ configure_ptt_bias()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset PTT $2 "" /etc/crypto.ini.sd
+            set_config_val PTT $2 ""
             ;;
         pull-up|pull-down|disable)
-            iniset PTT $2 $option /etc/crypto.ini.sd
+            set_config_val PTT $2 $option
             ;;
     esac
 }
 
 configure_ptt_drive()
 {
-    VAL=`iniget PTT $2 /etc/crypto.ini.sd`
-    DEFAULT=`iniget PTT $2 /etc/crypto.ini`
+    VAL=`get_user_config_val PTT $2`
+    DEFAULT=`get_sys_config_val PTT $2`
 
     dialog \
     --no-tags \
@@ -134,20 +136,20 @@ configure_ptt_drive()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset PTT $2 "" /etc/crypto.ini.sd
+            set_config_val PTT $2 ""
             ;;
         open-drain|open-source|push-pull)
-            iniset PTT $2 $option /etc/crypto.ini.sd
+            set_config_val PTT $2 $option
             ;;
     esac
 }
 
 configure_ptt_active_level()
 {
-    VAL=`iniget PTT $2 /etc/crypto.ini.sd`
-    DEFAULT=`iniget PTT $2 /etc/crypto.ini`
+    VAL=`get_user_config_val PTT $2`
+    DEFAULT=`get_sys_config_val PTT $2`
 
-    if [ "$DEFAULT" = "0" ]
+    if test "$DEFAULT" = "0"
     then
         DEFAULT="Active High"
     else
@@ -165,17 +167,17 @@ configure_ptt_active_level()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset PTT $2 "" /etc/crypto.ini.sd
+            set_config_val PTT $2 ""
             ;;
         0|1)
-            iniset PTT $2 $option /etc/crypto.ini.sd
+            set_config_val PTT $2 $option
             ;;
     esac
 }
 
 configure_ptt()
 {
-    while [ true ]
+    while true
     do
         dialog \
         --title "PTT Configuration" \
@@ -224,10 +226,10 @@ configure_ptt()
 
 configure_encryption()
 {
-    VAL=`iniget Crypto Enabled /etc/crypto.ini.sd`
-    DEFAULT=`iniget Crypto Enabled /etc/crypto.ini`
+    VAL=`get_user_config_val Crypto Enabled`
+    DEFAULT=`get_sys_config_val Crypto Enabled`
 
-    if [ "$DEFAULT" = "0" ]
+    if test "$DEFAULT" = "0"
     then
         DEFAULT=Off
     else
@@ -245,18 +247,18 @@ configure_encryption()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset Crypto Enabled "" /etc/crypto.ini.sd
+            set_config_val Crypto Enabled ""
             ;;
         0|1)
-            iniset Crypto Enabled $option /etc/crypto.ini.sd
+            set_config_val Crypto Enabled $option
             ;;
     esac
 }
 
 configure_mode()
 {
-    VAL=`iniget Codec Mode /etc/crypto.ini.sd`
-    DEFAULT=`iniget Codec Mode /etc/crypto.ini`
+    VAL=`get_user_config_val Codec Mode`
+    DEFAULT=`get_sys_config_val Codec Mode`
 
     dialog \
     --no-tags \
@@ -274,17 +276,17 @@ configure_mode()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            iniset Codec Mode "" /etc/crypto.ini.sd
+            set_config_val Codec Mode ""
             ;;
         700C|700D|700E|800XA|1600|2400B)
-            iniset Codec Mode $option /etc/crypto.ini.sd
+            set_config_val Codec Mode $option
             ;;
     esac
 }
 
 assign_audio_device()
 {
-    VAL=`iniget JACK $2 /etc/crypto.ini.sd /etc/crypto.ini`
+    VAL=`get_config_val JACK $2`
 
     dialog \
     --no-tags \
@@ -300,7 +302,7 @@ assign_audio_device()
     option=`cat $ANSWER`
     case "$option" in
         hw:USB_LL | hw:USB_LR | hw:USB_UL | hw:USB_UR)
-            iniset JACK $2 "$option" /etc/crypto.ini.sd
+            set_config_val JACK $2 "$option"
             ;;
         "")
             ;;
@@ -311,15 +313,10 @@ assign_audio_device()
 
 apply_settings()
 {
-    cat /etc/crypto.ini /etc/crypto.ini.sd > /etc/crypto.ini.all
-
     /etc/init.d/S31jack_crypto_rx stop &> /dev/null
     /etc/init.d/S30jack_crypto_tx stop &> /dev/null
     /etc/init.d/S29jackd_rx stop &> /dev/null
     /etc/init.d/S28jackd_tx stop &> /dev/null
-
-    # Sometimes the services don't come up reliably without the sleep
-    sleep 1
 
     /etc/init.d/S28jackd_tx start &> /dev/null
     /etc/init.d/S29jackd_rx start &> /dev/null
@@ -327,14 +324,9 @@ apply_settings()
     /etc/init.d/S31jack_crypto_rx start &> /dev/null
 }
 
-alsa_restore()
-{
-    aplay -l | grep -o -E 'USB_[UL][LR]' | xargs restore.sh &> /dev/null
-}
-
 reload_asound_from_sd()
 {
-    if mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state
+    if load_sd_sound_config
     then
         alsa_restore
     fi
@@ -349,7 +341,7 @@ assign_audio_devices()
         assign_audio_device Radio ModemDevice
     fi
 
-    if [ $RESTART -eq 0 ]
+    if test $RESTART -eq 0
     then
         # The most common use case for assigning audio devices is to
         # go from everything unassigned to everything assigned. Since
@@ -365,9 +357,8 @@ assign_audio_devices()
 
 save_to_sd()
 {
-    if rm -f /var/lib/alsa/asound.state && alsactl store && \
-       mcopy -t -n -D o -i /dev/mmcblk0p1 /var/lib/alsa/asound.state ::config/asound.state && \
-       mcopy -t -n -D o -i /dev/mmcblk0p1 /etc/crypto.ini.sd ::config/crypto.ini
+    if rm -f "$ASOUND_CFG" && alsactl store && \
+       save_sd_sound_config && save_sd_crypto_config
     then
         apply_settings
         dialog --msgbox "Settings Saved!" 0 0 2> /dev/null
@@ -378,8 +369,7 @@ save_to_sd()
 
 reload_from_sd()
 {
-    if mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/asound.state /var/lib/alsa/asound.state && \
-       mcopy -t -n -D o -i /dev/mmcblk0p1 ::config/crypto.ini /etc/crypto.ini.sd
+    if load_sd_sound_config && load_sd_crypto_config
     then
         alsa_restore
         apply_settings
@@ -398,23 +388,12 @@ show_boot_messages()
     --textbox "$INPUT" 0 0 2> /dev/null
 }
 
-dev_active()
-{
-    NAME=`echo "$1" | sed -e 's/hw://g'`
-    if echo "$NAME" | grep -q USB
-    then
-        aplay -l | grep -q "$NAME"
-    else
-        aplay -l | grep -q "card $NAME"
-    fi
-}
-
 start_alsamixer()
 {
-    DEV=`iniget JACK "$1" /etc/crypto.ini.sd /etc/crypto.ini`
+    DEV=`get_config_val JACK "$1"`
     while true
     do
-        if dev_active "$DEV"
+        if sound_dev_active "$DEV"
         then
             alsamixer -D "$DEV"
             return
@@ -427,7 +406,7 @@ start_alsamixer()
 
 main_menu()
 {
-    while [ true ]
+    while true
     do
         dialog \
         --no-cancel \
@@ -470,7 +449,7 @@ main_menu()
             V)
                 dialog \
                 --title "Current Settings" \
-                --textbox /etc/crypto.ini.sd 30 80 2> /dev/null
+                --textbox "$CRYPTO_INI_USR" 30 80 2> /dev/null
                 ;;
             A)
                 apply_settings

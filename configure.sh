@@ -419,7 +419,8 @@ save_to_sd()
         if is_initialized
         then
             if rm -f "$ASOUND_CFG" && alsactl store && \
-               save_sd_sound_config && save_sd_crypto_config && save_sd_key
+               save_sd_sound_config && save_sd_crypto_config && \
+               save_sd_key && save_sd_seed
             then
                 apply_settings
                 dialog --msgbox "Settings Saved!" 0 0

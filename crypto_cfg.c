@@ -10,11 +10,11 @@
 static int bias_flags(const char *option)
 {
     if (strcasecmp(option, "pull-down") == 0)
-        return GPIOD_CTXLESS_FLAG_BIAS_PULL_DOWN;
+        return GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN;
     if (strcasecmp(option, "pull-up") == 0)
-        return GPIOD_CTXLESS_FLAG_BIAS_PULL_UP;
+        return GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_UP;
     if (strcasecmp(option, "disable") == 0)
-        return GPIOD_CTXLESS_FLAG_BIAS_DISABLE;
+        return GPIOD_LINE_REQUEST_FLAG_BIAS_DISABLE;
     else
         return 0;
 }
@@ -22,9 +22,9 @@ static int bias_flags(const char *option)
 static int drive_flags(const char *option)
 {
     if (strcasecmp(option, "open-drain") == 0)
-        return GPIOD_CTXLESS_FLAG_OPEN_DRAIN;
+        return GPIOD_LINE_REQUEST_FLAG_OPEN_DRAIN;
     if (strcasecmp(option, "open-source") == 0)
-        return GPIOD_CTXLESS_FLAG_OPEN_SOURCE;
+        return GPIOD_LINE_REQUEST_FLAG_OPEN_SOURCE;
     if (strcasecmp(option, "push-pull") == 0)
         return 0;
 

@@ -52,6 +52,9 @@ static const char* config_file = nullptr;
 
 static bool mic_enabled_prev = false;
 
+static struct gpiod_line* ptt_in_line = nullptr;
+static struct gpiod_line* ptt_out_line = nullptr;
+
 static int get_jack_period(const struct config* cfg)
 {
     switch(cfg->freedv_mode)
@@ -87,17 +90,13 @@ static void handle_sighup(int sig)
 
 static bool microphone_enabled(const struct config* cfg)
 {
-    if (cfg->ptt_enabled == 0)
+    if (ptt_in_line == nullptr)
     {
         return true;
     }
     else
     {
-        int result = gpiod_ctxless_get_value_ext("gpiochip0",
-                                                 cfg->ptt_gpio_num,
-                                                 cfg->ptt_active_low,
-                                                 "jack_crypto_tx",
-                                                 cfg->ptt_gpio_bias);
+        const int result = gpiod_line_get_value(ptt_in_line);
         if (result < 0)
         {
             crypto_tx->log_to_logger(LOG_ERROR, "Error reading PTT IO");
@@ -114,22 +113,14 @@ static void set_ptt_val(const struct config* cfg, bool val)
 {
     static int prev_val = -1;
     const int cur_val = static_cast<int>(val);
-    const int flags = cfg->ptt_output_bias | cfg->ptt_output_bias;
 
-    if (cfg->ptt_enabled == 0)
+    if (ptt_out_line == nullptr)
     {
         prev_val = -1;
         return;
     }
     else if (prev_val != cur_val &&
-             gpiod_ctxless_set_value_ext("gpiochip0",
-                                         cfg->ptt_output_gpio_num,
-                                         cur_val,
-                                         cfg->ptt_output_active_low,
-                                         "jack_crypto_tx",
-                                         nullptr,
-                                         nullptr,
-                                         flags) == 0)
+             gpiod_line_set_value(ptt_out_line, cur_val) == 0)
     {
         prev_val = cur_val;
     }
@@ -392,6 +383,49 @@ static void initialize_crypto()
     output_resampler.reset(new resampler(SRC_SINC_FASTEST, 1, modem_frames * 2));
 }
 
+static void initialize_ptt()
+{
+    const struct config* cfg = crypto_tx->get_config();
+
+    if (ptt_in_line != nullptr)
+    {
+        gpiod_line_close_chip(ptt_in_line);
+        ptt_in_line = nullptr;
+    }
+    if (ptt_out_line != nullptr)
+    {
+        gpiod_line_close_chip(ptt_out_line);
+        ptt_out_line = nullptr;
+    }
+
+    if (cfg->ptt_enabled)
+    {
+        ptt_in_line = gpiod_line_get("gpiochip0", cfg->ptt_gpio_num);
+        if (ptt_in_line != nullptr)
+        {
+            int flags = cfg->ptt_gpio_bias;
+            if (cfg->ptt_active_low)
+            {
+                flags |= GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW;
+            }
+
+            gpiod_line_request_input_flags(ptt_in_line, "jack_crypto_tx", flags);
+        }
+
+        ptt_out_line = gpiod_line_get("gpiochip0", cfg->ptt_output_gpio_num);
+        if (ptt_out_line != nullptr)
+        {
+            int flags = cfg->ptt_output_bias | cfg->ptt_output_drive;
+            if (cfg->ptt_output_active_low)
+            {
+                flags |= GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW;
+            }
+
+            gpiod_line_request_output_flags(ptt_out_line, "jack_crypto_tx", flags, 0);
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     const char* client_name = "crypto_tx";
@@ -481,6 +515,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    initialize_ptt();
     activate_client();
 
     signal(SIGQUIT, signal_handler);
@@ -504,6 +539,8 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "%s", ex.what());
                 exit(1);
             }
+
+            initialize_ptt();
             activate_client();
         }
         sleep(1);

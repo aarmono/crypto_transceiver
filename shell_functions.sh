@@ -57,6 +57,9 @@ alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh"
 # Tests whether the configuration is "initialized" from the SD card
 alias is_initialized="test -e /var/run/initialized"
 
+# Tests whether the system has an SD card installed
+alias has_sd_card="test -b $SD_DEV"
+
 # Takes a sound card name and strips off the "hw:"
 # prefix if it is present
 sound_strip_prefix()
@@ -154,7 +157,7 @@ wait_jackd()
 # Blocks until the SD card partition is available
 wait_sd()
 {
-    while test ! -b "$SD_DEV"
+    while ! has_sd_card
     do
         inotifywait -qq -t 1 --include mmcblk0p1 -e create /dev/
     done
@@ -199,4 +202,23 @@ set_config_val()
 get_sound_hw_device()
 {
     get_config_val JACK "$1"
+}
+
+# Copies the MBR and first partition on the SD card to the specified image file
+copy_sd_to_img()
+{
+    BLOCK_SIZE=`fdisk -u -l /dev/mmcblk0 | grep -o -E '[0-9]+ bytes$' | cut -d ' ' -f 1`
+    END_BLOCK=`fdisk -u -l /dev/mmcblk0 | grep "$SD_DEV" | xargs echo | cut -d ' ' -f 6`
+
+    BLOCK_COUNT=$((END_BLOCK+1))
+    TOTAL_BYTES=$((BLOCK_SIZE*BLOCK_COUNT))
+
+    # Sanity check that this is a valid SD card (which has a 32MB partition
+    # but we are being conservative here and saying no larger than 200MB)
+    test "$TOTAL_BYTES" -lt 200000000 && dd if=/dev/mmcblk0 of="$1" bs="$BLOCK_SIZE" count="$BLOCK_COUNT" conv=fsync status=progress && echo "Success!" 1>&2
+}
+
+copy_img_to_sd()
+{
+    dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && partprobe /dev/mmcblk0 && save_sd_seed && echo "Success" 1>&2
 }

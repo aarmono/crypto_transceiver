@@ -403,24 +403,16 @@ static void initialize_ptt()
         ptt_in_line = gpiod_line_get("gpiochip0", cfg->ptt_gpio_num);
         if (ptt_in_line != nullptr)
         {
-            int flags = cfg->ptt_gpio_bias;
-            if (cfg->ptt_active_low)
-            {
-                flags |= GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW;
-            }
-
+            const int flags = cfg->ptt_gpio_bias | cfg->ptt_active_low;
             gpiod_line_request_input_flags(ptt_in_line, "jack_crypto_tx", flags);
         }
 
         ptt_out_line = gpiod_line_get("gpiochip0", cfg->ptt_output_gpio_num);
         if (ptt_out_line != nullptr)
         {
-            int flags = cfg->ptt_output_bias | cfg->ptt_output_drive;
-            if (cfg->ptt_output_active_low)
-            {
-                flags |= GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW;
-            }
-
+            const int flags = cfg->ptt_output_bias |
+                              cfg->ptt_output_drive |
+                              cfg->ptt_output_active_low;
             gpiod_line_request_output_flags(ptt_out_line, "jack_crypto_tx", flags, 0);
         }
     }

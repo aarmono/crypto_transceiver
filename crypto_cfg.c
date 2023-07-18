@@ -31,6 +31,11 @@ static int drive_flags(const char *option)
     return 0;
 }
 
+static int active_flags(const char* option)
+{
+    return atoi(option) != 0 ? GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW : 0;
+}
+
 static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *Value, void *UserData) {
     struct config *cfg = (struct config*)UserData;
 
@@ -72,7 +77,7 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->ptt_gpio_num = atoi(Value);
         }
         else if (strcasecmp(Key, "ActiveLow") == 0) {
-            cfg->ptt_active_low = atoi(Value);
+            cfg->ptt_active_low = active_flags(Value);
         }
         else if (strcasecmp(Key, "Bias") == 0) {
             cfg->ptt_gpio_bias = bias_flags(Value);
@@ -81,7 +86,7 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             cfg->ptt_output_gpio_num = atoi(Value);
         }
         else if (strcasecmp(Key, "OutputActiveLow") == 0) {
-            cfg->ptt_output_active_low = atoi(Value);
+            cfg->ptt_output_active_low = active_flags(Value);
         }
         else if (strcasecmp(Key, "OutputBias") == 0) {
             cfg->ptt_output_bias = bias_flags(Value);

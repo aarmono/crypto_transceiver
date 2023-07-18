@@ -180,109 +180,137 @@ configure_ptt()
 {
     while true
     do
-        dialog \
-        --title "PTT Configuration" \
-        --menu "Select a PTT option to configure." 15 60 4 \
-        1 "Enable PTT" \
-        2 "Configure Input GPIO Pin" \
-        3 "Configure Input Pin Bias" \
-        4 "Configure Input Pin Active State" \
-        5 "Configure Output GPIO Pin" \
-        6 "Configure Output Pin Bias" \
-        7 "Configure Output Pin Drive" \
-        8 "Configure Output Pin Active State" 2>$ANSWER
+        if is_initialized
+        then
+            dialog \
+            --title "PTT Configuration" \
+            --menu "Select a PTT option to configure." 15 60 4 \
+            1 "Enable PTT" \
+            2 "Configure Input GPIO Pin" \
+            3 "Configure Input Pin Bias" \
+            4 "Configure Input Pin Active State" \
+            5 "Configure Output GPIO Pin" \
+            6 "Configure Output Pin Bias" \
+            7 "Configure Output Pin Drive" \
+            8 "Configure Output Pin Active State" 2>$ANSWER
 
-        option=`cat $ANSWER`
-        case "$option" in
-            1)
-                configure_ptt_enable
-                ;;
-            2)
-                configure_ptt_pin Input GPIONum
-                ;;
-            3)
-                configure_ptt_bias Input Bias
-                ;;
-            4)
-                configure_ptt_active_level Input ActiveLow
-                ;;
-            5)
-                configure_ptt_pin Output OutputGPIONum
-                ;;
-            6)
-                configure_ptt_bias Output OutputBias
-                ;;
-            7)
-                configure_ptt_drive Output OutputDrive
-                ;;
-            8)
-                configure_ptt_active_level Output OutputActiveLow
-                ;;
-            "")
-                return
-                ;;
-        esac
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    configure_ptt_enable
+                    ;;
+                2)
+                    configure_ptt_pin Input GPIONum
+                    ;;
+                3)
+                    configure_ptt_bias Input Bias
+                    ;;
+                4)
+                    configure_ptt_active_level Input ActiveLow
+                    ;;
+                5)
+                    configure_ptt_pin Output OutputGPIONum
+                    ;;
+                6)
+                    configure_ptt_bias Output OutputBias
+                    ;;
+                7)
+                    configure_ptt_drive Output OutputDrive
+                    ;;
+                8)
+                    configure_ptt_active_level Output OutputActiveLow
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
     done
 }
 
 configure_encryption()
 {
-    VAL=`get_user_config_val Crypto Enabled`
-    DEFAULT=`get_sys_config_val Crypto Enabled`
+    while true
+    do
+        if is_initialized
+        then
+            VAL=`get_user_config_val Crypto Enabled`
+            DEFAULT=`get_sys_config_val Crypto Enabled`
 
-    if test "$DEFAULT" = "0"
-    then
-        DEFAULT=Off
-    else
-        DEFAULT=On
-    fi
+            if test "$DEFAULT" = "0"
+            then
+                DEFAULT=Off
+            else
+                DEFAULT=On
+            fi
 
-    dialog \
-    --no-tags \
-    --title "Configure Encryption" \
-    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
-    default "Default ($DEFAULT)" `on_off $VAL ""` \
-    1       "On"                 `on_off $VAL 1`  \
-    0       "Off"                `on_off $VAL 0` 2>$ANSWER
+            dialog \
+            --no-tags \
+            --title "Configure Encryption" \
+            --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
+            default "Default ($DEFAULT)" `on_off $VAL ""` \
+            1       "On"                 `on_off $VAL 1`  \
+            0       "Off"                `on_off $VAL 0` 2>$ANSWER
 
-    option=`cat $ANSWER`
-    case "$option" in
-        default)
-            set_config_val Crypto Enabled ""
-            ;;
-        0|1)
-            set_config_val Crypto Enabled $option
-            ;;
-    esac
+            option=`cat $ANSWER`
+            case "$option" in
+                default)
+                    set_config_val Crypto Enabled ""
+                    ;;
+                0|1)
+                    set_config_val Crypto Enabled $option
+                    ;;
+            esac
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 configure_mode()
 {
-    VAL=`get_user_config_val Codec Mode`
-    DEFAULT=`get_sys_config_val Codec Mode`
+    while true
+    do
+        if is_initialized
+        then
+            VAL=`get_user_config_val Codec Mode`
+            DEFAULT=`get_sys_config_val Codec Mode`
 
-    dialog \
-    --no-tags \
-    --title "Configure Radio Mode" \
-    --hfile "/usr/share/help/freedv.txt" \
-    --radiolist "Select a mode or \"Default\" to use the system default. Press F1 for more information." 15 60 4 \
-    default "Default ($DEFAULT)"    `on_off $VAL ""`    \
-    700C    "700C  (HF/SSB)"        `on_off $VAL 700C`  \
-    700D    "700D  (HF/SSB)"        `on_off $VAL 700D`  \
-    700E    "700E  (HF/SSB)"        `on_off $VAL 700E`  \
-    800XA   "800XA (Any)"           `on_off $VAL 800XA` \
-    1600    "1600  (HF/SSB)"        `on_off $VAL 1600`  \
-    2400B   "2400B (Narrowband FM)" `on_off $VAL 2400B` 2>$ANSWER
+            dialog \
+            --no-tags \
+            --title "Configure Radio Mode" \
+            --hfile "/usr/share/help/freedv.txt" \
+            --radiolist "Select a mode or \"Default\" to use the system default. Press F1 for more information." 15 60 4 \
+            default "Default ($DEFAULT)"    `on_off $VAL ""`    \
+            700C    "700C  (HF/SSB)"        `on_off $VAL 700C`  \
+            700D    "700D  (HF/SSB)"        `on_off $VAL 700D`  \
+            700E    "700E  (HF/SSB)"        `on_off $VAL 700E`  \
+            800XA   "800XA (Any)"           `on_off $VAL 800XA` \
+            1600    "1600  (HF/SSB)"        `on_off $VAL 1600`  \
+            2400B   "2400B (Narrowband FM)" `on_off $VAL 2400B` 2>$ANSWER
 
-    option=`cat $ANSWER`
-    case "$option" in
-        default)
-            set_config_val Codec Mode ""
-            ;;
-        700C|700D|700E|800XA|1600|2400B)
-            set_config_val Codec Mode $option
-            ;;
-    esac
+            option=`cat $ANSWER`
+            case "$option" in
+                default)
+                    set_config_val Codec Mode ""
+                    ;;
+                700C|700D|700E|800XA|1600|2400B)
+                    set_config_val Codec Mode $option
+                    ;;
+            esac
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 assign_audio_device()
@@ -314,21 +342,32 @@ assign_audio_device()
 
 apply_settings()
 {
-    /etc/init.d/S31jack_crypto_rx stop &> /dev/null
-    /etc/init.d/S30jack_crypto_tx stop &> /dev/null
-    /etc/init.d/S29jackd_rx stop &> /dev/null
-    /etc/init.d/S28jackd_tx stop &> /dev/null
-
-    while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
-          /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running
+    while true
     do
-        sleep .1
-    done
+        if is_initialized
+        then
+            /etc/init.d/S31jack_crypto_rx stop &> /dev/null
+            /etc/init.d/S30jack_crypto_tx stop &> /dev/null
+            /etc/init.d/S29jackd_rx stop &> /dev/null
+            /etc/init.d/S28jackd_tx stop &> /dev/null
 
-    /etc/init.d/S28jackd_tx start &> /dev/null
-    /etc/init.d/S29jackd_rx start &> /dev/null
-    /etc/init.d/S30jack_crypto_tx start &> /dev/null
-    /etc/init.d/S31jack_crypto_rx start &> /dev/null
+            while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
+                  /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running
+            do
+                sleep .1
+            done
+
+            /etc/init.d/S28jackd_tx start &> /dev/null
+            /etc/init.d/S29jackd_rx start &> /dev/null
+            /etc/init.d/S30jack_crypto_tx start &> /dev/null
+            /etc/init.d/S31jack_crypto_rx start &> /dev/null
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 reload_asound_from_sd()
@@ -341,50 +380,83 @@ reload_asound_from_sd()
 
 assign_audio_devices()
 {
-    RESTART=1
-    if assign_audio_device Headset VoiceDevice
-    then
-        RESTART=0
-        assign_audio_device Radio ModemDevice
-    fi
+    while true
+    do
+        if is_initialized
+        then
+            RESTART=1
+            if assign_audio_device Headset VoiceDevice
+            then
+                RESTART=0
+                assign_audio_device Radio ModemDevice
+            fi
 
-    if test $RESTART -eq 0
-    then
-        # The most common use case for assigning audio devices is to
-        # go from everything unassigned to everything assigned. Since
-        # at startup the scripts will "fix" the in-memory asound.state
-        # by using the device number, reload it so that it can be updated
-        # with the actual user port assignments
-        # If the user re-assigns the audio devices after already having
-        # done so, they will have to update the audio volume settings.
-        reload_asound_from_sd
-        apply_settings
-    fi
+            if test $RESTART -eq 0
+            then
+                # The most common use case for assigning audio devices is to
+                # go from everything unassigned to everything assigned. Since
+                # at startup the scripts will "fix" the in-memory asound.state
+                # by using the device number, reload it so that it can be updated
+                # with the actual user port assignments
+                # If the user re-assigns the audio devices after already having
+                # done so, they will have to update the audio volume settings.
+                reload_asound_from_sd
+                apply_settings
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 save_to_sd()
 {
-    if rm -f "$ASOUND_CFG" && alsactl store && \
-       save_sd_sound_config && save_sd_crypto_config
-    then
-        apply_settings
-        dialog --msgbox "Settings Saved!" 0 0
-    else
-        dialog --msgbox "Settings Not Saved!" 0 0
-    fi
+    while true
+    do
+        if is_initialized
+        then
+            if rm -f "$ASOUND_CFG" && alsactl store && \
+               save_sd_sound_config && save_sd_crypto_config
+            then
+                apply_settings
+                dialog --msgbox "Settings Saved!" 0 0
+            else
+                dialog --msgbox "Settings Not Saved!" 0 0
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 reload_from_sd()
 {
-    if load_sd_sound_config && load_sd_crypto_config
-    then
-        alsa_restore
-        apply_settings
+    while true
+    do
+        if is_initialized
+        then
+            if load_sd_sound_config && load_sd_crypto_config
+            then
+                alsa_restore
+                apply_settings
 
-        dialog --msgbox "Settings Reloaded!" 0 0
-    else
-        dialog --msgbox "Settings Not Reloaded!" 0 0
-    fi
+                dialog --msgbox "Settings Reloaded!" 0 0
+            else
+                dialog --msgbox "Settings Not Reloaded!" 0 0
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 show_boot_messages()
@@ -392,6 +464,24 @@ show_boot_messages()
     dialog \
     --title "Boot Messagaes" \
     --textbox /var/log/messages 0 0
+}
+
+show_user_settings()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "Current Settings" \
+            --textbox "$CRYPTO_INI_USR" 30 80
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
 }
 
 start_alsamixer()
@@ -453,9 +543,7 @@ main_menu()
                 assign_audio_devices
                 ;;
             V)
-                dialog \
-                --title "Current Settings" \
-                --textbox "$CRYPTO_INI_USR" 30 80
+                show_user_settings
                 ;;
             A)
                 apply_settings

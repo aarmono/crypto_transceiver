@@ -8,7 +8,7 @@ wait_initialized
 IN_HW=`get_sound_hw_device ModemDevice`
 OUT_HW=`get_sound_hw_device VoiceDevice`
 
-wait_sound_dev_active_all "$IN_HW" "$OUT_HW"
+wait_sound_dev_active_all "$IN_HW" "$OUT_HW" &>/dev/null
 
 if test "$IN_HW" = "$OUT_HW"
 then

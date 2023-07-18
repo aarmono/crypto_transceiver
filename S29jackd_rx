@@ -7,14 +7,7 @@ DAEMON="/usr/bin/start_jackd_rx.sh"
 
 start()
 {
-	wait_initialized
-
-	ENABLE_LOG=`get_config_val Diagnostics EnableJACKLogging`
-
-	if test "$ENABLE_LOG" = "1"
-	then
-		LOG_ARGS="-o /var/log/jackd_rx.log"
-	fi
+	LOG_ARGS="-O daemon.info -E daemon.err"
 
 	printf "Starting ${NAME}: "
 	daemon -n ${NAME} -r -L 15 $LOG_ARGS "${DAEMON}"

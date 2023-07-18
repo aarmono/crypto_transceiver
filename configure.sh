@@ -419,7 +419,7 @@ save_to_sd()
         if is_initialized
         then
             if rm -f "$ASOUND_CFG" && alsactl store && \
-               save_sd_sound_config && save_sd_crypto_config
+               save_sd_sound_config && save_sd_crypto_config && save_sd_key
             then
                 apply_settings
                 dialog --msgbox "Settings Saved!" 0 0
@@ -441,7 +441,7 @@ reload_from_sd()
     do
         if is_initialized
         then
-            if load_sd_sound_config && load_sd_crypto_config
+            if load_sd_sound_config && load_sd_crypto_config && load_sd_key
             then
                 alsa_restore
                 apply_settings
@@ -500,6 +500,27 @@ start_alsamixer()
     done
 }
 
+generate_encryption_key()
+{
+    while true
+    do
+        if is_initialized
+        then
+            if gen_key
+            then
+                dialog --msgbox "New Key Created!" 0 0
+            else
+                dialog --msgbox "New Key Not Created!" 0 0
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
+}
+
 main_menu()
 {
     while true
@@ -508,13 +529,14 @@ main_menu()
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
         --hfile "/usr/share/help/config.txt" \
-        --menu "Select an option. Press F1 for Help." 19 60 4 \
+        --menu "Select an option. Press F1 for Help." 20 60 4 \
         0 "Configure Headset Volume" \
         1 "Configure Radio Volume" \
         2 "Configure Radio Mode" \
         3 "Configure Encryption" \
         4 "Configure Push to Talk" \
         5 "Assign Audio Devices" \
+        6 "Generate Encryption Key" \
         V "View Current Settings" \
         A "Apply Current Settings" \
         R "Reload Settings From SD Card" \
@@ -541,6 +563,9 @@ main_menu()
                 ;;
             5)
                 assign_audio_devices
+                ;;
+            6)
+                generate_encryption_key
                 ;;
             V)
                 show_user_settings

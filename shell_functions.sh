@@ -42,8 +42,14 @@ alias save_sd_crypto_config="mcopy_text "$CRYPTO_INI_USR" ::config/crypto.ini"
 # Saves a new random seed with data from the RNG
 alias save_sd_seed="dd if=/dev/random of=$SEED_FILE bs=512 count=1 && mcopy_bin $SEED_FILE ::seed"
 
+# Saves the key to the SD card
+alias save_sd_key="mcopy_bin $KEY_FILE ::config/key"
+
 # Generates the crypto.ini.all from the user config and system config
 alias gen_combined_crypto_config="cat $CRYPTO_INI_SYS $CRYPTO_INI_USR > $CRYPTO_INI_ALL"
+
+# Generates a new key
+alias gen_key="dd if=/dev/hwrng of=/dev/urandom bs=512 count=1 && dd if=/dev/random of=$KEY_FILE bs=131 count=1"
 
 # Restores ALSA sound config for all sound cards
 alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh"

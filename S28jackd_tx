@@ -26,14 +26,15 @@ stop()
 	printf "Stopping ${NAME}: "
 	if daemon --stop -n ${NAME}
 	then
-		while daemon --running -n ${NAME}
-		do
-			sleep .1
-		done
 		echo "OK"
 	else
 		echo "FAIL"
 	fi
+}
+
+running()
+{
+	exec daemon --running -n ${NAME}
 }
 
 case "$1" in
@@ -46,6 +47,9 @@ case "$1" in
 	restart|reload)
 		stop
 		start
+		;;
+	running)
+		running
 		;;
 	*)
 		echo "Usage: $0 {start|stop|restart|reload}" >&2

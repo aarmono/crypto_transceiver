@@ -320,6 +320,12 @@ apply_settings()
     /etc/init.d/S29jackd_rx stop &> /dev/null
     /etc/init.d/S28jackd_tx stop &> /dev/null
 
+    while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
+          /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running
+    do
+        sleep .1
+    done
+
     /etc/init.d/S28jackd_tx start &> /dev/null
     /etc/init.d/S29jackd_rx start &> /dev/null
     /etc/init.d/S30jack_crypto_tx start &> /dev/null

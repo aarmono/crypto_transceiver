@@ -3,11 +3,13 @@ trap 'exit 0' INT TERM
 
 . /etc/profile.d/shell_functions.sh
 
+echo "Wait for Config Initialization"
 wait_initialized
 
 IN_HW=`get_sound_hw_device VoiceDevice`
 OUT_HW=`get_sound_hw_device ModemDevice`
 
+echo "Wait for Sound Cards"
 wait_sound_dev_active_all "$IN_HW" "$OUT_HW" &>/dev/null
 
 if test "$IN_HW" = "$OUT_HW"

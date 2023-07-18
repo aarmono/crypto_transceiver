@@ -24,6 +24,8 @@ function main()
 
     echo -n "Loading shadow..." && load_sd_shadow && echo "Done!" || echo "Not found."
 
+    alsa_restore
+
     touch /var/run/initialized
     echo "Initialized!"
 

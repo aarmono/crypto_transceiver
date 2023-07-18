@@ -5,7 +5,6 @@
 exec 2>/dev/null
 
 ANSWER=/tmp/answer
-INPUT=/tmp/input
 
 on_off()
 {
@@ -390,10 +389,9 @@ reload_from_sd()
 
 show_boot_messages()
 {
-    dmesg > $INPUT
     dialog \
     --title "Boot Messagaes" \
-    --textbox "$INPUT" 0 0
+    --textbox /var/log/messages 0 0
 }
 
 start_alsamixer()

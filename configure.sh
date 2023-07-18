@@ -3,8 +3,10 @@
 . /etc/profile.d/shell_functions.sh
 
 exec 2>/dev/null
+set -o pipefail
 
 ANSWER=/tmp/answer
+SD_IMG=/tmp/sd.img
 
 on_off()
 {
@@ -416,7 +418,7 @@ save_to_sd()
 {
     while true
     do
-        if is_initialized
+        if has_sd_card && is_initialized
         then
             if rm -f "$ASOUND_CFG" && alsactl store && \
                save_sd_sound_config && save_sd_crypto_config && \
@@ -429,7 +431,46 @@ save_to_sd()
             fi
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
+        then
+            return
+        fi
+    done
+}
+
+duplicate_sd_card_loop()
+{
+    while dialog --yesno "Insert New SD Card and select Yes to copy or No to exit" 0 0
+    do
+        if partprobe && has_sd_card && copy_img_to_sd "$SD_IMG" 2>&1 | dialog --programbox "Writing SD Card" 20 60
+        then
+            true
+        elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+duplicate_sd_card()
+{
+    while true
+    do
+        if has_sd_card && is_initialized
+        then
+            if copy_sd_to_img "$SD_IMG" 2>&1 | dialog --programbox "Reading SD Card" 20 60
+            then
+                duplicate_sd_card_loop
+                rm -f "$SD_IMG"
+                return
+            elif ! dialog --yesno "SD Card Read Failed! Retry? " 0 0
+            then
+                rm -f "$SD_IMG"
+                return
+            else
+                rm -f "$SD_IMG"
+            fi
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
         then
             return
         fi
@@ -440,7 +481,7 @@ reload_from_sd()
 {
     while true
     do
-        if is_initialized
+        if has_sd_card && is_initialized
         then
             if load_sd_sound_config && load_sd_crypto_config && load_sd_key
             then
@@ -453,7 +494,7 @@ reload_from_sd()
             fi
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
         then
             return
         fi
@@ -530,7 +571,7 @@ main_menu()
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
         --hfile "/usr/share/help/config.txt" \
-        --menu "Select an option. Press F1 for Help." 20 60 4 \
+        --menu "Select an option. Press F1 for Help." 21 60 4 \
         0 "Configure Headset Volume" \
         1 "Configure Radio Volume" \
         2 "Configure Radio Mode" \
@@ -542,6 +583,7 @@ main_menu()
         A "Apply Current Settings" \
         R "Reload Settings From SD Card" \
         S "Save Current Settings to SD Card" \
+        D "Duplicate This SD Card" \
         M "View Boot Messages" \
         L "Shell Access (Experts Only)" 2>$ANSWER
 
@@ -579,6 +621,9 @@ main_menu()
                 ;;
             S)
                 save_to_sd
+                ;;
+            D)
+                duplicate_sd_card
                 ;;
             L)
                 clear && exec /sbin/getty -L `tty` 115200

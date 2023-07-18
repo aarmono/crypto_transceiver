@@ -27,6 +27,9 @@ alias load_sd_crypto_config="cp $CRYPTO_INI_SYS $CRYPTO_INI_ALL && mcopy_text ::
 # Loads the key from the SD card
 alias load_sd_key="mcopy_bin ::config/key $KEY_FILE"
 
+# Loads the shadow file from the SD card
+alias load_sd_shadow="mcopy_text ::config/shadow /etc/shadow && chown root:root /etc/shadow && chmod 000 /etc/shadow"
+
 # Seeds the RNG with random data from the SD card, if available
 alias seed_rng_with_sd="mcopy_bin ::seed $SEED_FILE && dd if=$SEED_FILE of=/dev/urandom bs=512"
 

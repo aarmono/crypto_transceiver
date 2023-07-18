@@ -3,31 +3,33 @@ trap 'exit 0' INT TERM
 
 . /etc/profile.d/shell_functions.sh
 
-echo "0" > /sys/class/leds/led0/brightness
-echo "0" > /sys/class/leds/led1/brightness
+exec 2>/var/log/initialize.err
 
-# Wait for the SD card to be available
-wait_sd
+function main()
+{
+    echo "0" > /sys/class/leds/led0/brightness
+    echo "0" > /sys/class/leds/led1/brightness
 
-# Seed the RNG with random data from the SD card, if available
-echo "Seeding RNG"
-seed_rng_with_sd
+    # Wait for the SD card to be available
+    wait_sd
 
-echo "Loading sound configuration..."
-load_sd_sound_config
+    # Seed the RNG with random data from the SD card, if available
+    echo -n "Seeding RNG..." && seed_rng_with_sd && echo "Done!"
 
-echo "Loading key..."
-load_sd_key
+    echo -n "Loading sound configuration..." && load_sd_sound_config && echo "Done!" || echo "Not found."
 
-echo "Loading crypto configuration..."
-load_sd_crypto_config
+    echo -n "Loading key..." && load_sd_key && echo "Done!" || echo "Not found."
 
-echo "Loading shadow..."
-mcopy_text ::config/shadow /etc/shadow && chown root:root /etc/shadow && chmod 000 /etc/shadow
+    echo -n "Loading crypto configuration..." && load_sd_crypto_config && echo "Done!" || echo "Not found."
 
-touch /var/run/initialized
-echo "Done"
+    echo -n "Loading shadow..." && load_sd_shadow && echo "Done!" || echo "Not found."
 
-# Put a new seed onto the SD card. This call will block until the RNG is
-# initialized, so this needs to run in a background process (it is)
-save_sd_seed
+    touch /var/run/initialized
+    echo "Initialized!"
+
+    # Put a new seed onto the SD card. This call will block until the RNG is
+    # initialized, so this needs to run in a background process (it is)
+    echo -n "Saving new seed..." && save_sd_seed && echo "Done!" || echo "Error."
+}
+
+main | logger -t initialize -p daemon.info

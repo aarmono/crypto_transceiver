@@ -48,6 +48,9 @@ alias gen_combined_crypto_config="cat $CRYPTO_INI_SYS $CRYPTO_INI_USR > $CRYPTO_
 # Restores ALSA sound config for all sound cards
 alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh"
 
+# Tests whether the configuration is "initialized" from the SD card
+alias is_initialized="test -e /var/run/initialized"
+
 # Takes a sound card name and strips off the "hw:"
 # prefix if it is present
 sound_strip_prefix()
@@ -126,7 +129,7 @@ jackd_active_any()
 # present
 wait_initialized()
 {
-    while test ! -e /var/run/initialized
+    while ! is_initialized
     do
         inotifywait -qq -t 1 --include initialized -e create /var/run/
     done

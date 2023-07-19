@@ -444,6 +444,7 @@ save_to_sd()
         if has_sd_card && is_initialized
         then
             if rm -f "$ASOUND_CFG" && alsactl store && \
+               ensure_sd_has_config_dir && \
                save_sd_sound_config && save_sd_crypto_config && \
                save_sd_key && save_sd_seed
             then
@@ -467,7 +468,7 @@ save_key_to_sd()
     do
         if has_sd_card && is_initialized
         then
-            if save_sd_key && save_sd_seed
+            if ensure_sd_has_config_dir && save_sd_key && save_sd_seed
             then
                 apply_settings
                 dialog --msgbox "Key Saved!" 0 0

@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-trap 'disable_config; exit 0' INT TERM EXIT
 
 . /etc/profile.d/shell_functions.sh
 
@@ -12,6 +11,8 @@ DIRTY=/tmp/dirty
 
 alias set_dirty="touch $DIRTY"
 alias disable_config="set_config_val Config Enabled 0"
+
+trap 'disable_config; exit 0' INT TERM EXIT
 
 on_off()
 {

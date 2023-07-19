@@ -13,6 +13,10 @@ function main()
     # Wait for the SD card to be available
     wait_sd
 
+    # Check if there is a config dir on the SD card and create it
+    # if it does not exist
+    echo -n "Checking for config dir..." && ensure_sd_has_config_dir && echo "Done!" || echo "Not found."
+
     # Seed the RNG with random data from the SD card, if available
     echo -n "Seeding RNG..." && seed_rng_with_sd && echo "Done!"
 

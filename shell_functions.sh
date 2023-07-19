@@ -222,3 +222,11 @@ copy_img_to_sd()
 {
     dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && partprobe /dev/mmcblk0 && save_sd_seed && echo "Success" 1>&2
 }
+
+ensure_sd_has_config_dir()
+{
+    if ! mdir -i "$SD_DEV" -b | grep -q '::/config/'
+    then
+        mkdir /tmp/config && mcopy -i "$SD_DEV" /tmp/config :: && rmdir /tmp/config
+    fi
+}

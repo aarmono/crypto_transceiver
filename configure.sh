@@ -579,7 +579,7 @@ start_alsamixer()
     do
         if sound_dev_active "$DEV"
         then
-            alsamixer -D "$DEV"
+            alsamixer -D "$DEV" -V all
             return
         elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry? " 0 0
         then

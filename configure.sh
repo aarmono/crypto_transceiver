@@ -7,6 +7,9 @@ set -o pipefail
 
 ANSWER=/tmp/answer
 SD_IMG=/tmp/sd.img
+DIRTY=/tmp/dirty
+
+alias set_dirty="touch $DIRTY"
 
 on_off()
 {
@@ -37,9 +40,11 @@ configure_ptt_enable()
     case "$option" in
         default)
             set_config_val PTT Enabled ""
+            set_dirty
             ;;
         0|1)
             set_config_val PTT Enabled $option
+            set_dirty
             ;;
     esac
 }
@@ -87,12 +92,14 @@ configure_ptt_pin()
     case "$option" in
         default)
             set_config_val PTT $2 ""
+            set_dirty
             ;;
         0|1|2|3|4|5|6|7|8|9| \
         10|11|12|13|14|15|16| \
         17|18|19|20|21|22|23| \
         24|25|26|27)
             set_config_val PTT $2 $option
+            set_dirty
             ;;
     esac
 }
@@ -115,9 +122,11 @@ configure_ptt_bias()
     case "$option" in
         default)
             set_config_val PTT $2 ""
+            set_dirty
             ;;
         pull-up|pull-down|disable)
             set_config_val PTT $2 $option
+            set_dirty
             ;;
     esac
 }
@@ -140,9 +149,11 @@ configure_ptt_drive()
     case "$option" in
         default)
             set_config_val PTT $2 ""
+            set_dirty
             ;;
         open-drain|open-source|push-pull)
             set_config_val PTT $2 $option
+            set_dirty
             ;;
     esac
 }
@@ -171,9 +182,11 @@ configure_ptt_active_level()
     case "$option" in
         default)
             set_config_val PTT $2 ""
+            set_dirty
             ;;
         0|1)
             set_config_val PTT $2 $option
+            set_dirty
             ;;
     esac
 }
@@ -261,9 +274,11 @@ configure_encryption()
             case "$option" in
                 default)
                     set_config_val Crypto Enabled ""
+                    set_dirty
                     ;;
                 0|1)
                     set_config_val Crypto Enabled $option
+                    set_dirty
                     ;;
             esac
 
@@ -301,9 +316,11 @@ configure_mode()
             case "$option" in
                 default)
                     set_config_val Codec Mode ""
+                    set_dirty
                     ;;
                 700C|700D|700E|800XA|1600|2400B)
                     set_config_val Codec Mode $option
+                    set_dirty
                     ;;
             esac
 
@@ -334,6 +351,7 @@ assign_audio_device()
     case "$option" in
         hw:USB_LL | hw:USB_LR | hw:USB_UL | hw:USB_UR)
             set_config_val JACK $2 "$option"
+            set_dirty
             ;;
         "")
             ;;
@@ -346,7 +364,10 @@ apply_settings()
 {
     while true
     do
-        if is_initialized
+        if test ! -e "$DIRTY"
+        then
+            return
+        elif is_initialized
         then
             /etc/init.d/S31jack_crypto_rx stop &> /dev/null
             /etc/init.d/S30jack_crypto_tx stop &> /dev/null
@@ -363,6 +384,8 @@ apply_settings()
             /etc/init.d/S29jackd_rx start &> /dev/null
             /etc/init.d/S30jack_crypto_tx start &> /dev/null
             /etc/init.d/S31jack_crypto_rx start &> /dev/null
+
+            rm -f "$DIRTY"
 
             return
         elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
@@ -438,6 +461,28 @@ save_to_sd()
     done
 }
 
+save_key_to_sd()
+{
+    while true
+    do
+        if has_sd_card && is_initialized
+        then
+            if save_sd_key && save_sd_seed
+            then
+                apply_settings
+                dialog --msgbox "Key Saved!" 0 0
+            else
+                dialog --msgbox "Key Not Saved!" 0 0
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
+        then
+            return
+        fi
+    done
+}
+
 duplicate_sd_card_loop()
 {
     while dialog --yesno "Insert New SD Card and select Yes to copy or No to exit" 0 0
@@ -485,6 +530,7 @@ reload_from_sd()
         then
             if load_sd_sound_config && load_sd_crypto_config && load_sd_key
             then
+                set_dirty
                 alsa_restore
                 apply_settings
 
@@ -550,6 +596,7 @@ generate_encryption_key()
         then
             if gen_key
             then
+                set_dirty
                 dialog --msgbox "New Key Created!" 0 0
             else
                 dialog --msgbox "New Key Not Created!" 0 0
@@ -571,7 +618,7 @@ main_menu()
         --no-cancel \
         --title "Crypto Voice Module Configuration" \
         --hfile "/usr/share/help/config.txt" \
-        --menu "Select an option. Press F1 for Help." 21 60 4 \
+        --menu "Select an option. Press F1 for Help." 22 60 4 \
         0 "Configure Headset Volume" \
         1 "Configure Radio Volume" \
         2 "Configure Radio Mode" \
@@ -583,6 +630,7 @@ main_menu()
         A "Apply Current Settings" \
         R "Reload Settings From SD Card" \
         S "Save Current Settings to SD Card" \
+        K "Save Current Key to SD Card" \
         D "Duplicate This SD Card" \
         M "View Boot Messages" \
         L "Shell Access (Experts Only)" 2>$ANSWER
@@ -621,6 +669,9 @@ main_menu()
                 ;;
             S)
                 save_to_sd
+                ;;
+            K)
+                save_key_to_sd
                 ;;
             D)
                 duplicate_sd_card

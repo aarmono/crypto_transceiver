@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+trap 'disable_config; exit 0' INT TERM EXIT
 
 . /etc/profile.d/shell_functions.sh
 
@@ -10,6 +11,7 @@ SD_IMG=/tmp/sd.img
 DIRTY=/tmp/dirty
 
 alias set_dirty="touch $DIRTY"
+alias disable_config="set_config_val Config Enabled 0"
 
 on_off()
 {
@@ -615,77 +617,89 @@ main_menu()
 {
     while true
     do
-        dialog \
-        --no-cancel \
-        --title "Crypto Voice Module Configuration" \
-        --hfile "/usr/share/help/config.txt" \
-        --menu "Select an option. Press F1 for Help." 22 60 4 \
-        0 "Configure Headset Volume" \
-        1 "Configure Radio Volume" \
-        2 "Configure Radio Mode" \
-        3 "Configure Encryption" \
-        4 "Configure Push to Talk" \
-        5 "Assign Audio Devices" \
-        6 "Generate Encryption Key" \
-        V "View Current Settings" \
-        A "Apply Current Settings" \
-        R "Reload Settings From SD Card" \
-        S "Save Current Settings to SD Card" \
-        K "Save Current Key to SD Card" \
-        D "Duplicate This SD Card" \
-        M "View Boot Messages" \
-        L "Shell Access (Experts Only)" 2>$ANSWER
-
-        option=`cat $ANSWER`
-        case "$option" in
-            0)
-                start_alsamixer VoiceDevice Headset
-                ;;
-            1)
-                start_alsamixer ModemDevice Radio
-                ;;
-            2)
-                configure_mode
-                ;;
-            3)
-                configure_encryption
-                ;;
-            4)
-                configure_ptt
-                ;;
-            5)
-                assign_audio_devices
-                ;;
-            6)
-                generate_encryption_key
-                ;;
-            V)
-                show_user_settings
-                ;;
-            A)
-                apply_settings
-                ;;
-            R)
-                reload_from_sd
-                ;;
-            S)
-                save_to_sd
-                ;;
-            K)
-                save_key_to_sd
-                ;;
-            D)
-                duplicate_sd_card
-                ;;
-            L)
-                clear && exec /sbin/getty -L `tty` 115200
-                ;;
-            M)
-                show_boot_messages
-        esac
+        if dialog \
+           --cancel-label "EXIT" \
+           --title "Crypto Voice Module Configuration" \
+           --hfile "/usr/share/help/config.txt" \
+           --menu "Select an option. Press F1 for Help." 22 60 4 \
+           0 "Configure Headset Volume" \
+           1 "Configure Radio Volume" \
+           2 "Configure Radio Mode" \
+           3 "Configure Encryption" \
+           4 "Configure Push to Talk" \
+           5 "Assign Audio Devices" \
+           6 "Generate Encryption Key" \
+           V "View Current Settings" \
+           A "Apply Current Settings" \
+           R "Reload Settings From SD Card" \
+           S "Save Current Settings to SD Card" \
+           K "Save Current Key to SD Card" \
+           D "Duplicate This SD Card" \
+           M "View Boot Messages" \
+           L "Shell Access (Experts Only)" 2>$ANSWER
+        then
+            option=`cat $ANSWER`
+            case "$option" in
+                0)
+                    start_alsamixer VoiceDevice Headset
+                    ;;
+                1)
+                    start_alsamixer ModemDevice Radio
+                    ;;
+                2)
+                    configure_mode
+                    ;;
+                3)
+                    configure_encryption
+                    ;;
+                4)
+                    configure_ptt
+                    ;;
+                5)
+                    assign_audio_devices
+                    ;;
+                6)
+                    generate_encryption_key
+                    ;;
+                V)
+                    show_user_settings
+                    ;;
+                A)
+                    apply_settings
+                    ;;
+                R)
+                    reload_from_sd
+                    ;;
+                S)
+                    save_to_sd
+                    ;;
+                K)
+                    save_key_to_sd
+                    ;;
+                D)
+                    duplicate_sd_card
+                    ;;
+                L)
+                    clear && exec /sbin/getty -L `tty` 115200
+                    ;;
+                M)
+                    show_boot_messages
+            esac
+        else
+            disable_config
+            exit 0
+        fi
     done
 }
 
 dmesg -n 1
 
-main_menu
+# ForceShowConfig setting must be turned on in the firmware itself
+if (test `get_sys_config_val Diagnostics ForceShowConfig` -ne 0) ||
+   (wait_initialized && test `get_config_val Config Enabled` -ne 0)
+then
+    main_menu
+else
+    exec dialog --title "Crypto Voice Module" \
+                --msgbox "System Running." 0 0
+fi

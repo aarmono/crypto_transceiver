@@ -26,8 +26,6 @@ function main()
 
     echo -n "Loading crypto configuration..." && load_sd_crypto_config && echo "Done!" || echo "Not found."
 
-    echo -n "Loading shadow..." && load_sd_shadow && echo "Done!" || echo "Not found."
-
     alsa_restore
 
     touch /var/run/initialized

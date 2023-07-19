@@ -22,7 +22,7 @@ useful to test changes before writing them to the SD card.
 Because the system must be able to operate without an SD card installed in
 the system, changes to the two files listed above are always made to the
 in-memory configuration. Unless the user explicitly saves the settings to the SD
-card, any changes will be lost the next time the system is powerd on. This
+card, any changes will be lost the next time the system is powered on. This
 option automatically performs an "Apply Current Settings" after the settings
 have been written to the SD card.
 
@@ -33,6 +33,28 @@ To revert changes, the "Reload Settings from SD Card" option will reload the
 configuration files from the SD card. Any changes not written to the SD card
 will be lost. This option automatically performs an "Apply Current Settings"
 after the settings have been loaded form the SD card.
+
+Once the user exits the Configuration Utility by selecting "EXIT" or pressing
+the Escape key while in the main menu, the user is locked out from viewing or
+changing system settings until the Crypto Voice Module is restarted. If the
+SD card is not installed in the system, it should not be possible to view or
+change system state at all unless a way is found to "jailbreak" out of this
+mode. The author is not aware of any way to do so, but that doesn't mean no
+way exists.
+
+Note that it still may be possible to read the contents of memory through
+hardware probing. If this is a risk then physical measures should be taken to
+reduce the probability of this occurring.
+
+In situations where the severity of harm is high if a key is compromised, it
+should be assumed that anyone with access to a Crypto Voice Module which is
+powered on and/or has the SD card installed can obtain access to the encryption
+key. The intended "fast wipe" method is:
+
+1) Provide a user with a fully powered on Crypto Voice Module with the SD card
+   removed
+2) Instruct the user to physically disconnect power to the Crypto Voice Module
+   to wipe the key
 
 The crypto.ini File
 
@@ -55,35 +77,3 @@ The entire system runs entirely from memory, so it is generally not possible to
 damage the system in a way that cannot be repaired by simply power-cycling it.
 However it is possible to make the system inoperable in such a way that
 power-cyling it is necessary to restore function.
-
-Because this feature provides low-level access to the system, it is possible
-to use this feature to display the encryption key on the screen. If this is
-an unacceptable risk, the "hdmi_blanking" configuration setting in the
-Raspberry Pi firmware configuration file (config.txt file on the SD card)
-can be set to "2" which will disable the HDMI port. See here:
-https://github.com/raspberrypi/firmware/issues/352#issuecomment-169455388
-
-You would then need to provide the user with a Crypto Voice Module with the
-SD card removed so they would be unable to change that setting and restart the
-system.
-
-If you are an advanced user, you can use the Login Shell to create a password
-for the root user (or disable the root account) and save the /etc/shadow file
-to the SD card as config/shadow. The system will attempt to copy that file
-to /etc/shadow at start-up. However you would still need to provide the user
-with a Crypto Voice Module with the SD card removed, and you would need to
-trust there is no way to "jailbreak" the Configuration Utility (I'm not aware of
-one, but that doesn't mean it doesn't exist).
-
-Alternately, fill all unused ports with a non-conductive epoxy so they cannot
-physically be used, thus preventing a user from connecting a keyboard and
-monitor to the system.
-
-But as a general rule, it should be assumed that if someone has access to a
-Crypto Voice Module which is powered on and/or has the SD card installed, they
-can gain access to the encryption key. The intended "fast wipe" method is:
-
-1) Provide a user with a fully powered on Crypto Voice Module with the SD card
-   removed
-2) Instruct the user to physically disconnect power to the Crypto Voice Module
-   to wipe the key

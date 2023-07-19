@@ -72,6 +72,12 @@ sound_strip_prefix()
 # a non-zero exit code if the device isn't
 sound_dev_active()
 {
+    if test -z "$1"
+    then
+        echo "usage: sound_dev_active <sound dev name>" >&2
+        return 1
+    fi
+
     NAME=`sound_strip_prefix "$1"`
     if echo "$NAME" | grep -q USB
     then
@@ -100,6 +106,12 @@ sound_dev_active_all()
 # Takes a sound card name and outputs the card number
 sound_dev_card_num()
 {
+    if test -z "$1"
+    then
+        echo "usage: sound_dev_card_num <server name>" >&2
+        return 1
+    fi
+
     NAME=`sound_strip_prefix "$1"`
     aplay_ls | grep "$NAME" | grep -o -E "card \w" | cut -d ' ' -f 2
 }
@@ -108,7 +120,14 @@ sound_dev_card_num()
 # exit code if it is inactive
 jackd_inactive()
 {
-    jack_wait -s "$1" -c 2>/dev/null | grep -q "not running"
+    if test -z "$1"
+    then
+        NAME="default"
+    else
+        NAME="$1"
+    fi
+
+    jack_wait -s "$NAME" -c 2>/dev/null | grep -q "not running"
 }
 
 # Takes a jack server name and returns a 0
@@ -176,24 +195,48 @@ wait_sound_dev_active_all()
 # or the system one
 get_config_val()
 {
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: get_config_val <section> <key>" >&2
+        return 1
+    fi
+
     iniget "$1" "$2" "$CRYPTO_INI_USR" "$CRYPTO_INI_SYS"
 }
 
 # Gets a configuration value from the user config file, if present
 get_user_config_val()
 {
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: get_user_config_val <section> <key>" >&2
+        return 1
+    fi
+
     iniget "$1" "$2" "$CRYPTO_INI_USR"
 }
 
 # Gets a configuration value from the system config file
 get_sys_config_val()
 {
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: get_sys_config_val <section> <key>" >&2
+        return 1
+    fi
+
     iniget "$1" "$2" "$CRYPTO_INI_SYS"
 }
 
 # Saves a configuration value to the user config file
 set_config_val()
 {
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: set_config_val <section> <key> <value>" >&2
+        return 1
+    fi
+
     iniset "$1" "$2" "$3" "$CRYPTO_INI_USR" && gen_combined_crypto_config
 }
 
@@ -201,12 +244,24 @@ set_config_val()
 # and returns the configuration value for that setting
 get_sound_hw_device()
 {
+    if test -z "$1"
+    then
+        echo "usage: get_sound_hw_device <key>" >&2
+        return 1
+    fi
+
     get_config_val JACK "$1"
 }
 
 # Copies the MBR and first partition on the SD card to the specified image file
 copy_sd_to_img()
 {
+    if test -z "$1"
+    then
+        echo "usage: copy_sd_to_img <filepath>" >&2
+        return 1
+    fi
+
     BLOCK_SIZE=`fdisk -u -l /dev/mmcblk0 | grep -o -E '[0-9]+ bytes$' | cut -d ' ' -f 1`
     END_BLOCK=`fdisk -u -l /dev/mmcblk0 | grep "$SD_DEV" | xargs echo | cut -d ' ' -f 6`
 
@@ -220,6 +275,12 @@ copy_sd_to_img()
 
 copy_img_to_sd()
 {
+    if test -z "$1"
+    then
+        echo "usage: copy_img_to_sd <filepath>" >&2
+        return 1
+    fi
+
     dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && partprobe /dev/mmcblk0 && save_sd_seed && echo "Success" 1>&2
 }
 

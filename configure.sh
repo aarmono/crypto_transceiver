@@ -19,6 +19,16 @@ on_off()
     test "$1" = "$2" && echo on || echo off
 }
 
+on_off_checklist()
+{
+    if echo "$1" | grep -q "$2"
+    then
+        echo on
+    else
+        echo off
+    fi
+}
+
 configure_ptt_enable()
 {
     VAL=`get_user_config_val PTT Enabled`
@@ -242,7 +252,7 @@ configure_ptt()
                     return
                     ;;
             esac
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -286,7 +296,7 @@ configure_encryption()
             esac
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -328,7 +338,7 @@ configure_mode()
             esac
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -391,7 +401,7 @@ apply_settings()
             rm -f "$DIRTY"
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -433,7 +443,60 @@ assign_audio_devices()
             fi
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+load_from_sd()
+{
+    while true
+    do
+        if has_sd_card && is_initialized
+        then
+            RESULT=0
+            for option in "$@"
+            do
+                case "$option" in
+                    A)
+                        if ! load_sd_sound_config
+                        then
+                            RESULT=1
+                        else
+                            alsa_restore
+                        fi
+                        ;;
+                    R)
+                        if ! load_sd_crypto_config
+                        then
+                            RESULT=1
+                        else
+                            set_dirty
+                        fi
+                        ;;
+                    K)
+                        if ! load_sd_key
+                        then
+                            RESULT=1
+                        else
+                            set_dirty
+                        fi
+                        ;;
+                esac
+            done
+
+            apply_settings
+            if test "$RESULT" -eq 0
+            then
+                dialog --msgbox "Settings Reloaded!" 0 0
+            else
+                dialog --msgbox "Settings Not Reloaded!" 0 0
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
             return
         fi
@@ -444,12 +507,33 @@ save_to_sd()
 {
     while true
     do
-        if has_sd_card && is_initialized
+        if has_sd_card && is_initialized && ensure_sd_has_config_dir
         then
-            if rm -f "$ASOUND_CFG" && alsactl store && \
-               ensure_sd_has_config_dir && \
-               save_sd_sound_config && save_sd_crypto_config && \
-               save_sd_key && save_sd_seed
+            RESULT=0
+            for option in "$@"
+            do
+                case "$option" in
+                    A)
+                        if ! rm -f "$ASOUND_CFG" && alsactl store && save_sd_sound_config
+                        then
+                            RESULT=1
+                        fi
+                        ;;
+                    R)
+                        if ! save_sd_crypto_config
+                        then
+                            RESULT=1
+                        fi
+                        ;;
+                    K)
+                        if ! save_sd_key
+                        then
+                            RESULT=1
+                        fi
+                    esac
+            done
+
+            if test "$RESULT" -eq 0 && save_sd_seed
             then
                 apply_settings
                 dialog --msgbox "Settings Saved!" 0 0
@@ -458,29 +542,7 @@ save_to_sd()
             fi
 
             return
-        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
-        then
-            return
-        fi
-    done
-}
-
-save_key_to_sd()
-{
-    while true
-    do
-        if has_sd_card && is_initialized
-        then
-            if ensure_sd_has_config_dir && save_sd_key && save_sd_seed
-            then
-                apply_settings
-                dialog --msgbox "Key Saved!" 0 0
-            else
-                dialog --msgbox "Key Not Saved!" 0 0
-            fi
-
-            return
-        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
             return
         fi
@@ -512,39 +574,63 @@ duplicate_sd_card()
                 duplicate_sd_card_loop
                 rm -f "$SD_IMG"
                 return
-            elif ! dialog --yesno "SD Card Read Failed! Retry? " 0 0
+            elif ! dialog --yesno "SD Card Read Failed! Retry?" 0 0
             then
                 rm -f "$SD_IMG"
                 return
             else
                 rm -f "$SD_IMG"
             fi
-        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
             return
         fi
     done
 }
 
-reload_from_sd()
+advanced_sd_ops()
 {
+    selection="A R K"
     while true
     do
-        if has_sd_card && is_initialized
+        if is_initialized
         then
-            if load_sd_sound_config && load_sd_crypto_config && load_sd_key
-            then
-                set_dirty
-                alsa_restore
-                apply_settings
+            dialog \
+            --title "Advanced SD Card Operations" \
+            --menu "Select an operation to perform on the SD Card." 11 60 4 \
+            1 "Select Configuration Items to Load/Save" \
+            2 "Save Selected Items To SD Card" \
+            3 "Load Selected Items From SD Card" \
+            4 "Duplicate This SD Card" 2>$ANSWER
 
-                dialog --msgbox "Settings Reloaded!" 0 0
-            else
-                dialog --msgbox "Settings Not Reloaded!" 0 0
-            fi
-
-            return
-        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry? " 0 0
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    if dialog \
+                       --no-tags \
+                       --title "SD Card Items" \
+                       --checklist "Select the Settings to Load/Save, then press OK" 10 60 3 \
+                       A "Audio Settings" `on_off_checklist "$selection" "A"` \
+                       R "Radio Settings" `on_off_checklist "$selection" "R"` \
+                       K "Encryption Key" `on_off_checklist "$selection" "K"` 2>$ANSWER
+                    then
+                        selection=`cat $ANSWER`
+                    fi
+                    ;;
+                2)
+                    save_to_sd $selection
+                    ;;
+                3)
+                    load_from_sd $selection
+                    ;;
+                4)
+                    duplicate_sd_card
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -569,7 +655,7 @@ show_user_settings()
             --textbox "$CRYPTO_INI_USR" 30 80
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -585,7 +671,7 @@ start_alsamixer()
         then
             alsamixer -D "$DEV" -V all
             return
-        elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry? " 0 0
+        elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry?" 0 0
         then
             return
         fi
@@ -607,7 +693,7 @@ generate_encryption_key()
             fi
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -633,7 +719,7 @@ configure_config_util()
             dialog \
             --no-tags \
             --title "Disable Configuration Utility?" \
-            --radiolist "Select On to enable the Configuration Utilty at startup. Select Off to disable it, preventing the user from making any changes to the system. Once disabled and written to the SD card, it cannot be re-enabled once the system is power-cycled" 14 60 3 \
+            --radiolist "Select On to enable the Configuration Utilty at startup. Select Off to disable it, preventing the user from making any changes to the system. Once disabled and written to the SD Card, it cannot be re-enabled once the system is power-cycled" 14 60 3 \
             default "Default ($DEFAULT)" `on_off $VAL ""` \
             1       "On"                 `on_off $VAL 1`  \
             0       "Off"                `on_off $VAL 0` 2>$ANSWER
@@ -651,7 +737,7 @@ configure_config_util()
             esac
 
             return
-        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
         fi
@@ -666,7 +752,7 @@ main_menu()
            --cancel-label "EXIT" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 23 60 4 \
+           --menu "Select an option. Press F1 for Help." 22 60 4 \
            0 "Configure Headset Volume" \
            1 "Configure Radio Volume" \
            2 "Configure Radio Mode" \
@@ -679,8 +765,7 @@ main_menu()
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
            S "Save Current Settings to SD Card" \
-           K "Save Current Key to SD Card" \
-           D "Duplicate This SD Card" \
+           C "Advanced SD Card Operations" \
            M "View Boot Messages" \
            L "Shell Access (Experts Only)" 2>$ANSWER
         then
@@ -717,16 +802,13 @@ main_menu()
                     apply_settings
                     ;;
                 R)
-                    reload_from_sd
+                    load_from_sd A R K
                     ;;
                 S)
-                    save_to_sd
+                    save_to_sd A R K
                     ;;
-                K)
-                    save_key_to_sd
-                    ;;
-                D)
-                    duplicate_sd_card
+                C)
+                    advanced_sd_ops
                     ;;
                 L)
                     clear && exec /sbin/getty -L `tty` 115200
@@ -749,5 +831,5 @@ if (test `get_sys_config_val Diagnostics ForceShowConfig` -ne 0) ||
 then
     main_menu
 else
-    exec dialog --msgbox "System Running." 0 0
+    exec dialog --msgbox "System Running" 0 0
 fi

@@ -43,7 +43,7 @@ configure_ptt_enable()
 
     dialog \
     --no-tags \
-    --title "Configure Push to Talk" \
+    --title "Enable Push to Talk" \
     --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
     default "Default ($DEFAULT)" `on_off $VAL ""` \
     1       "On"                 `on_off $VAL 1`  \
@@ -338,6 +338,101 @@ configure_mode()
             esac
 
             return
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+configure_squelch_thresh()
+{
+    VAL=`get_config_val Codec "SquelchThresh${1}"`
+
+    while true
+    do
+        dialog \
+        --title "Configure $1 SNR Threshold" \
+        --inputbox "Enter a decimal number in decibels and press Enter." 8 60 "$VAL" 2>$ANSWER
+
+        option=`cat $ANSWER`
+        if test -z "$option"
+        then
+            return
+        elif echo "$option" | grep -qxE '\-?([0-9]*\.)?[0-9]*'
+        then
+            set_config_val Codec "SquelchEnabled${1}" "$option"
+            set_dirty
+            return
+        fi
+    done
+}
+
+configure_squelch_enable()
+{
+    VAL=`get_user_config_val Codec SquelchEnabled`
+    DEFAULT=`get_sys_config_val Codec SquelchEnabled`
+
+    if test "$DEFAULT" = "0"
+    then
+        DEFAULT=Off
+    else
+        DEFAULT=On
+    fi
+
+    dialog \
+    --no-tags \
+    --title "Enable Squelch" \
+    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
+    default "Default ($DEFAULT)" `on_off $VAL ""` \
+    1       "On"                 `on_off $VAL 1`  \
+    0       "Off"                `on_off $VAL 0` 2>$ANSWER
+
+    option=`cat $ANSWER`
+    case "$option" in
+        default)
+            set_config_val Codec SquelchEnabled ""
+            set_dirty
+            ;;
+        0|1)
+            set_config_val Codec SquelchEnabled $option
+            set_dirty
+            ;;
+    esac
+}
+
+configure_squelch()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "Radio Squelch Configuration" \
+            --menu "Select a squelch option to configure." 11 60 4 \
+            1 "Enable SNR Squelch" \
+            2 "Configure 700C SNR Threshold" \
+            3 "Configure 700D SNR Threshold" \
+            4 "Configure 700E SNR Threshold" 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    configure_squelch_enable
+                    ;;
+                2)
+                    configure_squelch_thresh 700C
+                    ;;
+                3)
+                    configure_squelch_thresh 700D
+                    ;;
+                4)
+                    configure_squelch_thresh 700E
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
         elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
@@ -752,15 +847,16 @@ main_menu()
            --cancel-label "EXIT" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 22 60 4 \
+           --menu "Select an option. Press F1 for Help." 23 60 4 \
            0 "Configure Headset Volume" \
            1 "Configure Radio Volume" \
            2 "Configure Radio Mode" \
-           3 "Configure Encryption" \
-           4 "Configure Push to Talk" \
-           5 "Assign Audio Devices" \
-           6 "Generate Encryption Key" \
-           7 "Disable Configuration Utility" \
+           3 "Configure Radio Squelch" \
+           4 "Configure Encryption" \
+           5 "Configure Push to Talk" \
+           6 "Assign Audio Devices" \
+           7 "Generate Encryption Key" \
+           8 "Disable Configuration Utility" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
@@ -781,18 +877,21 @@ main_menu()
                     configure_mode
                     ;;
                 3)
-                    configure_encryption
+                    configure_squelch
                     ;;
                 4)
-                    configure_ptt
+                    configure_encryption
                     ;;
                 5)
-                    assign_audio_devices
+                    configure_ptt
                     ;;
                 6)
-                    generate_encryption_key
+                    assign_audio_devices
                     ;;
                 7)
+                    generate_encryption_key
+                    ;;
+                8)
                     configure_config_util
                     ;;
                 V)

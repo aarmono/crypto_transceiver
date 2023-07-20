@@ -749,6 +749,5 @@ if (test `get_sys_config_val Diagnostics ForceShowConfig` -ne 0) ||
 then
     main_menu
 else
-    exec dialog --title "Crypto Voice Module" \
-                --msgbox "System Running." 0 0
+    exec dialog --msgbox "System Running." 0 0
 fi

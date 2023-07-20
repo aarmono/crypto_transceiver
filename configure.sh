@@ -368,6 +368,30 @@ configure_squelch_thresh()
     done
 }
 
+configure_rms_squelch_thresh()
+{
+    VAL_RAW=`get_config_val Audio "$2"`
+    VAL=`echo "20 * l(${VAL_RAW}/32767)/l(10)" | bc -l | xargs printf %.1f`
+    while true
+    do
+        dialog \
+        --title "Configure RMS Noise Gate $1 Threshold" \
+        --inputbox "Enter a decimal number in decibels and press Enter." 8 60 "$VAL" 2>$ANSWER
+
+        option=`cat $ANSWER`
+        if test -z "$option"
+        then
+            return
+        elif echo "$option" | grep -qxE '\-?([0-9]*\.)?[0-9]*'
+        then
+            NEW_VAL=`echo "e(l(10)*(${option}/20)) * 32767" | bc -l | xargs printf %.0f`
+            set_config_val Audio "$2" "$NEW_VAL"
+            set_dirty
+            return
+        fi
+    done
+}
+
 configure_squelch_enable()
 {
     VAL=`get_user_config_val Codec SquelchEnabled`
@@ -409,11 +433,14 @@ configure_squelch()
         then
             dialog \
             --title "Radio Squelch Configuration" \
-            --menu "Select a squelch option to configure." 11 60 4 \
+            --hfile "/usr/share/help/squelch.txt" \
+            --menu "Select a squelch option to configure. Press F1 for Help." 13 60 4 \
             1 "Enable SNR Squelch" \
             2 "Configure 700C SNR Threshold" \
             3 "Configure 700D SNR Threshold" \
-            4 "Configure 700E SNR Threshold" 2>$ANSWER
+            4 "Configure 700E SNR Threshold" \
+            5 "Configure RMS Noise Gate Open Threshold" \
+            6 "Configure RMS Noise Gate Close Threshold" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -428,6 +455,12 @@ configure_squelch()
                     ;;
                 4)
                     configure_squelch_thresh 700E
+                    ;;
+                5)
+                    configure_rms_squelch_thresh Open ModemSignalMinThresh
+                    ;;
+                6)
+                    configure_rms_squelch_thresh Close ModemQuietMaxThresh
                     ;;
                 "")
                     return

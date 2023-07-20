@@ -1,0 +1,18 @@
+Radio Squelch
+
+The Crypto Voice Module employs two types of squelch on the input signal from
+the radio. The first is a simple Noise Gate which looks at a modem frame's
+worth of data and computes the Root Mean Square of that frame. If the RMS value
+is above the Open Threshold, the signal is passed into the demodulator. If the
+RMS value is below the Close Threshold, signal demodulation does not occur.
+Usually the Open Threshold is higher than the Close Threshold, but the values
+can also be equal. This Noise Gate is intended to work in combination with a
+radio's squelch feature to save power when no signal is being received by the
+radio, since demodulation can require considerable CPU/power usage
+
+The second squelch is built into FreeDV itself and is based on signal quality.
+It attempts to estimate the Signal to Noise Ratio of the input signal and
+suppresses output of the signal to the headset if the SNR drops too low. If the
+SNR squelch is disabled, any input received from the radio will be output to
+the headset regardless of its quality, provided the intensity of the signal
+is strong enough to pass through the Noise Gate.

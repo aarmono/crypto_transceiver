@@ -21,9 +21,6 @@ alias aplay_ls="aplay -l"
 # Loads the sound card config from the SD card
 alias load_sd_sound_config="mcopy_text ::config/asound.state $ASOUND_CFG"
 
-# Loads the crypto.ini file from the SD card
-alias load_sd_crypto_config="cp $CRYPTO_INI_SYS $CRYPTO_INI_ALL && mcopy_text ::config/crypto.ini $CRYPTO_INI_USR && gen_combined_crypto_config"
-
 # Loads the key from the SD card
 alias load_sd_key="mcopy_bin ::config/key $KEY_FILE"
 
@@ -293,5 +290,28 @@ ensure_sd_has_config_dir()
     if ! mdir -i "$SD_DEV" -b | grep -q '::/config/'
     then
         mkdir /tmp/config && mcopy -i "$SD_DEV" /tmp/config :: && rmdir /tmp/config
+    fi
+}
+
+# Loads the crypto.ini file from the SD card and
+# attempts to make the config consistent in the event of failure
+load_sd_crypto_config()
+{
+    # Success condition
+    if mcopy_text ::config/crypto.ini "$CRYPTO_INI_USR" && gen_combined_crypto_config
+    then
+        return 0
+    # Failed to copy file from SD card, user file did not already exist.
+    # Just create a crypto.ini.all from the system one and return an error
+    elif test ! -e "$CRYPTO_INI_USR"
+    then
+        cp "$CRYPTO_INI_SYS" "$CRYPTO_INI_ALL"
+        return 1
+    # Failed to copy file from SD card, user file already exists.
+    # Generate a crypto.ini.all from the system one and the old
+    # user one, but still return an error
+    else
+        gen_combined_crypto_config
+        return 1
     fi
 }

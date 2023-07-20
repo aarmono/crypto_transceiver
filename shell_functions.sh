@@ -158,6 +158,7 @@ wait_initialized()
     do
         inotifywait -qq -t 1 --include initialized -e create /var/run/
     done
+    return 0
 }
 
 # Blocks until the jack server with the specified name
@@ -168,6 +169,7 @@ wait_jackd()
     do
         sleep .1
     done
+    return 0
 }
 
 # Blocks until the SD card partition is available
@@ -177,6 +179,7 @@ wait_sd()
     do
         inotifywait -qq -t 1 --include mmcblk0p1 -e create /dev/
     done
+    return 0
 }
 
 # Blocks until all sound cards are active
@@ -186,6 +189,7 @@ wait_sound_dev_active_all()
     do
         sleep .1
     done
+    return 0
 }
 
 # Gets a configuration value from either the user config file if present

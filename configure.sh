@@ -711,18 +711,18 @@ configure_config_util()
 
             if test "$DEFAULT" = "0"
             then
-                DEFAULT=Off
+                DEFAULT=Disabled
             else
-                DEFAULT=On
+                DEFAULT=Enabled
             fi
 
             dialog \
             --no-tags \
             --title "Disable Configuration Utility?" \
-            --radiolist "Select On to enable the Configuration Utilty at startup. Select Off to disable it, preventing the user from making any changes to the system. Once disabled and written to the SD Card, it cannot be re-enabled once the system is power-cycled" 14 60 3 \
+            --radiolist "If Enabled, the Configuration Utility will be shown at startup. If Disabled, the display will be locked at startup. If Disabled and saved to the SD Card, it cannot be re-enabled once the system is turned off" 13 60 3 \
             default "Default ($DEFAULT)" `on_off $VAL ""` \
-            1       "On"                 `on_off $VAL 1`  \
-            0       "Off"                `on_off $VAL 0` 2>$ANSWER
+            1       "Enabled"            `on_off $VAL 1`  \
+            0       "Disabled"           `on_off $VAL 0` 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in

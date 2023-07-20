@@ -35,19 +35,18 @@ will be lost. This option automatically performs an "Apply Current Settings"
 after the settings have been loaded form the SD card.
 
 Once the user exits the Configuration Utility by selecting "EXIT" or pressing
-the Escape key while in the main menu, the user is locked out from viewing or
-changing system settings until the Crypto Voice Module is restarted. If the
+the Escape key while in the main menu, the display is locked; and settings
+cannot be viewed or changed until the Crypto Voice Module is restarted. If the
 SD card is not installed in the system, it should not be possible to view or
 change system state at all unless a way is found to "jailbreak" out of this
 mode. The author is not aware of any way to do so, but that doesn't mean no
 way exists.
 
-If the Configuration Utility is disabled by turning it Off with the "Disable
-Configuration Utilty" option and that setting is saved to the SD card, the
-Crypto Voice Module will power on with the user locked out from viewing or
-changing system settings. Since this option obviously prevents the Configuration
-Utility from being re-enabled, only do this if you are absolutely sure you will
-not need to change settings.
+If the Configuration Utility is Disabled in the the "Disable Configuration
+Utilty" menu and that setting is saved to the SD card, the Crypto Voice Module
+will power on with the display locked. Since this option obviously prevents the
+use of the Configuration Utility to re-enable this setting, only do this if you
+are absolutely sure you will not need to change settings.
 
 Note that it still may be possible to read the contents of memory through
 hardware probing. If this is a risk then physical measures should be taken to

@@ -614,6 +614,50 @@ generate_encryption_key()
     done
 }
 
+configure_config_util()
+{
+    while true
+    do
+        if is_initialized
+        then
+            VAL=`get_user_config_val Config Enabled`
+            DEFAULT=`get_sys_config_val Config Enabled`
+
+            if test "$DEFAULT" = "0"
+            then
+                DEFAULT=Off
+            else
+                DEFAULT=On
+            fi
+
+            dialog \
+            --no-tags \
+            --title "Disable Configuration Utility?" \
+            --radiolist "Select On to enable the Configuration Utilty at startup. Select Off to disable it, preventing the user from making any changes to the system. Once disabled and written to the SD card, it cannot be re-enabled once the system is power-cycled" 14 60 3 \
+            default "Default ($DEFAULT)" `on_off $VAL ""` \
+            1       "On"                 `on_off $VAL 1`  \
+            0       "Off"                `on_off $VAL 0` 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                default)
+                    set_config_val Config Enabled ""
+                    set_dirty
+                    ;;
+                0|1)
+                    set_config_val Config Enabled $option
+                    set_dirty
+                    ;;
+            esac
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry? " 0 0
+        then
+            return
+        fi
+    done
+}
+
 main_menu()
 {
     while true
@@ -622,7 +666,7 @@ main_menu()
            --cancel-label "EXIT" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 22 60 4 \
+           --menu "Select an option. Press F1 for Help." 23 60 4 \
            0 "Configure Headset Volume" \
            1 "Configure Radio Volume" \
            2 "Configure Radio Mode" \
@@ -630,6 +674,7 @@ main_menu()
            4 "Configure Push to Talk" \
            5 "Assign Audio Devices" \
            6 "Generate Encryption Key" \
+           7 "Disable Configuration Utility" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
@@ -661,6 +706,9 @@ main_menu()
                     ;;
                 6)
                     generate_encryption_key
+                    ;;
+                7)
+                    configure_config_util
                     ;;
                 V)
                     show_user_settings

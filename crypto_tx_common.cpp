@@ -110,7 +110,7 @@ crypto_tx_common::crypto_tx_common(const char* name, const char* config_file)
         log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
-    configure_freedv(m_parms->freedv);
+    configure_freedv(m_parms->freedv, m_parms->cur);
 }
 
 size_t crypto_tx_common::speech_samples_per_frame() const

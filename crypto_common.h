@@ -11,12 +11,13 @@ extern "C"
 #endif
 
 struct freedv;
+struct config;
 
 short rms(const short vals[], size_t len);
 
 size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file);
 
-void configure_freedv(struct freedv* freedv);
+void configure_freedv(struct freedv* freedv, const struct config* cfg);
 
 #ifdef __cplusplus
 }

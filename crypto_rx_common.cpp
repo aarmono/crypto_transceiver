@@ -104,7 +104,7 @@ crypto_rx_common::crypto_rx_common(const char* name, const char* config_file)
         log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
-    configure_freedv(m_parms->freedv);
+    configure_freedv(m_parms->freedv, m_parms->cur);
     m_parms->modem_flush_frames = m_parms->cur->modem_num_quiet_flush_frames;
 }
 

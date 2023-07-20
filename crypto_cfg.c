@@ -113,6 +113,18 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
             if (!strcasecmp(Value,"2400B")) cfg->freedv_mode = FREEDV_MODE_2400B;
             if (!strcasecmp(Value,"800XA")) cfg->freedv_mode = FREEDV_MODE_800XA;
         }
+        else if (strcasecmp(Key, "SquelchEnabled") == 0 ) {
+            cfg->freedv_squelch_enabled = atoi(Value);
+        }
+        else if (strcasecmp(Key, "SquelchThresh700C") == 0 ) {
+            cfg->freedv_squelch_thresh_700c = atof(Value);
+        }
+        else if (strcasecmp(Key, "SquelchThresh700D") == 0 ) {
+            cfg->freedv_squelch_thresh_700d = atof(Value);
+        }
+        else if (strcasecmp(Key, "SquelchThresh700E") == 0 ) {
+            cfg->freedv_squelch_thresh_700e = atof(Value);
+        }
     }
     else if (strcasecmp(Section, "JACK") == 0) {
         if (strcasecmp(Key, "TXPeriod700C") == 0) {

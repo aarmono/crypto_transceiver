@@ -31,7 +31,11 @@ struct config
     int  ptt_output_bias;
     int  ptt_output_drive;
 
-    int  freedv_mode;
+    int   freedv_mode;
+    int   freedv_squelch_enabled;
+    float freedv_squelch_thresh_700c;
+    float freedv_squelch_thresh_700d;
+    float freedv_squelch_thresh_700e;
 
     int  jack_tx_period_700c;
     int  jack_tx_period_700d;

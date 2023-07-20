@@ -4,6 +4,7 @@
 #include "freedv_api.h"
 
 #include "crypto_common.h"
+#include "crypto_cfg.h"
 
 // Square root of integer
 // From: https://en.wikipedia.org/wiki/Integer_square_root
@@ -57,26 +58,26 @@ size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file){
     return elems_read;
 }
 
-void configure_freedv(struct freedv* f){
-    freedv_set_squelch_en(f, 1);
+void configure_freedv(struct freedv* f, const struct config* cfg){
+    freedv_set_squelch_en(f, cfg->freedv_squelch_enabled);
     // Settings borrowed from sm1000_main.c
     const int mode = freedv_get_mode(f);
     switch(mode) {
         case FREEDV_MODE_700C:
-            freedv_set_snr_squelch_thresh(f, 2.0);
+            freedv_set_snr_squelch_thresh(f, cfg->freedv_squelch_thresh_700c);
             freedv_set_eq(f, 1);
 
             freedv_set_clip(f, 1);
             break;
         case FREEDV_MODE_700D:
-            freedv_set_snr_squelch_thresh(f, -2.0);
+            freedv_set_snr_squelch_thresh(f, cfg->freedv_squelch_thresh_700d);
             freedv_set_eq(f, 1);
 
             freedv_set_clip(f, 1);
             freedv_set_tx_bpf(f, 1);
             break;
         case FREEDV_MODE_700E:
-            freedv_set_snr_squelch_thresh(f, 0.0);
+            freedv_set_snr_squelch_thresh(f, cfg->freedv_squelch_thresh_700e);
             freedv_set_eq(f, 1);
 
             freedv_set_clip(f, 1);

@@ -28,7 +28,7 @@ function main()
 
     alsa_restore
 
-    touch /var/run/initialized
+    set_initialized
     echo "Initialized!"
 
     # Put a new seed onto the SD card. This call will block until the RNG is

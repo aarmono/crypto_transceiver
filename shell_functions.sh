@@ -54,6 +54,9 @@ alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh"
 # Tests whether the configuration is "initialized" from the SD card
 alias is_initialized="test -e /var/run/initialized"
 
+# Sets the "initialized" flag
+alias set_initialized="touch /var/run/initialized"
+
 # Tests whether the system has an SD card installed
 alias has_sd_card="test -b $SD_DEV"
 

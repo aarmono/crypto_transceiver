@@ -174,13 +174,17 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
     const int nin = freedv_nin(m_parms->freedv);
     const short modem_rms = rms(demod_in, nin);
 
-    const bool modem_had_signal = m_parms->modem_has_signal;
-
     // RMS-based modem squelch with hysteresis. The built in squelch
     // in FreeDV (especially with the 2400B mode) can sometimes fail at very
     // low input signal levels because the modem reports a very high estimated
     // SNR
-    if (modem_rms < m_parms->cur->modem_quiet_max_thresh)
+    // A nin of zero is apparently valid, and if it is we need to force
+    // the freedv_rx call
+    if (nin == 0)
+    {
+        m_parms->modem_has_signal = true;
+    }
+    else if (modem_rms < m_parms->cur->modem_quiet_max_thresh)
     {
         m_parms->modem_has_signal = false;
     }

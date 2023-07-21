@@ -198,7 +198,7 @@ int process(jack_nframes_t nframes, void *arg)
 
     size_t nout_this_cycle = 0;
     size_t nin = crypto_rx->needed_modem_samples();
-    while (nin > 0 && input_resampler->available_elems() >= nin)
+    while (input_resampler->available_elems() >= nin)
     {
         short demod_in[n_max_modem_samples];
         short voice_out[n_max_speech_samples] = {0};

@@ -371,9 +371,12 @@ configure_squelch_thresh()
 configure_rms_squelch_thresh()
 {
     VAL_RAW=`get_config_val Audio "$2"`
-    if test "$VAL_RAW" -eq 0
+    if test "$VAL_RAW" -le 0
     then
         VAL_RAW=1
+    elif test "$VAL_RAW" -gt 32767
+    then
+        VAL_RAW=32767
     fi
     VAL=`echo "20 * l(${VAL_RAW}/32767)/l(10)" | bc -l | xargs printf %.1f`
     while true
@@ -389,6 +392,10 @@ configure_rms_squelch_thresh()
         elif echo "$option" | grep -qxE '\-?([0-9]*\.)?[0-9]*'
         then
             NEW_VAL=`echo "e(l(10)*(${option}/20)) * 32767" | bc -l | xargs printf %.0f`
+            if test "$NEW_VAL" -gt 32767
+            then
+                NEW_VAL=32767
+            fi
             set_config_val Audio "$2" "$NEW_VAL"
             set_dirty
             return

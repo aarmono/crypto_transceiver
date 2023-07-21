@@ -7,9 +7,14 @@ set -o pipefail
 
 ANSWER=/tmp/answer
 SD_IMG=/tmp/sd.img
+# "Dirty" just means the jack_crypto_tx and jack_crypto_rx services
+# need to be SIGHUP-ed
+# "Filthy" means the audio services need to be restarted
 DIRTY=/tmp/dirty
+FILTHY=/tmp/filthy
 
 alias set_dirty="touch $DIRTY"
+alias set_filthy="touch $FILTHY"
 alias disable_config="set_config_val Config Enabled 0"
 
 trap 'disable_config; exit 0' INT TERM EXIT
@@ -503,7 +508,7 @@ assign_audio_device()
     case "$option" in
         hw:USB_LL | hw:USB_LR | hw:USB_UL | hw:USB_UR)
             set_config_val JACK $2 "$option"
-            set_dirty
+            set_filthy
             ;;
         "")
             ;;
@@ -516,28 +521,36 @@ apply_settings()
 {
     while true
     do
-        if test ! -e "$DIRTY"
+        if test ! -e "$DIRTY" && test ! -e "$FILTHY"
         then
             return
         elif is_initialized
         then
-            /etc/init.d/S31jack_crypto_rx stop &> /dev/null
-            /etc/init.d/S30jack_crypto_tx stop &> /dev/null
-            /etc/init.d/S29jackd_rx stop &> /dev/null
-            /etc/init.d/S28jackd_tx stop &> /dev/null
+            if test -e "$FILTHY"
+            then
+                /etc/init.d/S31jack_crypto_rx stop &> /dev/null
+                /etc/init.d/S30jack_crypto_tx stop &> /dev/null
+                /etc/init.d/S29jackd_rx stop &> /dev/null
+                /etc/init.d/S28jackd_tx stop &> /dev/null
 
-            while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
-                  /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running
-            do
-                sleep .1
-            done
+                while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
+                      /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running
+                do
+                    sleep .1
+                done
 
-            /etc/init.d/S28jackd_tx start &> /dev/null
-            /etc/init.d/S29jackd_rx start &> /dev/null
-            /etc/init.d/S30jack_crypto_tx start &> /dev/null
-            /etc/init.d/S31jack_crypto_rx start &> /dev/null
+                /etc/init.d/S28jackd_tx start &> /dev/null
+                /etc/init.d/S29jackd_rx start &> /dev/null
+                /etc/init.d/S30jack_crypto_tx start &> /dev/null
+                /etc/init.d/S31jack_crypto_rx start &> /dev/null
 
-            rm -f "$DIRTY"
+                # Handling "Filthy" also takes care of "Dirty"
+                rm -f "$DIRTY" "$FILTHY"
+            elif test -e "$DIRTY"
+            then
+                killall -SIGHUP jack_crypto_tx jack_crypto_rx
+                rm -f "$DIRTY"
+            fi
 
             return
         elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
@@ -612,7 +625,7 @@ load_from_sd()
                         then
                             RESULT=1
                         else
-                            set_dirty
+                            set_filthy
                         fi
                         ;;
                     K)
@@ -867,11 +880,11 @@ configure_config_util()
             case "$option" in
                 default)
                     set_config_val Config Enabled ""
-                    set_dirty
+                    # Don't need to set Dirty since services unaffected
                     ;;
                 0|1)
                     set_config_val Config Enabled $option
-                    set_dirty
+                    # Don't need to set Dirty since services unaffected
                     ;;
             esac
 

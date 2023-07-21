@@ -371,6 +371,10 @@ configure_squelch_thresh()
 configure_rms_squelch_thresh()
 {
     VAL_RAW=`get_config_val Audio "$2"`
+    if test "$VAL_RAW" -eq 0
+    then
+        VAL_RAW=1
+    fi
     VAL=`echo "20 * l(${VAL_RAW}/32767)/l(10)" | bc -l | xargs printf %.1f`
     while true
     do

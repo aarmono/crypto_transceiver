@@ -34,13 +34,12 @@ configuration files from the SD card. Any changes not written to the SD card
 will be lost. This option automatically performs an "Apply Current Settings"
 after the settings have been loaded form the SD card.
 
-Once the user exits the Configuration Utility by selecting "EXIT" or pressing
-the Escape key while in the main menu, the display is locked; and settings
-cannot be viewed or changed until the Crypto Voice Module is restarted. If the
-SD card is not installed in the system, it should not be possible to view or
-change system state at all unless a way is found to "jailbreak" out of this
-mode. The author is not aware of any way to do so, but that doesn't mean no
-way exists.
+The user can lock the display by selecting "LOCK" or pressing the Escape key
+while in the main menu. This locks the display so settings cannot be viewed or
+changed until the Crypto Voice Module is restarted. If the SD card is not
+installed in the system, it should not be possible to view or change system
+state at all unless a way is found to "jailbreak" out of this mode. The author
+is not aware of any way to do so, but that doesn't mean no way exists.
 
 If the Configuration Utility is Disabled in the the "Disable Configuration
 Utilty" menu and that setting is saved to the SD card, the Crypto Voice Module

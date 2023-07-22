@@ -901,7 +901,7 @@ main_menu()
     while true
     do
         if dialog \
-           --cancel-label "EXIT" \
+           --cancel-label "LOCK" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
            --menu "Select an option. Press F1 for Help." 23 60 4 \
@@ -917,7 +917,7 @@ main_menu()
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
-           S "Save Current Settings to SD Card" \
+           S "Save Current Settings To SD Card" \
            C "Advanced SD Card Operations" \
            M "View Boot Messages" \
            L "Shell Access (Experts Only)" 2>$ANSWER

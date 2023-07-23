@@ -34,37 +34,73 @@ on_off_checklist()
     fi
 }
 
-configure_ptt_enable()
+# Generic function to display a On/Off/Default radiolist
+# $1: Config Section
+# $2: Config Key
+# $3: Title
+# $4: Off text (optional)
+# $5: On text (optional)
+dialog_on_off_default()
 {
-    VAL=`get_user_config_val PTT Enabled`
-    DEFAULT=`get_sys_config_val PTT Enabled`
-
-    if test "$DEFAULT" = "0"
+    if test -z "$4"
     then
-        DEFAULT=Off
+        OFF="Off"
     else
-        DEFAULT=On
+        OFF="$4"
     fi
 
-    dialog \
-    --no-tags \
-    --title "Enable Push to Talk" \
-    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
-    default "Default ($DEFAULT)" `on_off $VAL ""` \
-    1       "On"                 `on_off $VAL 1`  \
-    0       "Off"                `on_off $VAL 0` 2>$ANSWER
+    if test -z "$5"
+    then
+        ON="On"
+    else
+        ON="$5"
+    fi
 
-    option=`cat $ANSWER`
-    case "$option" in
-        default)
-            set_config_val PTT Enabled ""
-            set_dirty
-            ;;
-        0|1)
-            set_config_val PTT Enabled $option
-            set_dirty
-            ;;
-    esac
+    while true
+    do
+        if is_initialized
+        then
+            VAL=`get_user_config_val "$1" "$2"`
+            DEFAULT=`get_sys_config_val "$1" "$2"`
+
+            if test "$DEFAULT" = "0"
+            then
+                DEFAULT="$OFF"
+            else
+                DEFAULT="$ON"
+            fi
+
+            dialog \
+            --no-tags \
+            --title "$3" \
+            --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
+            default "Default ($DEFAULT)" `on_off $VAL ""` \
+            1       "$ON"                `on_off $VAL 1`  \
+            0       "$OFF"               `on_off $VAL 0` 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                default)
+                    set_config_val "$1" "$2" ""
+                    set_dirty
+                    ;;
+                0|1)
+                    set_config_val "$1" "$2" $option
+                    set_dirty
+                    ;;
+            esac
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+configure_ptt_enable()
+{
+    dialog_on_off_default PTT Enabled "Enable Push to Talk"
 }
 
 configure_ptt_pin()
@@ -178,35 +214,7 @@ configure_ptt_drive()
 
 configure_ptt_active_level()
 {
-    VAL=`get_user_config_val PTT $2`
-    DEFAULT=`get_sys_config_val PTT $2`
-
-    if test "$DEFAULT" = "0"
-    then
-        DEFAULT="Active High"
-    else
-        DEFAULT="Active Low"
-    fi
-
-    dialog \
-    --no-tags \
-    --title "Configure PTT $1 Active Level" \
-    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
-    default "Default ($DEFAULT)" `on_off $VAL ""` \
-    1       "Active Low"         `on_off $VAL 1`  \
-    0       "Active High"        `on_off $VAL 0` 2>$ANSWER
-
-    option=`cat $ANSWER`
-    case "$option" in
-        default)
-            set_config_val PTT $2 ""
-            set_dirty
-            ;;
-        0|1)
-            set_config_val PTT $2 $option
-            set_dirty
-            ;;
-    esac
+    dialog_on_off_default PTT "$2" "Configure PTT $1 Active Level" "Active High" "Active Low"
 }
 
 configure_ptt()
@@ -266,46 +274,7 @@ configure_ptt()
 
 configure_encryption()
 {
-    while true
-    do
-        if is_initialized
-        then
-            VAL=`get_user_config_val Crypto Enabled`
-            DEFAULT=`get_sys_config_val Crypto Enabled`
-
-            if test "$DEFAULT" = "0"
-            then
-                DEFAULT=Off
-            else
-                DEFAULT=On
-            fi
-
-            dialog \
-            --no-tags \
-            --title "Configure Encryption" \
-            --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
-            default "Default ($DEFAULT)" `on_off $VAL ""` \
-            1       "On"                 `on_off $VAL 1`  \
-            0       "Off"                `on_off $VAL 0` 2>$ANSWER
-
-            option=`cat $ANSWER`
-            case "$option" in
-                default)
-                    set_config_val Crypto Enabled ""
-                    set_dirty
-                    ;;
-                0|1)
-                    set_config_val Crypto Enabled $option
-                    set_dirty
-                    ;;
-            esac
-
-            return
-        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
-        then
-            return
-        fi
-    done
+    dialog_on_off_default Crypto Enabled "Configure Encryption"
 }
 
 configure_mode()
@@ -410,35 +379,7 @@ configure_rms_squelch_thresh()
 
 configure_squelch_enable()
 {
-    VAL=`get_user_config_val Codec SquelchEnabled`
-    DEFAULT=`get_sys_config_val Codec SquelchEnabled`
-
-    if test "$DEFAULT" = "0"
-    then
-        DEFAULT=Off
-    else
-        DEFAULT=On
-    fi
-
-    dialog \
-    --no-tags \
-    --title "Enable Squelch" \
-    --radiolist "Select an option or \"Default\" to use the system default." 10 60 4 \
-    default "Default ($DEFAULT)" `on_off $VAL ""` \
-    1       "On"                 `on_off $VAL 1`  \
-    0       "Off"                `on_off $VAL 0` 2>$ANSWER
-
-    option=`cat $ANSWER`
-    case "$option" in
-        default)
-            set_config_val Codec SquelchEnabled ""
-            set_dirty
-            ;;
-        0|1)
-            set_config_val Codec SquelchEnabled $option
-            set_dirty
-            ;;
-    esac
+    dialog_on_off_default Codec SquelchEnabled "Enable Squelch"
 }
 
 configure_squelch()

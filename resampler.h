@@ -2,6 +2,7 @@
 #define RESAMPLE_H
 
 #include <cstring>
+#include <cstdint>
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
@@ -13,14 +14,21 @@ inline size_t get_nom_resampled_frames(size_t src_frames,
                                        uint   src_sample_rate,
                                        uint   dst_sample_rate)
 {
-    return ((src_frames * dst_sample_rate) + (src_sample_rate / 2)) / src_sample_rate;
+    const uint64_t src_frames_64 = src_frames;
+    const uint64_t src_sample_rate_64 = src_sample_rate;
+    const uint64_t dst_sample_rate_64 = dst_sample_rate;
+    return ((src_frames_64 * dst_sample_rate_64) + (src_sample_rate_64 / 2)) /
+        src_sample_rate_64;
 }
 
 inline size_t get_max_resampled_frames(size_t src_frames,
                                        uint   src_sample_rate,
                                        uint   dst_sample_rate)
 {
-    return ((src_frames * dst_sample_rate) / src_sample_rate) + 1;
+    const uint64_t src_frames_64 = src_frames;
+    const uint64_t src_sample_rate_64 = src_sample_rate;
+    const uint64_t dst_sample_rate_64 = dst_sample_rate;
+    return ((src_frames_64 * dst_sample_rate_64) / src_sample_rate_64) + 1;
 }
 
 static size_t resample_complete_buffer(      int    converter_type,

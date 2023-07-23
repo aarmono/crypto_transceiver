@@ -85,6 +85,25 @@ public:
         m_dest_rate = dest_rate;
     }
 
+    template<class Iterator>
+    void enqueue(Iterator begin, Iterator end)
+    {
+        if (begin == end)
+        {
+            return;
+        }
+        else if (m_source_rate == m_dest_rate)
+        {
+            m_resampled_data.insert(m_resampled_data.end(), begin, end);
+        }
+        else
+        {
+            m_data_to_resample.insert(m_data_to_resample.end(), begin, end);
+
+            do_resample();
+        }
+    }
+
     void enqueue(const float* data, size_t count)
     {
         if (count == 0)

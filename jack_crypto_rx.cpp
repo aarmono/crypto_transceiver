@@ -36,6 +36,7 @@
 
 #include "crypto_log.h"
 #include "crypto_rx_common.h"
+#include "crypto_common.h"
 #include "crypto_cfg.h"
 #include "resampler.h"
 #include "jack_common.h"
@@ -50,14 +51,16 @@ static jack_client_t* client = nullptr;
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
 
-typedef std::vector<jack_default_audio_sample_t> audio_buffer_t;
 static audio_buffer_t crypto_startup;
 static audio_buffer_t plain_startup;
+static audio_buffer_t wave_sound;
 
 static std::deque<jack_default_audio_sample_t> notification_buffer;
 
 static volatile sig_atomic_t reload_config = 0;
+static volatile sig_atomic_t read_wav = 0;
 static volatile sig_atomic_t initialized = 0;
+static volatile sig_atomic_t play_wav = 0;
 
 static const char* config_file = nullptr;
 
@@ -77,6 +80,11 @@ static void signal_handler(int sig)
 static void handle_sighup(int sig)
 {
     reload_config = 1;
+}
+
+static void handle_sigusr1(int sig)
+{
+    read_wav = 1;
 }
 
 /**
@@ -100,11 +108,18 @@ int process(jack_nframes_t nframes, void *arg)
     const jack_default_audio_sample_t* const modem_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(modem_port, nframes);
     bool play_notification_sound = false;
+    bool play_wave_sound = false;
 
     if (initialized != 0) {
         initialized = 0;
 
         play_notification_sound = true;
+    }
+
+    if (play_wav != 0) {
+        play_wav = 0;
+
+        play_wave_sound = true;
     }
 
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
@@ -170,9 +185,7 @@ int process(jack_nframes_t nframes, void *arg)
     output_resampler->dequeue(voice_frames, to_deque);
     if (to_fill > 0)
     {
-        memset(voice_frames + to_deque,
-               0,
-               sizeof(jack_default_audio_sample_t) * to_fill);
+        zeroize_frames(voice_frames + to_deque, to_fill);
     }
 
     if (play_notification_sound)
@@ -190,6 +203,13 @@ int process(jack_nframes_t nframes, void *arg)
         }
     }
 
+    if (play_wave_sound)
+    {
+        notification_buffer.insert(notification_buffer.cend(),
+                                   wave_sound.cbegin(),
+                                   wave_sound.cend());
+    }
+
     jack_default_audio_sample_t* const notification_frames =
         (jack_default_audio_sample_t*)jack_port_get_buffer(notification_port, nframes);
     if (notification_buffer.empty() == false)
@@ -201,14 +221,13 @@ int process(jack_nframes_t nframes, void *arg)
         notification_buffer.erase(notification_buffer.cbegin(), notification_end);
         if (n_notification_frames < nframes)
         {
-            memset(notification_frames + n_notification_frames,
-                   0,
-                   (nframes - n_notification_frames) * sizeof(jack_default_audio_sample_t));
+            zeroize_frames(notification_frames + n_notification_frames,
+                           nframes - n_notification_frames);
         }
     }
     else
     {
-        memset(notification_frames, 0, nframes * sizeof(jack_default_audio_sample_t));
+        zeroize_frames(notification_frames, nframes);
     }
 
     return 0;
@@ -431,6 +450,7 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGHUP, handle_sighup);
+    signal(SIGUSR1, handle_sigusr1);
     signal(SIGINT, signal_handler);
 
     while (true)
@@ -450,6 +470,16 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             activate_client();
+        }
+
+        if (read_wav != 0)
+        {
+            read_wav = 0;
+
+            if (read_wav_file("/tmp/notify.wav", wave_sound))
+            {
+                play_wav = 1;
+            }
         }
         sleep(1);
     }

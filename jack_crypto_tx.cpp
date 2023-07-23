@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include <vector>
+#include <deque>
 #include <memory>
 
 #include <gpiod.h>
@@ -36,6 +37,7 @@
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 #include "crypto_tx_common.h"
+#include "crypto_common.h"
 #include "jack_common.h"
 
 static std::unique_ptr<crypto_tx_common> crypto_tx;
@@ -47,7 +49,12 @@ static jack_client_t* client = nullptr;
 static std::unique_ptr<resampler> input_resampler;
 static std::unique_ptr<resampler> output_resampler;
 
+static audio_buffer_t tts_file;
+static std::deque<jack_default_audio_sample_t> tts_buffer;
+
 static volatile sig_atomic_t reload_config = 0;
+static volatile sig_atomic_t read_wav = 0;
+static volatile sig_atomic_t play_wav = 0;
 
 static const char* config_file = nullptr;
 
@@ -66,6 +73,11 @@ static void signal_handler(int sig)
 static void handle_sighup(int sig)
 {
     reload_config = 1;
+}
+
+static void handle_sigusr1(int sig)
+{
+    read_wav = 1;
 }
 
 static bool microphone_enabled(const struct config* cfg)
@@ -140,7 +152,18 @@ int process(jack_nframes_t nframes, void *arg)
 
     const size_t n_nom_modem_samples = crypto_tx->modem_samples_per_frame();
     const size_t n_speech_samples = crypto_tx->speech_samples_per_frame();
-    const bool mic_enabled_cur = microphone_enabled(cfg);
+
+    if (play_wav != 0)
+    {
+        play_wav = 0;
+
+        // Zero-pad a few frames at the start to give the encryption a
+        // chance to sync
+        tts_buffer.insert(tts_buffer.cend(), nframes * 6, 0.0);
+        tts_buffer.insert(tts_buffer.cend(), tts_file.cbegin(), tts_file.cend());
+    }
+
+    const bool mic_enabled_cur = microphone_enabled(cfg) || !tts_buffer.empty();
     if (mic_enabled_cur)
     {
         // Only "prime" the resamplers on the "rising edge"
@@ -156,7 +179,17 @@ int process(jack_nframes_t nframes, void *arg)
         // Turn on the PTT output
         set_ptt_val(cfg, true);
 
-        input_resampler->enqueue(voice_frames, nframes);
+        const size_t tts_to_add = std::min(tts_buffer.size(), (size_t)nframes);
+        if (tts_to_add > 0)
+        {
+            input_resampler->enqueue(tts_buffer.begin(),
+                                     tts_buffer.begin() + tts_to_add);
+            tts_buffer.erase(tts_buffer.begin(), tts_buffer.begin() + tts_to_add);
+        }
+
+        // Offset the voice samples so TTS doesn't add delay to the signal
+        const jack_nframes_t voice_to_add = nframes - tts_to_add;
+        input_resampler->enqueue(voice_frames + tts_to_add, voice_to_add);
 
         // Now add the remaining frames without zero-padding
         while (input_resampler->available_elems() >= n_speech_samples)
@@ -183,9 +216,7 @@ int process(jack_nframes_t nframes, void *arg)
         }
         else
         {
-            memset(modem_frames,
-                   0,
-                   sizeof(jack_default_audio_sample_t) * nframes);
+            zeroize_frames(modem_frames, nframes);
         }
     }
     else
@@ -233,9 +264,7 @@ int process(jack_nframes_t nframes, void *arg)
         output_resampler->dequeue(modem_frames, available_frames);
         if (remaining_frames > 0)
         {
-            memset(modem_frames + available_frames,
-                   0,
-                   sizeof(jack_default_audio_sample_t) * remaining_frames);
+            zeroize_frames(modem_frames + available_frames, remaining_frames);
         }
 
         // Force a new IV next time the microphone is active now that
@@ -465,8 +494,11 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, signal_handler);
     signal(SIGTERM, signal_handler);
     signal(SIGHUP, handle_sighup);
+    signal(SIGUSR1, handle_sigusr1);
     signal(SIGINT, signal_handler);
 
+
+    const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     while (true)
     {
         if (reload_config != 0) {
@@ -486,6 +518,16 @@ int main(int argc, char *argv[])
 
             initialize_ptt();
             activate_client();
+        }
+
+        if (read_wav != 0)
+        {
+            read_wav = 0;
+
+            if (read_wav_file("/tmp/tts.wav", jack_sample_rate, tts_file))
+            {
+                play_wav = 1;
+            }
         }
         sleep(1);
     }

@@ -36,6 +36,7 @@
 #include "crypto_cfg.h"
 #include "crypto_log.h"
 #include "crypto_tx_common.h"
+#include "jack_common.h"
 
 static std::unique_ptr<crypto_tx_common> crypto_tx;
 
@@ -54,27 +55,6 @@ static bool mic_enabled_prev = false;
 
 static struct gpiod_line* ptt_in_line = nullptr;
 static struct gpiod_line* ptt_out_line = nullptr;
-
-static int get_jack_period(const struct config* cfg)
-{
-    switch(cfg->freedv_mode)
-    {
-        case FREEDV_MODE_700C:
-            return cfg->jack_tx_period_700c;
-        case FREEDV_MODE_700D:
-            return cfg->jack_tx_period_700d;
-        case FREEDV_MODE_700E:
-            return cfg->jack_tx_period_700e;
-        case FREEDV_MODE_800XA:
-            return cfg->jack_tx_period_800xa;
-        case FREEDV_MODE_1600:
-            return cfg->jack_tx_period_1600;
-        case FREEDV_MODE_2400B:
-            return cfg->jack_tx_period_2400b;
-        default:
-            return 0;
-    }
-}
 
 static void signal_handler(int sig)
 {
@@ -277,35 +257,7 @@ int process(jack_nframes_t nframes, void *arg)
 static bool connect_input_ports(jack_port_t* output_port,
                                 const char* input_port_regex)
 {
-    const char** playback_ports = jack_get_ports(client,
-                                                 input_port_regex,
-                                                 NULL,
-                                                 JackPortIsInput);
-    if (playback_ports != NULL && *playback_ports != NULL)
-    {
-        const char* out_port_name = jack_port_name(output_port);
-        for (size_t i = 0; playback_ports[i] != NULL; ++i)
-        {
-            if (jack_connect(client, out_port_name, playback_ports[i]) != 0)
-            {
-                fprintf(stderr,
-                        "Could not connect %s port to %s port\n",
-                        out_port_name,
-                        playback_ports[i]);
-                jack_free(playback_ports);
-                return false;
-            }
-        }
-
-        jack_free(playback_ports);
-        return true;
-    }
-    else
-    {
-        fprintf(stderr, "Could not find ports matching %s\n", input_port_regex);
-        if (playback_ports != NULL) jack_free(playback_ports);
-        return false;
-    }
+    return connect_input_ports(client, output_port, input_port_regex);
 }
 
 static void activate_client()

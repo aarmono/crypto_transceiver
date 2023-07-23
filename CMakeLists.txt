@@ -104,16 +104,18 @@ target_compile_definitions(iniset PUBLIC -D_GNU_SOURCE)
 
 add_executable(jack_crypto_tx
   jack_crypto_tx.cpp
+  jack_common.cpp
   crypto_tx_common.cpp
   crypto_common.c
   minIni.c
   crypto_cfg.c
   crypto_log.c
   crypto.ini)
-target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${GPIOD_LIB} m)
+target_link_libraries(jack_crypto_tx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${GPIOD_LIB} ${SNDFILE_LIB} m)
 
 add_executable(jack_crypto_rx
   jack_crypto_rx.cpp
+  jack_common.cpp
   crypto_rx_common.cpp
   crypto_common.c
   minIni.c

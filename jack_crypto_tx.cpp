@@ -163,9 +163,13 @@ int process(jack_nframes_t nframes, void *arg)
         tts_buffer.insert(tts_buffer.cend(), tts_file.cbegin(), tts_file.cend());
     }
 
+    static uint delay_periods = 0;
+
     const bool mic_enabled_cur = microphone_enabled(cfg) || !tts_buffer.empty();
     if (mic_enabled_cur)
     {
+        delay_periods = 0;
+
         // Only "prime" the resamplers on the "rising edge"
         if (!mic_enabled_prev)
         {
@@ -271,10 +275,18 @@ int process(jack_nframes_t nframes, void *arg)
         // the codec is idle
         crypto_tx->force_rekey_next_frame();
 
-        // Once the buffer is empty turn off the PTT output
+        // Once the buffer is empty turn off the PTT output after a delay
         if (available_frames == 0)
         {
-            set_ptt_val(cfg, false);
+            static const uint PTT_DEAD_KEY_PERIODS = 4;
+            if (delay_periods == PTT_DEAD_KEY_PERIODS)
+            {
+                set_ptt_val(cfg, false);
+            }
+            else
+            {
+                ++delay_periods;
+            }
         }
     }
 

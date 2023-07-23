@@ -8,6 +8,8 @@ ASOUND_CFG=/var/lib/alsa/asound.state
 SEED_FILE=/var/run/random-seed
 KEY_FILE=/etc/key
 
+TTS_FILE=/tmp/tts.wav
+
 SD_DEV=/dev/mmcblk0p1
 
 # Copies a text file to/from the SD card
@@ -56,6 +58,9 @@ alias set_initialized="touch /var/run/initialized"
 
 # Tests whether the system has an SD card installed
 alias has_sd_card="test -b $SD_DEV"
+
+# Runs espeak with settings optimized for radio transmission
+alias espeak_radio="espeak -v en -g 10 -s 140"
 
 # Takes a sound card name and strips off the "hw:"
 # prefix if it is present

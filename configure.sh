@@ -430,6 +430,55 @@ configure_squelch()
     done
 }
 
+broadcast_test_alert()
+{
+    while true
+    do
+        dialog \
+        --title "Broadcast a Test Alert" \
+        --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "" 2>$ANSWER
+
+        LEN=`wc -c < "$ANSWER"`
+        if test "$LEN" -eq 0
+        then
+            return
+        elif test "$LEN" -le 160
+        then
+            espeak_radio -f "$ANSWER" -w "$TTS_FILE" &>/dev/null && /etc/init.d/S30jack_crypto_tx signal SIGUSR1
+            return
+        else
+            dialog --msgbox "Message too long!" 0 0
+        fi
+    done
+}
+
+configure_tts_alerts()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "TTS Alert Broadcast Configuration" \
+            --menu "Select an option to configure." 8 60 4 \
+            1 "Broadcast a Test Alert" 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    broadcast_test_alert
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
 assign_audio_device()
 {
     VAL=`get_config_val JACK $2`
@@ -845,16 +894,17 @@ main_menu()
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 23 60 4 \
+           --menu "Select an option. Press F1 for Help." 24 60 4 \
            0 "Configure Headset Volume" \
            1 "Configure Radio Volume" \
            2 "Configure Radio Mode" \
            3 "Configure Radio Squelch" \
            4 "Configure Encryption" \
-           5 "Configure Push to Talk" \
-           6 "Assign Audio Devices" \
-           7 "Generate Encryption Key" \
-           8 "Disable Configuration Utility" \
+           5 "Configure TTS Alert Broadcasts" \
+           6 "Configure Push to Talk" \
+           7 "Assign Audio Devices" \
+           8 "Generate Encryption Key" \
+           9 "Disable Configuration Utility" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
@@ -881,15 +931,18 @@ main_menu()
                     configure_encryption
                     ;;
                 5)
-                    configure_ptt
+                    configure_tts_alerts
                     ;;
                 6)
-                    assign_audio_devices
+                    configure_ptt
                     ;;
                 7)
-                    generate_encryption_key
+                    assign_audio_devices
                     ;;
                 8)
+                    generate_encryption_key
+                    ;;
+                9)
                     configure_config_util
                     ;;
                 V)

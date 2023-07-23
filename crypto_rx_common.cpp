@@ -213,7 +213,7 @@ size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
         if (m_parms->modem_has_signal == false && nout > 0)
         {
             // If we are flushing frames, Call freedv_rx but discard the output
-            memset(speech_out, 0, sizeof(short) * nout);
+            zeroize_frames(speech_out, nout);
         }
 
         float snr_est = 0.0;

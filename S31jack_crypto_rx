@@ -26,6 +26,11 @@ running()
 	exec daemon --running -n ${NAME}
 }
 
+signal()
+{
+	test -n "$1" && exec daemon --signal="$1" -n "${NAME}"
+}
+
 case "$1" in
 	start)
 		start
@@ -40,8 +45,11 @@ case "$1" in
 	running)
 		running
 		;;
+	signal)
+		signal "$2"
+		;;
 	*)
-		echo "Usage: $0 {start|stop|restart|reload}" >&2
+		echo "Usage: $0 {start|stop|restart|reload|running|signal}" >&2
 		exit 1
 		;;
 esac

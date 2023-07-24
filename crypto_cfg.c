@@ -7,7 +7,7 @@
 #include "crypto_cfg.h"
 #include "minIni.h"
 
-static int bias_flags(const char *option)
+int bias_flags(const char *option)
 {
     if (strcasecmp(option, "pull-down") == 0)
         return GPIOD_LINE_REQUEST_FLAG_BIAS_PULL_DOWN;
@@ -19,7 +19,7 @@ static int bias_flags(const char *option)
         return 0;
 }
 
-static int drive_flags(const char *option)
+int drive_flags(const char *option)
 {
     if (strcasecmp(option, "open-drain") == 0)
         return GPIOD_LINE_REQUEST_FLAG_OPEN_DRAIN;
@@ -31,7 +31,7 @@ static int drive_flags(const char *option)
     return 0;
 }
 
-static int active_flags(const char* option)
+int active_flags(const char* option)
 {
     return atoi(option) != 0 ? GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW : 0;
 }

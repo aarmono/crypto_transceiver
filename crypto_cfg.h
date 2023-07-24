@@ -66,6 +66,10 @@ void read_config(const char* config_file, struct config* cfg);
 
 size_t read_key_file(const char* key_file, unsigned char key[]);
 
+int bias_flags(const char *option);
+int drive_flags(const char *option);
+int active_flags(const char* option);
+
 static inline int str_has_value(const char* str) {
     return str != NULL && str[0] != '\0';
 }

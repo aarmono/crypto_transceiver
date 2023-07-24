@@ -314,17 +314,18 @@ configure_volume_gpio()
     done
 }
 
-configure_gpio()
+configure_hardware()
 {
     while true
     do
         if is_initialized
         then
             dialog \
-            --title "GPIO Configuration" \
-            --menu "Select an option to configure." 9 60 4 \
+            --title "Hardware Configuration" \
+            --menu "Select an option to configure." 10 60 4 \
             1 "Configure PTT GPIO" \
-            2 "Configure Volume GPIO" 2>$ANSWER
+            2 "Configure Volume GPIO" \
+            3 "Assign Audio Devices" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -333,6 +334,9 @@ configure_gpio()
                     ;;
                 2)
                     configure_volume_gpio
+                    ;;
+                3)
+                    assign_audio_devices
                     ;;
                 "")
                     return
@@ -978,17 +982,16 @@ main_menu()
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 24 60 4 \
+           --menu "Select an option. Press F1 for Help." 23 60 4 \
            0 "Configure Headset Volume" \
            1 "Configure Radio Volume" \
            2 "Configure Radio Mode" \
            3 "Configure Radio Squelch" \
            4 "Configure Encryption" \
            5 "Configure TTS Alert Broadcasts" \
-           6 "Configure GPIO" \
-           7 "Assign Audio Devices" \
-           8 "Generate Encryption Key" \
-           9 "Disable Configuration Utility" \
+           6 "Configure Hardware" \
+           7 "Generate Encryption Key" \
+           8 "Disable Configuration Utility" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
@@ -1018,15 +1021,12 @@ main_menu()
                     configure_tts_alerts
                     ;;
                 6)
-                    configure_gpio
+                    configure_hardware
                     ;;
                 7)
-                    assign_audio_devices
-                    ;;
-                8)
                     generate_encryption_key
                     ;;
-                9)
+                8)
                     configure_config_util
                     ;;
                 V)

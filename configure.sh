@@ -103,14 +103,14 @@ configure_ptt_enable()
     dialog_on_off_default PTT Enabled "Enable Push to Talk"
 }
 
-configure_ptt_pin()
+assign_pin()
 {
-    VAL=`get_user_config_val PTT $2`
-    DEFAULT=`get_sys_config_val PTT $2`
+    VAL=`get_user_config_val $2 $3`
+    DEFAULT=`get_sys_config_val $2 $3`
 
     dialog \
     --no-tags \
-    --title "Configure PTT $1 Pin (See: https://pinout.xyz)" \
+    --title "Configure $2 $1 Pin (See: https://pinout.xyz)" \
     --radiolist "Select an option or \"Default\" to use the system default." 36 60 4 \
     default "Default (GPIO $DEFAULT)" `on_off $VAL ""` \
     0       "GPIO 0"                  `on_off $VAL 0`  \
@@ -145,27 +145,30 @@ configure_ptt_pin()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            set_config_val PTT $2 ""
-            set_dirty
+            set_config_val $2 $3 ""
+            # Pin assignments can conflict between services, so just restart
+            # everything
+            set_filthy
             ;;
         0|1|2|3|4|5|6|7|8|9| \
         10|11|12|13|14|15|16| \
         17|18|19|20|21|22|23| \
         24|25|26|27)
-            set_config_val PTT $2 $option
-            set_dirty
+            set_config_val $2 $3 $option
+            # Restart everything
+            set_filthy
             ;;
     esac
 }
 
-configure_ptt_bias()
+configure_pin_bias()
 {
-    VAL=`get_user_config_val PTT $2`
-    DEFAULT=`get_sys_config_val PTT $2`
+    VAL=`get_user_config_val $2 $3`
+    DEFAULT=`get_sys_config_val $2 $3`
 
     dialog \
     --no-tags \
-    --title "Configure PTT $1 Bias" \
+    --title "Configure $2 $1 Bias" \
     --radiolist "Select an option or \"Default\" to use the system default." 11 60 4 \
     default   "Default ($DEFAULT)" `on_off $VAL ""` \
     pull-up   "Pull-up"            `on_off $VAL pull-up` \
@@ -175,24 +178,24 @@ configure_ptt_bias()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            set_config_val PTT $2 ""
+            set_config_val $2 $3 ""
             set_dirty
             ;;
         pull-up|pull-down|disable)
-            set_config_val PTT $2 $option
+            set_config_val $2 $3 $option
             set_dirty
             ;;
     esac
 }
 
-configure_ptt_drive()
+configure_pin_drive()
 {
-    VAL=`get_user_config_val PTT $2`
-    DEFAULT=`get_sys_config_val PTT $2`
+    VAL=`get_user_config_val $2 $3`
+    DEFAULT=`get_sys_config_val $2 $3`
 
     dialog \
     --no-tags \
-    --title "Configure PTT $1 Drive" \
+    --title "Configure $2 $1 Drive" \
     --radiolist "Select an option or \"Default\" to use the system default." 11 60 4 \
     default     "Default ($DEFAULT)" `on_off $VAL ""` \
     open-drain  "Open-drain"         `on_off $VAL open-drain` \
@@ -202,19 +205,19 @@ configure_ptt_drive()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            set_config_val PTT $2 ""
+            set_config_val $2 $3 ""
             set_dirty
             ;;
         open-drain|open-source|push-pull)
-            set_config_val PTT $2 $option
+            set_config_val $2 $3 $option
             set_dirty
             ;;
     esac
 }
 
-configure_ptt_active_level()
+configure_pin_active_level()
 {
-    dialog_on_off_default PTT "$2" "Configure PTT $1 Active Level" "Active High" "Active Low"
+    dialog_on_off_default "$2" "$3" "Configure $2 $1 Active Level" "Active High" "Active Low"
 }
 
 configure_ptt()
@@ -241,25 +244,95 @@ configure_ptt()
                     configure_ptt_enable
                     ;;
                 2)
-                    configure_ptt_pin Input GPIONum
+                    assign_pin Input PTT GPIONum
                     ;;
                 3)
-                    configure_ptt_bias Input Bias
+                    configure_pin_bias Input PTT Bias
                     ;;
                 4)
-                    configure_ptt_active_level Input ActiveLow
+                    configure_pin_active_level Input PTT ActiveLow
                     ;;
                 5)
-                    configure_ptt_pin Output OutputGPIONum
+                    assign_pin Output PTT OutputGPIONum
                     ;;
                 6)
-                    configure_ptt_bias Output OutputBias
+                    configure_pin_bias Output PTT OutputBias
                     ;;
                 7)
-                    configure_ptt_drive Output OutputDrive
+                    configure_pin_drive Output PTT OutputDrive
                     ;;
                 8)
-                    configure_ptt_active_level Output OutputActiveLow
+                    configure_pin_active_level Output PTT OutputActiveLow
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+configure_volume_gpio()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "Volume GPIO Configuration" \
+            --menu "Select an option to configure." 11 60 4 \
+            1 "Configure Up GPIO Pin" \
+            2 "Configure Down GPIO Pin" \
+            3 "Configure Pin Bias" \
+            4 "Configure Pin Active State" 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    assign_pin Up Volume UpGPIONum
+                    ;;
+                2)
+                    assign_pin Down Volume DownGPIONum
+                    ;;
+                3)
+                    configure_pin_bias Input Volume Bias
+                    ;;
+                4)
+                    configure_pin_active_level Input Volume ActiveLow
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+configure_gpio()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "GPIO Configuration" \
+            --menu "Select an option to configure." 9 60 4 \
+            1 "Configure PTT GPIO" \
+            2 "Configure Volume GPIO" 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    configure_ptt
+                    ;;
+                2)
+                    configure_volume_gpio
                     ;;
                 "")
                     return
@@ -518,13 +591,15 @@ apply_settings()
         then
             if test -e "$FILTHY"
             then
+                /etc/init.d/S32volume stop &> /dev/null
                 /etc/init.d/S31jack_crypto_rx stop &> /dev/null
                 /etc/init.d/S30jack_crypto_tx stop &> /dev/null
                 /etc/init.d/S29jackd_rx stop &> /dev/null
                 /etc/init.d/S28jackd_tx stop &> /dev/null
 
                 while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
-                      /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running
+                      /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running ||
+                      /etc/inti.d/S32volume running
                 do
                     sleep .1
                 done
@@ -533,12 +608,21 @@ apply_settings()
                 /etc/init.d/S29jackd_rx start &> /dev/null
                 /etc/init.d/S30jack_crypto_tx start &> /dev/null
                 /etc/init.d/S31jack_crypto_rx start &> /dev/null
+                /etc/init.d/S32volume start &> /dev/null
 
                 # Handling "Filthy" also takes care of "Dirty"
                 rm -f "$DIRTY" "$FILTHY"
             elif test -e "$DIRTY"
             then
+                /etc/init.d/S32volume stop &> /dev/null
+
+                while /etc/init.d/S32volume running
+                do
+                    sleep .1
+                done
+
                 killall -SIGHUP jack_crypto_tx jack_crypto_rx
+                /etc/init.d/S32volume start &> /dev/null
                 rm -f "$DIRTY"
             fi
 
@@ -901,7 +985,7 @@ main_menu()
            3 "Configure Radio Squelch" \
            4 "Configure Encryption" \
            5 "Configure TTS Alert Broadcasts" \
-           6 "Configure Push to Talk" \
+           6 "Configure GPIO" \
            7 "Assign Audio Devices" \
            8 "Generate Encryption Key" \
            9 "Disable Configuration Utility" \
@@ -934,7 +1018,7 @@ main_menu()
                     configure_tts_alerts
                     ;;
                 6)
-                    configure_ptt
+                    configure_gpio
                     ;;
                 7)
                     assign_audio_devices

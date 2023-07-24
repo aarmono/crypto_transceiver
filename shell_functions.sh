@@ -9,6 +9,7 @@ SEED_FILE=/var/run/random-seed
 KEY_FILE=/etc/key
 
 TTS_FILE=/tmp/tts.wav
+NOTIFY_FILE=/tmp/notify.wav
 
 SD_DEV=/dev/mmcblk0p1
 

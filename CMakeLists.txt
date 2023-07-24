@@ -123,3 +123,9 @@ add_executable(jack_crypto_rx
   crypto_log.c
   crypto.ini)
 target_link_libraries(jack_crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${SNDFILE_LIB} m)
+
+add_executable(volume_buttons
+  volume_buttons.cpp
+  crypto_cfg.c
+  minIni.c)
+target_link_libraries(volume_buttons ${CMAKE_REQUIRED_LIBRARIES} ${GPIOD_LIB} m)

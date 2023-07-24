@@ -507,26 +507,45 @@ configure_squelch()
     done
 }
 
-broadcast_test_alert()
+broadcast_alert_dialog()
 {
     while true
     do
-        dialog \
-        --title "Broadcast a Test Alert" \
-        --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "" 2>$ANSWER
-
-        LEN=`wc -c < "$ANSWER"`
-        if test "$LEN" -eq 0
+        if dialog \
+           --title "Broadcast a Test Alert" \
+           --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "$1" 2>$ANSWER
         then
-            return
-        elif test "$LEN" -le 160
-        then
-            espeak_radio -f "$ANSWER" -w "$TTS_FILE" &>/dev/null && /etc/init.d/S30jack_crypto_tx signal SIGUSR1
-            return
+            LEN=`wc -c < "$ANSWER"`
+            if test "$LEN" -eq 0
+            then
+                return 0
+            elif test "$LEN" -le 160
+            then
+                return 0
+            else
+                dialog --msgbox "Message too long!" 0 0
+            fi
         else
-            dialog --msgbox "Message too long!" 0 0
+            return 1
         fi
     done
+}
+
+broadcast_alert()
+{
+    broadcast_alert_dialog && \
+        espeak_radio -f "$ANSWER" -w "$TTS_FILE" &>/dev/null && \
+        /etc/init.d/S30jack_crypto_tx signal SIGUSR1
+}
+
+configure_tts_alert()
+{
+    CUR=`get_config_val TTS "$1"`
+    if broadcast_alert_dialog "$CUR"
+    then
+        ALERT=`cat "$ANSWER"`
+        set_config_val TTS "$1" "$ALERT"
+    fi
 }
 
 configure_tts_alerts()
@@ -537,13 +556,21 @@ configure_tts_alerts()
         then
             dialog \
             --title "TTS Alert Broadcast Configuration" \
-            --menu "Select an option to configure." 8 60 4 \
-            1 "Broadcast a Test Alert" 2>$ANSWER
+            --menu "Select an option to configure." 10 60 4 \
+            1 "Configure Primary TTS Alert" \
+            2 "Configure Secondary TTS Alert" \
+            3 "Broadcast An Alert" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
                 1)
-                    broadcast_test_alert
+                    configure_tts_alert Alert1
+                    ;;
+                2)
+                    configure_tts_elert Alert2
+                    ;;
+                3)
+                    broadcast_alert
                     ;;
                 "")
                     return

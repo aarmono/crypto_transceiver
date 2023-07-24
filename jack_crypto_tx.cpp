@@ -58,8 +58,6 @@ static volatile sig_atomic_t play_wav = 0;
 
 static const char* config_file = nullptr;
 
-static bool mic_enabled_prev = false;
-
 static struct gpiod_line* ptt_in_line = nullptr;
 static struct gpiod_line* ptt_out_line = nullptr;
 
@@ -164,14 +162,16 @@ int process(jack_nframes_t nframes, void *arg)
     }
 
     static uint delay_periods = 0;
+    static bool transmitting_prev = false;
 
-    const bool mic_enabled_cur = microphone_enabled(cfg) || !tts_buffer.empty();
-    if (mic_enabled_cur)
+    const bool mic_enabled = microphone_enabled(cfg);
+    const bool transmitting_cur = mic_enabled || !tts_buffer.empty();
+    if (transmitting_cur)
     {
         delay_periods = 0;
 
         // Only "prime" the resamplers on the "rising edge"
-        if (!mic_enabled_prev)
+        if (!transmitting_prev)
         {
             input_resampler->enqueue_zeroes(nframes);
             input_resampler->clear();
@@ -193,7 +193,15 @@ int process(jack_nframes_t nframes, void *arg)
 
         // Offset the voice samples so TTS doesn't add delay to the signal
         const jack_nframes_t voice_to_add = nframes - tts_to_add;
-        input_resampler->enqueue(voice_frames + tts_to_add, voice_to_add);
+        // Only add voice if the mic is hot. Otherwise add zeroes
+        if (mic_enabled)
+        {
+            input_resampler->enqueue(voice_frames + tts_to_add, voice_to_add);
+        }
+        else
+        {
+            input_resampler->enqueue_zeroes(voice_to_add);
+        }
 
         // Now add the remaining frames without zero-padding
         while (input_resampler->available_elems() >= n_speech_samples)
@@ -226,7 +234,7 @@ int process(jack_nframes_t nframes, void *arg)
     else
     {
         // Only flush on the "falling edge"
-        if (mic_enabled_prev)
+        if (transmitting_prev)
         {
             // When the microphone is off we have to make sure we have flushed
             // all the voice and modem data out of the system and onto the modem
@@ -290,7 +298,7 @@ int process(jack_nframes_t nframes, void *arg)
         }
     }
 
-    mic_enabled_prev = mic_enabled_cur;
+    transmitting_prev = transmitting_cur;
 
     return 0;
 }

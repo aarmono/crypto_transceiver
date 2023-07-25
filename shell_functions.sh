@@ -6,7 +6,6 @@ CRYPTO_INI_ALL=/etc/crypto.ini.all
 
 ASOUND_CFG=/var/lib/alsa/asound.state
 SEED_FILE=/var/run/random-seed
-KEY_FILE=/etc/key
 
 TTS_FILE=/tmp/tts.wav
 NOTIFY_FILE=/tmp/notify.wav
@@ -17,15 +16,16 @@ SD_DEV=/dev/mmcblk0p1
 alias mcopy_text="mcopy -t -n -D o -i $SD_DEV"
 # Copies a binary file to/from the SD card
 alias mcopy_bin="mcopy -D o -n -i $SD_DEV"
+# Lists directories from the SD card
+alias mdir_sd="mdir -i $SD_DEV"
+# Deletes files from the SD card
+alias mdel_sd="mdel -i $SD_DEV"
 
 # Lists the sound devices in the system
 alias aplay_ls="aplay -l"
 
 # Loads the sound card config from the SD card
 alias load_sd_sound_config="mcopy_text ::config/asound.state $ASOUND_CFG"
-
-# Loads the key from the SD card
-alias load_sd_key="mcopy_bin ::config/key $KEY_FILE"
 
 # Seeds the RNG with random data from the SD card, if available
 alias seed_rng_with_sd="mcopy_bin ::seed $SEED_FILE && dd if=$SEED_FILE of=/dev/urandom bs=512"
@@ -38,9 +38,6 @@ alias save_sd_crypto_config="mcopy_text "$CRYPTO_INI_USR" ::config/crypto.ini"
 
 # Saves a new random seed with data from the RNG
 alias save_sd_seed="dd if=/dev/random of=$SEED_FILE bs=512 count=1 && mcopy_bin $SEED_FILE ::seed"
-
-# Saves the key to the SD card
-alias save_sd_key="mcopy_bin $KEY_FILE ::config/key"
 
 # Generates the crypto.ini.all from the user config and system config
 alias gen_combined_crypto_config="cat $CRYPTO_INI_SYS $CRYPTO_INI_USR > $CRYPTO_INI_ALL"
@@ -346,8 +343,47 @@ gen_key()
         dd if=/dev/random of="$KEY_PATH" bs=131 count=1
 }
 
+# Tests whether or not a key is in a particular Key Slot
 has_key()
 {
     KEY_PATH=`get_key_path "$1"`
     test -f "$KEY_PATH"
+}
+
+# Loads the keys from the SD card
+load_sd_key()
+{
+    if mcopy_bin ::config/key* /etc/
+    then
+        PI_KEYS=`mktemp`
+        SD_KEYS=`mktemp`
+
+        find /etc/ -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
+        mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+
+        comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
+        RET=$?
+
+        rm -f "$PI_KEYS" "$SD_KEYS"
+        return $RET
+    fi
+}
+
+# Saves the keys to the SD card
+save_sd_key()
+{
+    if mcopy_bin /etc/key* ::config/
+    then
+        PI_KEYS=`mktemp`
+        SD_KEYS=`mktemp`
+        find /etc/ -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
+        mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+
+        # Can't use mdel_sd in xargs
+        comm -23 "$SD_KEYS" "$PI_KEYS" | sed -e 's|^|::config/|' | xargs -r mdel -i "$SD_DEV"
+        RET=$?
+
+        rm -f "$PI_KEYS" "$SD_KEYS"
+        return $RET
+    fi
 }

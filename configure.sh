@@ -560,6 +560,8 @@ broadcast_alert()
     then
         broadcast_custom_alert
     else
+        rm -f /tmp/broadcast_alert
+
         if test -n "$PRIMARY"
         then
             echo "Primary \"'$PRIMARY'\" off" >> /tmp/broadcast_alert
@@ -589,8 +591,6 @@ broadcast_alert()
                 broadcast_custom_alert
                 ;;
         esac
-
-        rm -f /tmp/broadcast_alert
     fi
 }
 
@@ -1294,34 +1294,46 @@ main_menu()
 {
     while true
     do
+        rm -f /tmp/main_menu
+
+        PTT_ENABLED=`get_config_val PTT Enabled`
+
+        HEIGHT=14
+        if test "$PTT_ENABLED" -ne 0
+        then
+            echo "T \"Transmit Voice\"" >> /tmp/main_menu
+            HEIGHT=$((HEIGHT+1))
+        fi
+
+        echo "A \"Broadcast TTS Alert\"" >> /tmp/main_menu
+        echo "H \"Adjust Headset Volume\"" >> /tmp/main_menu
+        echo "R \"Adjust Radio Volume\"" >> /tmp/main_menu
+        echo "K \"Select Active Key\"" >> /tmp/main_menu
+        echo "M \"View Boot Messages\"" >> /tmp/main_menu
+        echo "O \"Configuration Options\"" >> /tmp/main_menu
+        echo "L \"Shell Access (Experts Only)\"" >> /tmp/main_menu
+
         if dialog \
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Console Interface" \
-           --menu "Select an option." 15 60 4 \
-           1 "Start a Voice Transmission" \
-           2 "Broadcast a TTS Alert" \
-           3 "Adjust Headset Volume" \
-           4 "Adjust Radio Volume" \
-           5 "Select Active Key" \
-           M "View Boot Messages" \
-           O "Configuration Options" \
-           L "Shell Access (Experts Only)" 2>$ANSWER
+           --menu "Select an option." $HEIGHT 60 4 \
+           --file /tmp/main_menu 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
-                1)
+                T)
                     transmit_voice
                     ;;
-                2)
+                A)
                     broadcast_alert
                     ;;
-                3)
+                H)
                     start_alsamixer VoiceDevice Headset
                     ;;
-                4)
+                R)
                     start_alsamixer ModemDevice Radio
                     ;;
-                5)
+                K)
                     # Auto apply settings in the Main Menu
                     select_active_key && apply_settings
                     ;;

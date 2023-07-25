@@ -531,7 +531,7 @@ broadcast_alert_dialog()
 {
     while true
     do
-        if is_initialized
+        if is_initialized && is_tx_initialized
         then
             if dialog \
                --title "$1" \
@@ -550,7 +550,7 @@ broadcast_alert_dialog()
             else
                 return 1
             fi
-        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        elif ! dialog --yesno "System Not Initialized! Retry?" 0 0
         then
             return 1
         fi
@@ -1291,7 +1291,7 @@ transmit_voice()
 {
     while true
     do
-        if is_initialized && /etc/init.d/S30jack_crypto_tx running
+        if is_initialized && is_tx_initialized
         then
             if /etc/init.d/S30jack_crypto_tx signal SIGRTMIN
             then

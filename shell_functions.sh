@@ -51,6 +51,9 @@ alias is_initialized="test -e /var/run/initialized"
 # Sets the "initialized" flag
 alias set_initialized="touch /var/run/initialized"
 
+# Tests whether the transmitter service is initialized
+alias is_tx_initialized="test -e /var/run/tx_initialized"
+
 # Tests whether the system has an SD card installed
 alias has_sd_card="test -b $SD_DEV"
 

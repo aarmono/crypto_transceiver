@@ -19,6 +19,7 @@ stop()
 	else
 		echo "FAIL"
 	fi
+	rm -f "/var/run/tx_initialized"
 }
 
 running()

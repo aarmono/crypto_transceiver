@@ -532,6 +532,14 @@ int main(int argc, char *argv[])
     signal(SIGRTMIN, handle_sigptt);
     signal(SIGINT, signal_handler);
 
+    // Create a zero length file to indicate when the transmitter is
+    // initialized
+    FILE* initialized = fopen("/var/run/tx_initialized", "w");
+    if (initialized)
+    {
+        fclose(initialized);
+    }
+
 
     const jack_nframes_t jack_sample_rate = jack_get_sample_rate(client);
     while (true)

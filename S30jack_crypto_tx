@@ -28,7 +28,11 @@ running()
 
 signal()
 {
-	test -n "$1" && exec daemon --signal="$1" -n "${NAME}"
+	if test -n "$1"
+	then
+		PID=`cat /var/run/${NAME}.clientpid`
+		exec kill -"$1" "$PID"
+	fi
 }
 
 case "$1" in

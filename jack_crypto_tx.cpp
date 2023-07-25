@@ -56,6 +56,9 @@ static volatile sig_atomic_t reload_config = 0;
 static volatile sig_atomic_t read_wav = 0;
 static volatile sig_atomic_t play_wav = 0;
 
+static volatile sig_atomic_t toggle_sig_ptt = 0;
+static volatile sig_atomic_t sig_ptt_val = 0;
+
 static const char* config_file = nullptr;
 
 static struct gpiod_line* ptt_in_line = nullptr;
@@ -78,9 +81,14 @@ static void handle_sigusr1(int sig)
     read_wav = 1;
 }
 
+static void handle_sigusr2(int sig)
+{
+    toggle_sig_ptt = 1;
+}
+
 static bool microphone_enabled(const struct config* cfg)
 {
-    if (ptt_in_line == nullptr)
+    if (ptt_in_line == nullptr || sig_ptt_val != 0)
     {
         return true;
     }
@@ -159,6 +167,13 @@ int process(jack_nframes_t nframes, void *arg)
         // chance to sync
         tts_buffer.insert(tts_buffer.cend(), nframes * 6, 0.0);
         tts_buffer.insert(tts_buffer.cend(), tts_file.cbegin(), tts_file.cend());
+    }
+
+    if (toggle_sig_ptt != 0)
+    {
+        toggle_sig_ptt = 0;
+
+        sig_ptt_val = !sig_ptt_val;
     }
 
     static uint delay_periods = 0;
@@ -515,6 +530,7 @@ int main(int argc, char *argv[])
     signal(SIGTERM, signal_handler);
     signal(SIGHUP, handle_sighup);
     signal(SIGUSR1, handle_sigusr1);
+    signal(SIGUSR2, handle_sigusr2);
     signal(SIGINT, signal_handler);
 
 

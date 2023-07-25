@@ -1057,12 +1057,13 @@ select_active_key()
             if test -n "$NEW_IDX" && set_config_val Crypto KeyIndex "$NEW_IDX"
             then
                 set_dirty
+                return 0
+            else
+                return 1
             fi
-
-            return
         elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
-            return
+            return 1
         fi
     done
 }
@@ -1075,11 +1076,10 @@ configure_encryption()
         then
             dialog \
             --title "Encryption Configuration" \
-            --menu "Select an option to configure." 11 60 4 \
+            --menu "Select an option to configure." 10 60 4 \
             1 "Enable Encryption" \
-            2 "Select Active Key" \
-            3 "Generate Encryption Keys" \
-            4 "Delete Encryption Keys" 2>$ANSWER
+            2 "Generate Encryption Keys" \
+            3 "Delete Encryption Keys" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -1087,12 +1087,9 @@ configure_encryption()
                     enable_encryption
                     ;;
                 2)
-                    select_active_key
-                    ;;
-                3)
                     generate_encryption_keys
                     ;;
-                4)
+                3)
                     delete_encryption_keys
                     ;;
                 "")
@@ -1244,11 +1241,12 @@ main_menu()
         if dialog \
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Console Interface" \
-           --menu "Select an option." 14 60 4 \
+           --menu "Select an option." 15 60 4 \
            1 "Start a Voice Transmission" \
            2 "Broadcast a TTS Alert" \
            3 "Adjust Headset Volume" \
            4 "Adjust Radio Volume" \
+           5 "Select Active Key" \
            M "View Boot Messages" \
            O "Configuration Options" \
            L "Shell Access (Experts Only)" 2>$ANSWER
@@ -1266,6 +1264,10 @@ main_menu()
                     ;;
                 4)
                     start_alsamixer ModemDevice Radio
+                    ;;
+                5)
+                    # Auto apply settings in the Main Menu
+                    select_active_key && apply_settings
                     ;;
                 L)
                     clear && exec /sbin/getty -L `tty` 115200

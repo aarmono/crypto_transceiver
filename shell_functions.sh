@@ -45,9 +45,6 @@ alias save_sd_key="mcopy_bin $KEY_FILE ::config/key"
 # Generates the crypto.ini.all from the user config and system config
 alias gen_combined_crypto_config="cat $CRYPTO_INI_SYS $CRYPTO_INI_USR > $CRYPTO_INI_ALL"
 
-# Generates a new key
-alias gen_key="dd if=/dev/hwrng of=/dev/urandom bs=512 count=1 && dd if=/dev/random of=$KEY_FILE bs=131 count=1"
-
 # Restores ALSA sound config for all sound cards
 alias alsa_restore="aplay_ls | grep -o -E 'USB_[UL][LR]' | xargs restore.sh"
 
@@ -320,4 +317,37 @@ load_sd_crypto_config()
         gen_combined_crypto_config
         return 1
     fi
+}
+
+# echoes a key path for the specified Key Slot
+# to stdout
+get_key_path()
+{
+    KEY_PATH="/etc/key"
+    if test "$1" -gt 1
+    then
+        KEY_PATH="/etc/key$1"
+    fi
+
+    echo "$KEY_PATH"
+}
+
+# Generates a new key and stores it to the specified Key Slot
+gen_key()
+{
+    if test -z "$1"
+    then
+        KEY_PATH=`get_key_path 1`
+    else
+        KEY_PATH=`get_key_path "$1"`
+    fi
+
+    dd if=/dev/hwrng of=/dev/urandom bs=512 count=1 && \
+        dd if=/dev/random of="$KEY_PATH" bs=131 count=1
+}
+
+has_key()
+{
+    KEY_PATH=`get_key_path "$1"`
+    test -f "$KEY_PATH"
 }

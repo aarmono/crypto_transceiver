@@ -349,7 +349,7 @@ configure_hardware()
     done
 }
 
-configure_encryption()
+enable_encryption()
 {
     dialog_on_off_default Crypto Enabled "Configure Encryption"
 }
@@ -935,21 +935,168 @@ start_alsamixer()
     done
 }
 
-generate_encryption_key()
+key_slot_str()
+{
+    has_key "$1" && echo "*Slot $1" || echo " Slot $1"
+}
+
+# $1: 1 to show all or 0 to show only entries with keys
+# $2: Title Text
+# $3: On Key Slot (optional)
+# $4: 1 to display checklist (optional)
+show_key_slot_dialog()
+{
+    rm -f /tmp/key_slots_dialog &>/dev/null
+    touch /tmp/key_slots_dialog &>/dev/null
+    IDX=1
+    while test "$IDX" -le 256
+    do
+        if test "$1" -eq 1 || has_key "$IDX"
+        then
+            echo "$IDX \"`key_slot_str $IDX`\" `on_off "$IDX" "$3"`" >> /tmp/key_slots_dialog
+        fi
+        IDX=$((IDX+1))
+    done
+
+    if test "$4" = "1"
+    then
+        DIALOG_TYPE="checklist"
+    else
+        DIALOG_TYPE="radiolist"
+    fi
+
+    dialog \
+    --title "Select Key Slot(s) to $2" \
+    --no-tags \
+    --"$DIALOG_TYPE" "Slots with an asterisk (*) in front of the name have a key" 24 60 4 \
+    --file /tmp/key_slots_dialog
+}
+
+generate_encryption_keys()
 {
     while true
     do
         if is_initialized
         then
-            if gen_key
+            if show_key_slot_dialog 1 "Hold the New Keys" "" 1 2>$ANSWER
             then
-                set_dirty
-                dialog --msgbox "New Key Created!" 0 0
-            else
-                dialog --msgbox "New Key Not Created!" 0 0
+                RESULT=0
+                for IDX in `cat $ANSWER`
+                do
+                    if gen_key "$IDX"
+                    then
+                        set_dirty
+                    else
+                        RESULT=1
+                    fi
+                done
+
+                if test $RESULT -eq 0
+                then
+                    dialog --msgbox "New Keys Created!" 0 0
+                else
+                    dialog --msgbox "New Keys Not Created!" 0 0
+                fi
             fi
 
             return
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+delete_encryption_keys()
+{
+    while true
+    do
+        if is_initialized
+        then
+            if show_key_slot_dialog 0 "Delete" "" 1 2>$ANSWER
+            then
+                RESULT=0
+                for IDX in `cat $ANSWER`
+                do
+                    if rm "`get_key_path $IDX`"
+                    then
+                        set_dirty
+                    else
+                        RESULT=1
+                    fi
+                done
+
+                if test $RESULT -eq 0
+                then
+                    dialog --msgbox "Keys Deleted!" 0 0
+                else
+                    dialog --msgbox "Keys Not Deleted!" 0 0
+                fi
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+select_active_key()
+{
+    while true
+    do
+        if is_initialized
+        then
+            CUR_IDX=`get_config_val Crypto KeyIndex`
+
+            show_key_slot_dialog 0 "Set As Active" "$CUR_IDX" 2>$ANSWER
+            NEW_IDX=`cat $ANSWER`
+            if test -n "$NEW_IDX" && set_config_val Crypto KeyIndex "$NEW_IDX"
+            then
+                set_dirty
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+configure_encryption()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "Encryption Configuration" \
+            --menu "Select an option to configure." 11 60 4 \
+            1 "Enable Encryption" \
+            2 "Select Active Key" \
+            3 "Generate Encryption Keys" \
+            4 "Delete Encryption Keys" 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    enable_encryption
+                    ;;
+                2)
+                    select_active_key
+                    ;;
+                3)
+                    generate_encryption_keys
+                    ;;
+                4)
+                    delete_encryption_keys
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
         elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
             return
@@ -1009,7 +1156,7 @@ main_menu()
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Configuration" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 23 60 4 \
+           --menu "Select an option. Press F1 for Help." 22 60 4 \
            0 "Configure Headset Volume" \
            1 "Configure Radio Volume" \
            2 "Configure Radio Mode" \
@@ -1017,8 +1164,7 @@ main_menu()
            4 "Configure Encryption" \
            5 "Configure TTS Alert Broadcasts" \
            6 "Configure Hardware" \
-           7 "Generate Encryption Key" \
-           8 "Disable Configuration Utility" \
+           7 "Disable Configuration Utility" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
@@ -1051,9 +1197,6 @@ main_menu()
                     configure_hardware
                     ;;
                 7)
-                    generate_encryption_key
-                    ;;
-                8)
                     configure_config_util
                     ;;
                 V)

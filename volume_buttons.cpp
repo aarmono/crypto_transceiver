@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <future>
 
 #include <gpiod.h>
@@ -50,12 +51,35 @@ int get_lines(unsigned int            up_pin,
     return ret;
 }
 
-void run_volume(const char* arg)
+int run_volume()
 {
+    int fds[2] = {0, 0};
+    pipe(fds);
+
     if (fork() == 0)
     {
-        execl("/usr/bin/volume.sh", "volume.sh", arg, (char*)NULL);
+        // Close writing end
+        close(fds[1]);
+        // Map reading end to stdin
+        dup2(fds[0], 0);
+        // Now close reading end
+        close(fds[0]);
+
+        execl("/usr/bin/volume.sh", "volume.sh", (char*)NULL);
+        return 0;
     }
+    else
+    {
+        // Close reading end
+        close(fds[0]);
+        // Return writing end
+        return fds[1];
+    }
+}
+
+void write_volume(int fd, const char* arg)
+{
+    write(fd, arg, strlen(arg));
 }
 
 int main(int argc, char* argv[])
@@ -80,6 +104,8 @@ int main(int argc, char* argv[])
     debounce up_debounce(DEBOUNCE_INTEGRATOR);
     debounce down_debounce(DEBOUNCE_INTEGRATOR);
 
+    int volume_fd = run_volume();
+
     uint8_t prev_val = 0;
     while (true)
     {
@@ -102,11 +128,11 @@ int main(int argc, char* argv[])
                 break;
             case 1:
                 // Rising edge Up button
-                run_volume("up");
+                write_volume(volume_fd, "up\n");
                 break;
             case 2:
                 // Rising edge Down button
-                run_volume("down");
+                write_volume(volume_fd, "down\n");
                 break;
             case 3:
                 // Both buttons

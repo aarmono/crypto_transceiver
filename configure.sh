@@ -562,19 +562,19 @@ broadcast_alert()
     else
         if test -n "$PRIMARY"
         then
-            echo "Primary \"'$PRIMARY'\"" >> /tmp/broadcast_alert
+            echo "Primary \"'$PRIMARY'\" off" >> /tmp/broadcast_alert
         fi
 
         if test -n "$SECONDARY"
         then
-            echo "Secondary \"'$SECONDARY'\"" >> /tmp/broadcast_alert
+            echo "Secondary \"'$SECONDARY'\" off" >> /tmp/broadcast_alert
         fi
 
-        echo "Custom \"\"" >> /tmp/broadcast_alert
+        echo "Custom \"\" off" >> /tmp/broadcast_alert
 
         dialog \
         --title "Broadcast TTS Alert" \
-        --menu "Select an Alert to broadcast." 10 60 4 \
+        --radiolist "Select an Alert to broadcast." 10 60 4 \
         --file /tmp/broadcast_alert 2>$ANSWER
 
         option=`cat $ANSWER`

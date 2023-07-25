@@ -511,21 +511,27 @@ broadcast_alert_dialog()
 {
     while true
     do
-        if dialog \
-           --title "Broadcast a Test Alert" \
-           --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "$1" 2>$ANSWER
+        if is_initialized
         then
-            LEN=`wc -c < "$ANSWER"`
-            if test "$LEN" -eq 0
+            if dialog \
+               --title "Broadcast a Test Alert" \
+               --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "$1" 2>$ANSWER
             then
-                return 0
-            elif test "$LEN" -le 160
-            then
-                return 0
+                LEN=`wc -c < "$ANSWER"`
+                if test "$LEN" -eq 0
+                then
+                    return 0
+                elif test "$LEN" -le 160
+                then
+                    return 0
+                else
+                    dialog --msgbox "Message too long!" 0 0
+                fi
             else
-                dialog --msgbox "Message too long!" 0 0
+                return 1
             fi
-        else
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
             return 1
         fi
     done
@@ -556,10 +562,9 @@ configure_tts_alerts()
         then
             dialog \
             --title "TTS Alert Broadcast Configuration" \
-            --menu "Select an option to configure." 10 60 4 \
+            --menu "Select an option to configure." 9 60 4 \
             1 "Configure Primary TTS Alert" \
-            2 "Configure Secondary TTS Alert" \
-            3 "Broadcast An Alert" 2>$ANSWER
+            2 "Configure Secondary TTS Alert" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -568,9 +573,6 @@ configure_tts_alerts()
                     ;;
                 2)
                     configure_tts_elert Alert2
-                    ;;
-                3)
-                    broadcast_alert
                     ;;
                 "")
                     return
@@ -1122,8 +1124,8 @@ configure_config_util()
 
             dialog \
             --no-tags \
-            --title "Disable Configuration Utility?" \
-            --radiolist "If Enabled, the Configuration Utility will be shown at startup. If Disabled, the display will be locked at startup. If Disabled and saved to the SD Card, it cannot be re-enabled once the system is turned off" 13 60 3 \
+            --title "Disable Console Interface?" \
+            --radiolist "If Enabled, the Console Interface will be shown at startup. If Disabled, the display will be locked at startup. If Disabled and saved to the SD Card, it cannot be re-enabled once the system is turned off" 13 60 3 \
             default "Default ($DEFAULT)" `on_off $VAL ""` \
             1       "Enabled"            `on_off $VAL 1`  \
             0       "Disabled"           `on_off $VAL 0` 2>$ANSWER
@@ -1148,55 +1150,44 @@ configure_config_util()
     done
 }
 
-main_menu()
+configuration_menu()
 {
     while true
     do
         if dialog \
-           --cancel-label "LOCK" \
-           --title "Crypto Voice Module Configuration" \
+           --title "Configuration Options" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 22 60 4 \
-           0 "Configure Headset Volume" \
-           1 "Configure Radio Volume" \
-           2 "Configure Radio Mode" \
-           3 "Configure Radio Squelch" \
-           4 "Configure Encryption" \
-           5 "Configure TTS Alert Broadcasts" \
-           6 "Configure Hardware" \
-           7 "Disable Configuration Utility" \
+           --menu "Select an option. Press F1 for Help." 18 60 4 \
+           1 "Configure Radio Mode" \
+           2 "Configure Radio Squelch" \
+           3 "Configure Encryption" \
+           4 "Configure TTS Alert Broadcasts" \
+           5 "Configure Hardware" \
+           6 "Disable Console Interface" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
            S "Save Current Settings To SD Card" \
-           C "Advanced SD Card Operations" \
-           M "View Boot Messages" \
-           L "Shell Access (Experts Only)" 2>$ANSWER
+           C "Advanced SD Card Operations" 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
-                0)
-                    start_alsamixer VoiceDevice Headset
-                    ;;
                 1)
-                    start_alsamixer ModemDevice Radio
-                    ;;
-                2)
                     configure_mode
                     ;;
-                3)
+                2)
                     configure_squelch
                     ;;
-                4)
+                3)
                     configure_encryption
                     ;;
-                5)
+                4)
                     configure_tts_alerts
                     ;;
-                6)
+                5)
                     configure_hardware
                     ;;
-                7)
+                6)
                     configure_config_util
                     ;;
                 V)
@@ -1214,11 +1205,77 @@ main_menu()
                 C)
                     advanced_sd_ops
                     ;;
+                *)
+                    return
+                    ;;
+            esac
+        else
+            return
+        fi
+    done
+}
+
+transmit_voice()
+{
+    while true
+    do
+        if is_initialized && /etc/init.d/S30jack_crypto_tx running
+        then
+            if /etc/init.d/S30jack_crypto_tx signal SIGRTMIN
+            then
+                dialog \
+                --title "Voice Transmission" \
+                --msgbox "Now Transmitting. Press OK to Stop." 5 39
+                /etc/init.d/S30jack_crypto_tx signal SIGRTMIN
+            fi
+
+            return
+        elif ! dialog --yesno "System Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
+main_menu()
+{
+    while true
+    do
+        if dialog \
+           --cancel-label "LOCK" \
+           --title "Crypto Voice Module Console Interface" \
+           --menu "Select an option." 14 60 4 \
+           1 "Start a Voice Transmission" \
+           2 "Broadcast a TTS Alert" \
+           3 "Adjust Headset Volume" \
+           4 "Adjust Radio Volume" \
+           M "View Boot Messages" \
+           O "Configuration Options" \
+           L "Shell Access (Experts Only)" 2>$ANSWER
+        then
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    transmit_voice
+                    ;;
+                2)
+                    broadcast_alert
+                    ;;
+                3)
+                    start_alsamixer VoiceDevice Headset
+                    ;;
+                4)
+                    start_alsamixer ModemDevice Radio
+                    ;;
                 L)
                     clear && exec /sbin/getty -L `tty` 115200
                     ;;
                 M)
                     show_boot_messages
+                    ;;
+                O)
+                    configuration_menu
+                    ;;
             esac
         else
             disable_config

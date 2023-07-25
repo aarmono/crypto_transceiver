@@ -537,11 +537,61 @@ broadcast_alert_dialog()
     done
 }
 
-broadcast_alert()
+execute_alert()
+{
+    espeak_radio -w "$TTS_FILE" "$1" &> /dev/null && \
+        /etc/init.d/S30jack_crypto_tx signal SIGUSR1
+}
+
+broadcast_custom_alert()
 {
     broadcast_alert_dialog && \
+        test `wc -c < "$ANSWER"` -gt 0 && \
         espeak_radio -f "$ANSWER" -w "$TTS_FILE" &>/dev/null && \
         /etc/init.d/S30jack_crypto_tx signal SIGUSR1
+}
+
+broadcast_alert()
+{
+    PRIMARY=`get_config_val TTS Alert1`
+    SECONDARY=`get_config_val TTS Alert2`
+
+    if test -z "$PRIMARY" && test -z "$SECONDARY"
+    then
+        broadcast_custom_alert
+    else
+        if test -n "$PRIMARY"
+        then
+            echo "Primary \"'$PRIMARY'\"" >> /tmp/broadcast_alert
+        fi
+
+        if test -n "$SECONDARY"
+        then
+            echo "Secondary \"'$SECONDARY'\"" >> /tmp/broadcast_alert
+        fi
+
+        echo "Custom \"\"" >> /tmp/broadcast_alert
+
+        dialog \
+        --title "Broadcast TTS Alert" \
+        --menu "Select an Alert to broadcast." 10 60 4 \
+        --file /tmp/broadcast_alert 2>$ANSWER
+
+        option=`cat $ANSWER`
+        case "$option" in
+            Primary)
+                execute_alert "$PRIMARY"
+                ;;
+            Secondary)
+                execute_alert "$SECONDARY"
+                ;;
+            Custom)
+                broadcast_custom_alert
+                ;;
+        esac
+
+        rm -f /tmp/broadcast_alert
+    fi
 }
 
 configure_tts_alert()
@@ -572,7 +622,7 @@ configure_tts_alerts()
                     configure_tts_alert Alert1
                     ;;
                 2)
-                    configure_tts_elert Alert2
+                    configure_tts_alert Alert2
                     ;;
                 "")
                     return
@@ -967,9 +1017,15 @@ show_key_slot_dialog()
         DIALOG_TYPE="radiolist"
     fi
 
+    if test -n "$3"
+    then
+        DEFAULT_ARG="--default-item $3"
+    fi
+
     dialog \
     --title "Select Key Slot(s) to $2" \
     --no-tags \
+    $DEFAULT_ARG \
     --"$DIALOG_TYPE" "Slots with an asterisk (*) in front of the name have a key" 24 60 4 \
     --file /tmp/key_slots_dialog
 }

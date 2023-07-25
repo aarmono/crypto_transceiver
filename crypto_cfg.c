@@ -36,20 +36,32 @@ int active_flags(const char* option)
     return atoi(option) != 0 ? GPIOD_LINE_REQUEST_FLAG_ACTIVE_LOW : 0;
 }
 
+void get_key_path(char* buffer, size_t buffer_size, uint key_index)
+{
+    static const char* KEY_PREFIX="/etc/key";
+    if (key_index <= 1)
+    {
+        strncpy(buffer, KEY_PREFIX, buffer_size - 1);
+    }
+    else
+    {
+        snprintf(buffer, buffer_size - 1, "%s%u", KEY_PREFIX, key_index);
+    }
+    buffer[buffer_size - 1] = '\0';
+}
+
 static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *Value, void *UserData) {
     struct config *cfg = (struct config*)UserData;
 
-    if (strcasecmp(Section, "Crypto IO") ==0) {
-        if (strcasecmp(Key, "KeyFile") == 0) {
-            strncpy(cfg->key_file, Value, sizeof(cfg->key_file) - 1);
-        }
-    }
-    else if (strcasecmp(Section, "Crypto") ==0) {
+    if (strcasecmp(Section, "Crypto") ==0) {
         if (strcasecmp(Key, "AutoRekey") == 0) {
             cfg->rekey_period = atoi(Value);
         }
         else if (strcasecmp(Key, "Enabled") == 0) {
             cfg->crypto_enabled = atoi(Value);
+        }
+        else if (strcasecmp(Key, "KeyIndex") == 0) {
+            get_key_path(cfg->key_file, sizeof(cfg->key_file), atoi(Value));
         }
     }
     else if (strcasecmp(Section, "Audio") == 0) {

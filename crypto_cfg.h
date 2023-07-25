@@ -70,6 +70,8 @@ int bias_flags(const char *option);
 int drive_flags(const char *option);
 int active_flags(const char* option);
 
+void get_key_path(char* buffer, size_t buffer_size, uint key_index);
+
 static inline int str_has_value(const char* str) {
     return str != NULL && str[0] != '\0';
 }

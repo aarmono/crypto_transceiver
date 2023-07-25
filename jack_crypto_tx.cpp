@@ -87,11 +87,11 @@ static void handle_sigptt(int sig)
 
 static bool microphone_enabled(const struct config* cfg)
 {
-    if (ptt_in_line == nullptr || sig_ptt_val != 0)
+    if (cfg->ptt_enabled && cfg->ptt_gpio_num < 0)
     {
-        return true;
+        return sig_ptt_val != 0;
     }
-    else
+    else if (ptt_in_line != nullptr)
     {
         const int result = gpiod_line_get_value(ptt_in_line);
         if (result < 0)
@@ -103,6 +103,10 @@ static bool microphone_enabled(const struct config* cfg)
         {
             return result;
         }
+    }
+    else
+    {
+        return true;
     }
 }
 
@@ -408,11 +412,14 @@ static void initialize_ptt()
 
     if (cfg->ptt_enabled)
     {
-        ptt_in_line = gpiod_line_get("gpiochip0", cfg->ptt_gpio_num);
-        if (ptt_in_line != nullptr)
+        if (cfg->ptt_gpio_num >= 0)
         {
-            const int flags = cfg->ptt_gpio_bias | cfg->ptt_active_low;
-            gpiod_line_request_input_flags(ptt_in_line, "jack_crypto_tx", flags);
+            ptt_in_line = gpiod_line_get("gpiochip0", cfg->ptt_gpio_num);
+            if (ptt_in_line != nullptr)
+            {
+                const int flags = cfg->ptt_gpio_bias | cfg->ptt_active_low;
+                gpiod_line_request_input_flags(ptt_in_line, "jack_crypto_tx", flags);
+            }
         }
 
         ptt_out_line = gpiod_line_get("gpiochip0", cfg->ptt_output_gpio_num);

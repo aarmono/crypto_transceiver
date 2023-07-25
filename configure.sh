@@ -103,16 +103,29 @@ configure_ptt_enable()
     dialog_on_off_default PTT Enabled "Enable Push to Talk"
 }
 
+# $1: Direction (ie. Input/Output)
+# $2: Config Section
+# $3: Config Key
+# $4: 1 to display Console option (optional)
 assign_pin()
 {
     VAL=`get_user_config_val $2 $3`
     DEFAULT=`get_sys_config_val $2 $3`
 
+    HEIGHT=36
+    CONSOLE_ARGS=`mktemp`
+    if test "$4" -eq 1
+    then
+        echo "console \"Console Interface\" `on_off $VAL "-1"`" >> "$CONSOLE_ARGS"
+        HEIGHT=$((HEIGHT+1))
+    fi
+
     dialog \
     --no-tags \
     --title "Configure $2 $1 Pin (See: https://pinout.xyz)" \
-    --radiolist "Select an option or \"Default\" to use the system default." 36 60 4 \
+    --radiolist "Select an option or \"Default\" to use the system default." "$HEIGHT" 60 4 \
     default "Default (GPIO $DEFAULT)" `on_off $VAL ""` \
+    --file "$CONSOLE_ARGS"                             \
     0       "GPIO 0"                  `on_off $VAL 0`  \
     1       "GPIO 1"                  `on_off $VAL 1`  \
     2       "GPIO 2"                  `on_off $VAL 2`  \
@@ -142,12 +155,19 @@ assign_pin()
     26      "GPIO 26"                 `on_off $VAL 26` \
     27      "GPIO 27"                 `on_off $VAL 27` 2>$ANSWER
 
+    rm "$CONSOLE_ARGS"
+
     option=`cat $ANSWER`
     case "$option" in
         default)
             set_config_val $2 $3 ""
             # Pin assignments can conflict between services, so just restart
             # everything
+            set_filthy
+            ;;
+        console)
+            set_config_val $2 $3 "-1"
+            # Restart everything
             set_filthy
             ;;
         0|1|2|3|4|5|6|7|8|9| \
@@ -244,7 +264,7 @@ configure_ptt()
                     configure_ptt_enable
                     ;;
                 2)
-                    assign_pin Input PTT GPIONum
+                    assign_pin Input PTT GPIONum 1
                     ;;
                 3)
                     configure_pin_bias Input PTT Bias
@@ -514,8 +534,8 @@ broadcast_alert_dialog()
         if is_initialized
         then
             if dialog \
-               --title "Broadcast a Test Alert" \
-               --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "$1" 2>$ANSWER
+               --title "$1" \
+               --inputbox "Type a message to broadcast and press Enter. Messages cannot exceed 160 characters." 8 60 "$2" 2>$ANSWER
             then
                 LEN=`wc -c < "$ANSWER"`
                 if test "$LEN" -eq 0
@@ -545,7 +565,7 @@ execute_alert()
 
 broadcast_custom_alert()
 {
-    broadcast_alert_dialog && \
+    broadcast_alert_dialog "Broadcast Custom Alert" && \
         test `wc -c < "$ANSWER"` -gt 0 && \
         espeak_radio -f "$ANSWER" -w "$TTS_FILE" &>/dev/null && \
         /etc/init.d/S30jack_crypto_tx signal SIGUSR1
@@ -572,12 +592,11 @@ broadcast_alert()
             echo "Secondary \"'$SECONDARY'\" off" >> /tmp/broadcast_alert
         fi
 
-        echo "Custom \"\" off" >> /tmp/broadcast_alert
-
         dialog \
         --title "Broadcast TTS Alert" \
         --radiolist "Select an Alert to broadcast." 10 60 4 \
-        --file /tmp/broadcast_alert 2>$ANSWER
+        --file /tmp/broadcast_alert \
+        Custom "" off 2>$ANSWER
 
         option=`cat $ANSWER`
         case "$option" in
@@ -596,11 +615,11 @@ broadcast_alert()
 
 configure_tts_alert()
 {
-    CUR=`get_config_val TTS "$1"`
-    if broadcast_alert_dialog "$CUR"
+    CUR=`get_config_val TTS "$2"`
+    if broadcast_alert_dialog "Configure $1 Alert" "$CUR"
     then
         ALERT=`cat "$ANSWER"`
-        set_config_val TTS "$1" "$ALERT"
+        set_config_val TTS "$2" "$ALERT"
     fi
 }
 
@@ -619,10 +638,10 @@ configure_tts_alerts()
             option=`cat $ANSWER`
             case "$option" in
                 1)
-                    configure_tts_alert Alert1
+                    configure_tts_alert Primary Alert1
                     ;;
                 2)
-                    configure_tts_alert Alert2
+                    configure_tts_alert Secondary Alert2
                     ;;
                 "")
                     return
@@ -1294,30 +1313,31 @@ main_menu()
 {
     while true
     do
-        rm -f /tmp/main_menu
+        rm -f /tmp/transmit_opt
+        touch /tmp/transmit_opt
 
         PTT_ENABLED=`get_config_val PTT Enabled`
+        PTT_GPIONUM=`get_config_val PTT GPIONum`
 
         HEIGHT=14
-        if test "$PTT_ENABLED" -ne 0
+        if test "$PTT_ENABLED" -ne 0 && test "$PTT_GPIONUM" -eq "-1"
         then
-            echo "T \"Transmit Voice\"" >> /tmp/main_menu
+            echo "T \"Transmit Voice\"" > /tmp/transmit_opt
             HEIGHT=$((HEIGHT+1))
         fi
-
-        echo "A \"Broadcast TTS Alert\"" >> /tmp/main_menu
-        echo "H \"Adjust Headset Volume\"" >> /tmp/main_menu
-        echo "R \"Adjust Radio Volume\"" >> /tmp/main_menu
-        echo "K \"Select Active Key\"" >> /tmp/main_menu
-        echo "M \"View Boot Messages\"" >> /tmp/main_menu
-        echo "O \"Configuration Options\"" >> /tmp/main_menu
-        echo "L \"Shell Access (Experts Only)\"" >> /tmp/main_menu
 
         if dialog \
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Console Interface" \
            --menu "Select an option." $HEIGHT 60 4 \
-           --file /tmp/main_menu 2>$ANSWER
+           --file /tmp/transmit_opt \
+           A "Broadcast TTS Alert" \
+           H "Adjust Headset Volume" \
+           R "Adjust Radio Volume" \
+           K "Select Active Key" \
+           M "View Boot Messages" \
+           O "Configuration Options" \
+           L "Shell Access (Experts Only)" 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1345,6 +1365,7 @@ main_menu()
                     ;;
                 O)
                     configuration_menu
+                    apply_settings
                     ;;
             esac
         else

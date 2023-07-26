@@ -74,12 +74,6 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         else if (strcasecmp(Key, "ModemNumQuietFlushFrames") == 0) {
             cfg->modem_num_quiet_flush_frames = atoi(Value);
         }
-        else if (strcasecmp(Key, "VoiceQuietMaxThresh") == 0) {
-            cfg->voice_quiet_max_thresh = atoi(Value);
-        }
-        else if (strcasecmp(Key, "VoiceSignalMinThresh") == 0) {
-            cfg->voice_signal_min_thresh = atoi(Value);
-        }
     }
     else if (strcasecmp(Section, "PTT") == 0) {
         if (strcasecmp(Key, "Enabled") == 0) {

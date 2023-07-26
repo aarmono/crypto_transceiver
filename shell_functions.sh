@@ -395,3 +395,16 @@ save_sd_key()
         return $RET
     fi
 }
+
+headset_tts()
+{
+    espeak_headset -w "$NOTIFY_FILE" "$@" &> /dev/null && \
+        /etc/init.d/S31jack_crypto_rx signal SIGUSR1
+}
+
+execute_alert_broadcast()
+{
+     espeak_radio -w "$TTS_FILE" "$@" &> /dev/null && \
+        /etc/init.d/S30jack_crypto_tx signal SIGUSR1 && \
+        headset_tts "$@"
+}

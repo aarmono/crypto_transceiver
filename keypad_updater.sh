@@ -5,15 +5,7 @@
 send_alert()
 {
     ALERT=`get_config_val TTS "$1"`
-    test -n "$ALERT" && espeak_radio -w "$TTS_FILE" "$ALERT" &> /dev/null && \
-        /etc/init.d/S30jack_crypto_tx signal SIGUSR1 && \
-        headset_tts "$ALERT"
-}
-
-headset_tts()
-{
-    espeak_headset -w "$NOTIFY_FILE" "$1" &> /dev/null && \
-        /etc/init.d/S31jack_crypto_rx signal SIGUSR1
+    test -n "$ALERT" && execute_alert_broadcast "$ALERT"
 }
 
 reset_key_idx()

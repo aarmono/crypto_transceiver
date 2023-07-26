@@ -43,6 +43,7 @@ enum key_state_t
 
 static const char* BUTTON_A = "a";
 static const char* BUTTON_B = "b";
+static const char* BUTTON_D = "d";
 
 static const char* EVENT_ALERT = "alert";
 static const char* EVENT_RESET = "reset";
@@ -53,11 +54,12 @@ static const char* EVENT_INCR = "incr";
 
 int get_lines(unsigned int            a_pin,
               unsigned int            b_pin,
+              unsigned int            d_pin,
               const char*             bias,
               const char*             active_low,
               struct gpiod_line_bulk* lines)
 {
-    unsigned int offsets[2] = { a_pin, b_pin };
+    unsigned int offsets[3] = { a_pin, b_pin, d_pin };
 
     struct gpiod_chip* chip = gpiod_chip_open_lookup("gpiochip0");
     if (chip == nullptr)
@@ -65,7 +67,7 @@ int get_lines(unsigned int            a_pin,
         return -1;
     }
 
-    int ret = gpiod_chip_get_lines(chip, offsets, 2, lines);
+    int ret = gpiod_chip_get_lines(chip, offsets, 3, lines);
     if (ret < 0)
     {
         return ret;
@@ -119,25 +121,27 @@ void send_combo_update(int fd, const char* button, const char* event)
 
 int main(int argc, char* argv[])
 {
-    if (argc < 6)
+    if (argc < 7)
     {
-        fprintf(stderr, "usage: %s <a_pin> <b_pin> <bias> <active_low> <debounce>\n", argv[0]);
+        fprintf(stderr, "usage: %s <a_pin> <b_pin> <d_pin> <bias> <active_low> <debounce>\n", argv[0]);
         return 1;
     }
 
     const unsigned int a_pin = atoi(argv[1]);
     const unsigned int b_pin = atoi(argv[2]);
+    const unsigned int d_pin = atoi(argv[3]);
 
     struct gpiod_line_bulk lines = GPIOD_LINE_BULK_INITIALIZER;
-    if (get_lines(a_pin, b_pin, argv[3], argv[4], &lines) < 0)
+    if (get_lines(a_pin, b_pin, d_pin, argv[4], argv[5], &lines) < 0)
     {
         fprintf(stderr, "Failed to open lines\n");
         return 1;
     }
 
-    static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[5]);
+    static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[6]);
     debounce a_debounce(DEBOUNCE_INTEGRATOR);
     debounce b_debounce(DEBOUNCE_INTEGRATOR);
+    debounce d_debounce(DEBOUNCE_INTEGRATOR);
 
     int update_fd = run_combo_update();
 
@@ -147,11 +151,14 @@ int main(int argc, char* argv[])
 
     send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
     send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
+    send_combo_update(update_fd, BUTTON_D, EVENT_RESET);
+
+    int prev_d_val = 0;
 
     key_state_t cur_state = STATE_RESET;
     while (true)
     {
-        int values[2] = {0, 0};
+        int values[3] = {0, 0, 0};
         if (gpiod_line_get_value_bulk(&lines, values) < 0)
         {
             fprintf(stderr, "Error reading lines\n");
@@ -159,6 +166,15 @@ int main(int argc, char* argv[])
 
         values[0] = static_cast<int>(a_debounce.add_value(values[0]));
         values[1] = static_cast<int>(b_debounce.add_value(values[1]));
+        values[2] = static_cast<int>(d_debounce.add_value(values[2]));
+
+        const int cur_d_val = values[2];
+        if (prev_d_val == 0 && cur_d_val == 1)
+        {
+            send_combo_update(update_fd, BUTTON_D, EVENT_UPDATE);
+        }
+
+        prev_d_val = cur_d_val;
 
         const uint8_t cur_val = (values[0] << 0) | (values[1] << 1);
         switch(cur_state)

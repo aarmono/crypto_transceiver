@@ -7,8 +7,9 @@ wait_initialized
 
 A_PIN=`get_config_val Combo AGPIONum`
 B_PIN=`get_config_val Combo BGPIONum`
+D_PIN=`get_config_val Combo DGPIONum`
 BIAS=`get_config_val Combo Bias`
 ACTIVE=`get_config_val Combo ActiveLow`
 DEBOUNCE=`get_config_val Combo Debounce`
 
-exec key_combo "$A_PIN" "$B_PIN" "$BIAS" "$ACTIVE" "$DEBOUNCE"
+exec key_combo "$A_PIN" "$B_PIN" "$D_PIN" "$BIAS" "$ACTIVE" "$DEBOUNCE"

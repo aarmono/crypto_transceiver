@@ -47,6 +47,17 @@ update_key_idx()
     fi
 }
 
+toggle_digital()
+{
+    DIGITAL_EN=`get_config_val Codec Enabled`
+    DIGITAL_EN=$((DIGITAL_EN^1))
+    if set_config_val Codec Enabled "$DIGITAL_EN"
+    then
+        /etc/init.d/S30jack_crypto_tx signal SIGHUP
+        /etc/init.d/S31jack_crypto_rx signal SIGHUP
+    fi
+}
+
 KEY_IDX=`reset_key_idx`
 
 while read -r button event
@@ -95,6 +106,8 @@ do
                 a)
                     update_key_idx "$KEY_IDX"
                     ;;
+                d)
+                    toggle_digital
             esac
             ;;
     esac

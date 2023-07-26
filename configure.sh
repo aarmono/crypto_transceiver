@@ -734,7 +734,7 @@ apply_settings()
         then
             if test -e "$FILTHY"
             then
-                /etc/init.d/S33key_combo stop &> /dev/null
+                /etc/init.d/S32keypad_control stop &> /dev/null
                 /etc/init.d/S31jack_crypto_rx stop &> /dev/null
                 /etc/init.d/S30jack_crypto_tx stop &> /dev/null
                 /etc/init.d/S29jackd_rx stop &> /dev/null
@@ -742,7 +742,7 @@ apply_settings()
 
                 while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
                       /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running ||
-                      /etc/init.d/S33key_combo running
+                      /etc/init.d/S32keypad_control running
                 do
                     sleep .1
                 done
@@ -751,7 +751,7 @@ apply_settings()
                 /etc/init.d/S29jackd_rx start &> /dev/null
                 /etc/init.d/S30jack_crypto_tx start &> /dev/null
                 /etc/init.d/S31jack_crypto_rx start &> /dev/null
-                /etc/init.d/S33key_combo start &> /dev/null
+                /etc/init.d/S32keypad_control start &> /dev/null
 
                 # Handling "Filthy" also takes care of "Dirty"
                 rm -f "$DIRTY" "$FILTHY"

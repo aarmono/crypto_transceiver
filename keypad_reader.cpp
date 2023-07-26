@@ -99,7 +99,7 @@ float get_cur_time()
     return (cur_time.tv_nsec * .000000001) + cur_time.tv_sec;
 }
 
-int run_combo_update()
+int run_keypad_updater()
 {
     int fds[2] = {0, 0};
     pipe(fds);
@@ -113,7 +113,7 @@ int run_combo_update()
         // Now close reading end
         close(fds[0]);
 
-        execl("/usr/bin/combo_update.sh", "combo_update.sh", (char*)NULL);
+        execl("/usr/bin/keypad_updater.sh", "keypad_updater.sh", (char*)NULL);
         return 0;
     }
     else
@@ -125,7 +125,7 @@ int run_combo_update()
     }
 }
 
-void send_combo_update(int fd, const char* button, const char* event)
+void send_keypad_update(int fd, const char* button, const char* event)
 {
     char buf[80];
     size_t len = snprintf(buf, sizeof(buf), "%s %s\n", button, event);
@@ -156,13 +156,13 @@ int main(int argc, char* argv[])
     static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[8]);
     std::vector<debounce> debouncers(NUM_LINES, debounce(DEBOUNCE_INTEGRATOR));
 
-    int update_fd = run_combo_update();
+    int update_fd = run_keypad_updater();
 
-    send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
-    send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
-    send_combo_update(update_fd, BUTTON_D, EVENT_RESET);
-    send_combo_update(update_fd, BUTTON_UP, EVENT_RESET);
-    send_combo_update(update_fd, BUTTON_DOWN, EVENT_RESET);
+    send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
+    send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
+    send_keypad_update(update_fd, BUTTON_D, EVENT_RESET);
+    send_keypad_update(update_fd, BUTTON_UP, EVENT_RESET);
+    send_keypad_update(update_fd, BUTTON_DOWN, EVENT_RESET);
 
     uint8_t alert_counter = 0;
     uint8_t alert_val = 0;
@@ -196,11 +196,11 @@ int main(int argc, char* argv[])
                 break;
             case 1:
                 // Rising edge Up button
-                send_combo_update(update_fd, BUTTON_UP, EVENT_UPDATE);
+                send_keypad_update(update_fd, BUTTON_UP, EVENT_UPDATE);
                 break;
             case 2:
                 // Rising edge Down button
-                send_combo_update(update_fd, BUTTON_DOWN, EVENT_UPDATE);
+                send_keypad_update(update_fd, BUTTON_DOWN, EVENT_UPDATE);
                 break;
             case 3:
                 // Both buttons
@@ -217,7 +217,7 @@ int main(int argc, char* argv[])
         const int cur_d_val = values[D_OFF];
         if (prev_d_val == 0 && cur_d_val == 1)
         {
-            send_combo_update(update_fd, BUTTON_D, EVENT_UPDATE);
+            send_keypad_update(update_fd, BUTTON_D, EVENT_UPDATE);
         }
 
         prev_d_val = cur_d_val;
@@ -239,7 +239,7 @@ int main(int argc, char* argv[])
                 const float cur_time = get_cur_time();
                 if ((alert_val != 1) || (cur_time - alert_time) >= 2.0)
                 {
-                    send_combo_update(update_fd, BUTTON_A, EVENT_SELECT);
+                    send_keypad_update(update_fd, BUTTON_A, EVENT_SELECT);
                 }
                 break;
             }
@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
                 const float cur_time = get_cur_time();
                 if ((alert_val != 2) || (cur_time - alert_time) >= 2.0)
                 {
-                    send_combo_update(update_fd, BUTTON_B, EVENT_SELECT);
+                    send_keypad_update(update_fd, BUTTON_B, EVENT_SELECT);
                 }
                 break;
             }
@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
                     ++alert_counter;
                     if (alert_counter >= 3)
                     {
-                        send_combo_update(update_fd, BUTTON_A, EVENT_ALERT);
+                        send_keypad_update(update_fd, BUTTON_A, EVENT_ALERT);
 
                         alert_counter = 0;
                         alert_val = 0;
@@ -290,7 +290,7 @@ int main(int argc, char* argv[])
                     alert_val = 1;
                     alert_time = cur_time;
 
-                    send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
+                    send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
                 }
                 break;
             }
@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
             case 3:
                 // B Press
                 cur_state = STATE_A_VALUE;
-                send_combo_update(update_fd, BUTTON_A, EVENT_VALUE);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_VALUE);
                 break;
             default:
                 fprintf(stderr, "Invalid button press state\n");
@@ -319,12 +319,12 @@ int main(int argc, char* argv[])
             case 1:
                 // B release
                 cur_state = STATE_A_INCR;
-                send_combo_update(update_fd, BUTTON_A, EVENT_INCR);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_INCR);
                 break;
             case 2:
                 // A Release
                 cur_state = STATE_A_UPDATE;
-                send_combo_update(update_fd, BUTTON_A, EVENT_UPDATE);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_UPDATE);
                 break;
             case 3:
                 break;
@@ -339,7 +339,7 @@ int main(int argc, char* argv[])
             case 0:
                 // A Release
                 cur_state = STATE_RESET;
-                send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
                 break;
             case 1:
                 // No State Change
@@ -350,7 +350,7 @@ int main(int argc, char* argv[])
             case 3:
                 // B Press
                 cur_state = STATE_A_VALUE;
-                send_combo_update(update_fd, BUTTON_A, EVENT_VALUE);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_VALUE);
                 break;
             default:
                 fprintf(stderr, "Invalid button press state\n");
@@ -363,7 +363,7 @@ int main(int argc, char* argv[])
             case 0:
                 // B Release
                 cur_state = STATE_RESET;
-                send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
                 break;
             case 1:
                 fprintf(stderr, "Invalid button press state\n");
@@ -374,7 +374,7 @@ int main(int argc, char* argv[])
             case 3:
                 // A Press
                 cur_state = STATE_A_VALUE;
-                send_combo_update(update_fd, BUTTON_A, EVENT_VALUE);
+                send_keypad_update(update_fd, BUTTON_A, EVENT_VALUE);
                 break;
             default:
                 fprintf(stderr, "Invalid button press state\n");
@@ -396,7 +396,7 @@ int main(int argc, char* argv[])
                     ++alert_counter;
                     if (alert_counter >= 3)
                     {
-                        send_combo_update(update_fd, BUTTON_B, EVENT_ALERT);
+                        send_keypad_update(update_fd, BUTTON_B, EVENT_ALERT);
 
                         alert_counter = 0;
                         alert_val = 0;
@@ -409,7 +409,7 @@ int main(int argc, char* argv[])
                     alert_val = 2;
                     alert_time = cur_time;
 
-                    send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
+                    send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
                 }
                 break;
             }
@@ -422,7 +422,7 @@ int main(int argc, char* argv[])
             case 3:
                 // A Press
                 cur_state = STATE_B_VALUE;
-                send_combo_update(update_fd, BUTTON_B, EVENT_VALUE);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_VALUE);
                 break;
             default:
                 fprintf(stderr, "Invalid button press state\n");
@@ -438,12 +438,12 @@ int main(int argc, char* argv[])
             case 1:
                 // B Release
                 cur_state = STATE_B_UPDATE;
-                send_combo_update(update_fd, BUTTON_B, EVENT_UPDATE);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_UPDATE);
                 break;
             case 2:
                 // A Release
                 cur_state = STATE_B_INCR;
-                send_combo_update(update_fd, BUTTON_B, EVENT_INCR);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_INCR);
                 break;
             case 3:
                 // No State change
@@ -459,7 +459,7 @@ int main(int argc, char* argv[])
             case 0:
                 // B Release
                 cur_state = STATE_RESET;
-                send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
                 break;
             case 1:
                 fprintf(stderr, "Invalid button press state\n");
@@ -470,7 +470,7 @@ int main(int argc, char* argv[])
             case 3:
                 // A Press
                 cur_state = STATE_B_VALUE;
-                send_combo_update(update_fd, BUTTON_B, EVENT_VALUE);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_VALUE);
                 break;
             default:
                 fprintf(stderr, "Invalid button press state\n");
@@ -483,7 +483,7 @@ int main(int argc, char* argv[])
             case 0:
                 // A Release
                 cur_state = STATE_RESET;
-                send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
                 break;
             case 1:
                 // No State change
@@ -494,7 +494,7 @@ int main(int argc, char* argv[])
             case 3:
                 // B Press
                 cur_state = STATE_B_VALUE;
-                send_combo_update(update_fd, BUTTON_B, EVENT_VALUE);
+                send_keypad_update(update_fd, BUTTON_B, EVENT_VALUE);
                 break;
             default:
                 fprintf(stderr, "Invalid button press state\n");

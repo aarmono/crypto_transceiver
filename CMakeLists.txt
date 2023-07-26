@@ -124,8 +124,8 @@ add_executable(jack_crypto_rx
   crypto.ini)
 target_link_libraries(jack_crypto_rx ${CMAKE_REQUIRED_LIBRARIES} ${CODEC2_LIB} ${LIBSAMPLERATE_LIB} ${JACKAUDIO_LIB} ${SNDFILE_LIB} m)
 
-add_executable(key_combo
-  key_combo.cpp
+add_executable(keypad_reader
+  keypad_reader.cpp
   crypto_cfg.c
   minIni.c)
-target_link_libraries(key_combo ${CMAKE_REQUIRED_LIBRARIES} ${GPIOD_LIB} m)
+target_link_libraries(keypad_reader ${CMAKE_REQUIRED_LIBRARIES} ${GPIOD_LIB} m)

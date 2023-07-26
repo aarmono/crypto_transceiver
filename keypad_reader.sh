@@ -14,4 +14,4 @@ BIAS=`get_config_val Keypad Bias`
 ACTIVE=`get_config_val Keypad ActiveLow`
 DEBOUNCE=`get_config_val Keypad Debounce`
 
-exec key_combo "$A_PIN" "$B_PIN" "$D_PIN" "$UP_PIN" "$DOWN_PIN" "$BIAS" "$ACTIVE" "$DEBOUNCE"
+exec keypad_reader "$A_PIN" "$B_PIN" "$D_PIN" "$UP_PIN" "$DOWN_PIN" "$BIAS" "$ACTIVE" "$DEBOUNCE"

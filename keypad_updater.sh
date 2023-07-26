@@ -47,6 +47,12 @@ toggle_digital()
     then
         /etc/init.d/S30jack_crypto_tx signal SIGHUP
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
+        if test "$DIGITAL_EN" -ne 0
+        then
+            headset_tts "Digital"
+        else
+            headset_tts "Analog"
+        fi
     fi
 }
 

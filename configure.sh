@@ -598,18 +598,11 @@ broadcast_alert_dialog()
     done
 }
 
-execute_alert()
-{
-    espeak_radio -w "$TTS_FILE" "$1" &> /dev/null && \
-        /etc/init.d/S30jack_crypto_tx signal SIGUSR1
-}
-
 broadcast_custom_alert()
 {
     broadcast_alert_dialog "Broadcast Custom Alert" && \
         test `wc -c < "$ANSWER"` -gt 0 && \
-        espeak_radio -f "$ANSWER" -w "$TTS_FILE" &>/dev/null && \
-        /etc/init.d/S30jack_crypto_tx signal SIGUSR1
+        execute_alert_broadcast -f "$ANSWER"
 }
 
 broadcast_alert()
@@ -642,10 +635,10 @@ broadcast_alert()
         option=`cat $ANSWER`
         case "$option" in
             Primary)
-                execute_alert "$PRIMARY"
+                execute_alert_broadcast "$PRIMARY"
                 ;;
             Secondary)
-                execute_alert "$SECONDARY"
+                execute_alert_broadcast "$SECONDARY"
                 ;;
             Custom)
                 broadcast_custom_alert

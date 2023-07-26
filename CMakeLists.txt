@@ -129,3 +129,9 @@ add_executable(volume_buttons
   crypto_cfg.c
   minIni.c)
 target_link_libraries(volume_buttons ${CMAKE_REQUIRED_LIBRARIES} ${GPIOD_LIB} m)
+
+add_executable(key_combo
+  key_combo.cpp
+  crypto_cfg.c
+  minIni.c)
+target_link_libraries(key_combo ${CMAKE_REQUIRED_LIBRARIES} ${GPIOD_LIB} m)

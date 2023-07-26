@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 6)
     {
-        fprintf(stderr, "usage: %s <up_pin> <down_pin> <bias> <active_low> <debounce>", argv[0]);
+        fprintf(stderr, "usage: %s <up_pin> <down_pin> <bias> <active_low> <debounce>\n", argv[0]);
         return 1;
     }
 
@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
     struct gpiod_line_bulk lines = GPIOD_LINE_BULK_INITIALIZER;
     if (get_lines(up_pin, down_pin, argv[3], argv[4], &lines) < 0)
     {
-        fprintf(stderr, "Failed to open lines");
+        fprintf(stderr, "Failed to open lines\n");
         return 1;
     }
 
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
         int values[2] = {0, 0};
         if (gpiod_line_get_value_bulk(&lines, values) < 0)
         {
-            fprintf(stderr, "Error reading lines");
+            fprintf(stderr, "Error reading lines\n");
         }
 
         values[0] = static_cast<int>(up_debounce.add_value(values[0]));
@@ -139,7 +139,7 @@ int main(int argc, char* argv[])
                 break;
             default:
                 // Invalid
-                fprintf(stderr, "Invalid button press state");
+                fprintf(stderr, "Invalid button press state\n");
                 break;
             }
         }

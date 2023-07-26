@@ -1,0 +1,27 @@
+digraph G {
+
+  Reset -> "Begin(A)" [label="A Press"];
+  Reset -> "Begin(B)" [label="B Press"];
+  
+  "Begin(A)" -> Reset [label="A Release"];
+  
+  "Begin(A)" -> "ValueOf(A)" [label="B Press"];
+  "ValueOf(A)" -> "Action(A)" [label="A Release"];
+  "Action(A)" -> Reset [label="B Release"];
+  "Action(A)" -> "ValueOf(A)" [label="A Press"];
+  
+  "ValueOf(A)" -> "Next(A)" [label="B Release"];
+  "Next(A)" -> "ValueOf(A)" [label="B Press"];
+  "Next(A)" -> Reset [label="A Release"];
+  
+  "Begin(B)" -> Reset [label="B Release"];
+  "Begin(B)" -> "ValueOf(B)" [label="A Press"];
+  "ValueOf(B)" -> "Action(B)" [label="B Release"];
+  "Action(B)" -> Reset [label="A Release"];
+  "Action(B)" -> "ValueOf(B)" [label="B Press"];
+  
+  
+  "ValueOf(B)" -> "Next(B)" [label="A Release"];
+  "Next(B)" -> "ValueOf(B)" [label="A Press"];
+  "Next(B)" -> Reset [label="B Release"];
+}

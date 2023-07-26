@@ -44,6 +44,7 @@ private:
 
 private:
     int modem_frames_per_second() const;
+    bool using_freedv() const;
 
 private:
     const std::unique_ptr<rx_parms> m_parms;

@@ -31,6 +31,9 @@ private:
     struct tx_parms;
 
 private:
+    bool using_freedv() const;
+
+private:
     const std::unique_ptr<tx_parms> m_parms;
 };
 

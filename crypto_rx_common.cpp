@@ -78,64 +78,121 @@ crypto_rx_common::crypto_rx_common(const char* name, const char* config_file)
     m_parms->logger = create_logger(config_file_name.c_str(),
                                     m_parms->cur->log_level);
 
-    size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
-    if (str_has_value(m_parms->cur->key_file) &&
-        key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
-        log_message(m_parms->logger,
-                    LOG_WARN,
-                    "Truncated decryption key: Only %d bytes of a possible %d",
-                    (int)key_bytes_read,
-                    (int)FREEDV_MASTER_KEY_LENGTH);
+    if (m_parms->cur->freedv_enabled != 0)
+    {
+        m_parms->freedv = freedv_open(m_parms->cur->freedv_mode);
+        if (m_parms->freedv == NULL) {
+            log_message(m_parms->logger, LOG_ERROR, "Could not initialize voice demodulator");
+        }
     }
 
-    m_parms->freedv = freedv_open(m_parms->cur->freedv_mode);
-    if (m_parms->freedv == NULL) {
-        log_message(m_parms->logger, LOG_ERROR, "Could not initialize voice demodulator");
-        throw runtime_error("Could not initialize voice demodulator");
-    }
+    if (m_parms->freedv != nullptr)
+    {
+        size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
+        if (str_has_value(m_parms->cur->key_file) &&
+            key_bytes_read != FREEDV_MASTER_KEY_LENGTH) {
+            log_message(m_parms->logger,
+                        LOG_WARN,
+                        "Truncated decryption key: Only %d bytes of a possible %d",
+                        (int)key_bytes_read,
+                        (int)FREEDV_MASTER_KEY_LENGTH);
+        }
 
-    if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled) {
-        freedv_set_crypto(m_parms->freedv, key, iv);
-        m_parms->crypto_status = key_bytes_read == FREEDV_MASTER_KEY_LENGTH ?
-            CRYPTO_STATUS_ENCRYPTED : CRYPTO_STATUS_WEAK_KEY;
+        if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled) {
+            freedv_set_crypto(m_parms->freedv, key, iv);
+            m_parms->crypto_status = key_bytes_read == FREEDV_MASTER_KEY_LENGTH ?
+                CRYPTO_STATUS_ENCRYPTED : CRYPTO_STATUS_WEAK_KEY;
+        }
+        else {
+            m_parms->crypto_status = CRYPTO_STATUS_PLAIN;
+            log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
+        }
+
+        configure_freedv(m_parms->freedv, m_parms->cur);
     }
-    else {
+    else
+    {
         m_parms->crypto_status = CRYPTO_STATUS_PLAIN;
-        log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
     }
 
-    configure_freedv(m_parms->freedv, m_parms->cur);
     m_parms->modem_flush_frames = m_parms->cur->modem_num_quiet_flush_frames;
+}
+
+bool crypto_rx_common::using_freedv() const
+{
+    return m_parms->freedv != nullptr;
 }
 
 size_t crypto_rx_common::max_speech_samples_per_frame() const
 {
-    return freedv_get_n_max_speech_samples(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_get_n_max_speech_samples(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 size_t crypto_rx_common::speech_samples_per_frame() const
 {
-    return static_cast<size_t>(freedv_get_n_speech_samples(m_parms->freedv));
+    if (using_freedv())
+    {
+        return static_cast<size_t>(freedv_get_n_speech_samples(m_parms->freedv));
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 size_t crypto_rx_common::max_modem_samples_per_frame() const
 {
-    return freedv_get_n_max_modem_samples(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_get_n_max_modem_samples(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 size_t crypto_rx_common::modem_samples_per_frame() const
 {
-    return static_cast<size_t>(freedv_get_n_nom_modem_samples(m_parms->freedv));
+    if (using_freedv())
+    {
+        return static_cast<size_t>(freedv_get_n_nom_modem_samples(m_parms->freedv));
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 size_t crypto_rx_common::needed_modem_samples() const
 {
-    return freedv_nin(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_nin(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 bool crypto_rx_common::is_synced() const
 {
-    return (freedv_get_rx_status(m_parms->freedv) & FREEDV_RX_SYNC) != 0;
+    if (using_freedv())
+    {
+        return (freedv_get_rx_status(m_parms->freedv) & FREEDV_RX_SYNC) != 0;
+    }
+    else
+    {
+        return true;
+    }
 }
 
 encryption_status crypto_rx_common::get_encryption_status() const
@@ -145,12 +202,26 @@ encryption_status crypto_rx_common::get_encryption_status() const
 
 uint crypto_rx_common::speech_sample_rate() const
 {
-    return freedv_get_speech_sample_rate(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_get_speech_sample_rate(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLE_RATE;
+    }
 }
 
 uint crypto_rx_common::modem_sample_rate() const
 {
-    return freedv_get_modem_sample_rate(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_get_modem_sample_rate(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLE_RATE;
+    }
 }
 
 const struct config* crypto_rx_common::get_config() const
@@ -165,74 +236,83 @@ void crypto_rx_common::log_to_logger(int level, const char* msg)
 
 int crypto_rx_common::modem_frames_per_second() const
 {
-    return freedv_get_modem_sample_rate(m_parms->freedv) /
-           freedv_get_n_nom_modem_samples(m_parms->freedv);
+    return modem_sample_rate() / modem_samples_per_frame();
 }
 
 size_t crypto_rx_common::receive(short* speech_out, const short* demod_in)
 {
-    const int nin = freedv_nin(m_parms->freedv);
-    const short modem_rms = rms(demod_in, nin);
-
-    // RMS-based modem squelch with hysteresis. The built in squelch
-    // in FreeDV (especially with the 2400B mode) can sometimes fail at very
-    // low input signal levels because the modem reports a very high estimated
-    // SNR
-    // A nin of zero is apparently valid, and if it is we need to force
-    // the freedv_rx call
-    if (nin == 0)
-    {
-        m_parms->modem_has_signal = true;
-    }
-    else if (modem_rms < m_parms->cur->modem_quiet_max_thresh)
-    {
-        m_parms->modem_has_signal = false;
-    }
-    else if (modem_rms >= m_parms->cur->modem_signal_min_thresh)
-    {
-        m_parms->modem_has_signal = true;
-    }
-
-    if (m_parms->modem_has_signal)
-    {
-        m_parms->modem_flush_frames = 0;
-    }
-    else if (m_parms->modem_flush_frames <=
-             m_parms->cur->modem_num_quiet_flush_frames)
-    {
-        ++m_parms->modem_flush_frames;
-    }
-
+    const int nin = needed_modem_samples();
     size_t nout = 0;
-    // Only call freedv_rx if there is signal or for the first few
-    // "silent" frames to flush out the system
-    if (m_parms->modem_has_signal == true ||
-        m_parms->modem_flush_frames <= m_parms->cur->modem_num_quiet_flush_frames)
+
+    if (using_freedv())
     {
-        nout = freedv_rx(m_parms->freedv, speech_out, const_cast<short*>(demod_in));
-        if (m_parms->modem_has_signal == false && nout > 0)
+        // Only do the modem squelch when using digital
+        const short modem_rms = rms(demod_in, nin);
+
+        // RMS-based modem squelch with hysteresis. The built in squelch
+        // in FreeDV (especially with the 2400B mode) can sometimes fail at very
+        // low input signal levels because the modem reports a very high estimated
+        // SNR
+        // A nin of zero is apparently valid, and if it is we need to force
+        // the freedv_rx call
+        if (nin == 0)
         {
-            // If we are flushing frames, Call freedv_rx but discard the output
-            zeroize_frames(speech_out, nout);
+            m_parms->modem_has_signal = true;
+        }
+        else if (modem_rms < m_parms->cur->modem_quiet_max_thresh)
+        {
+            m_parms->modem_has_signal = false;
+        }
+        else if (modem_rms >= m_parms->cur->modem_signal_min_thresh)
+        {
+            m_parms->modem_has_signal = true;
         }
 
-        float snr_est = 0.0;
-        freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);
-        log_message(m_parms->logger,
-                    LOG_DEBUG,
-                    "nout: %u, SNR est.: %f, modem RMS: %d",
-                    (uint)nout,
-                    snr_est,
-                    (int)modem_rms);
+        if (m_parms->modem_has_signal)
+        {
+            m_parms->modem_flush_frames = 0;
+        }
+        else if (m_parms->modem_flush_frames <=
+                 m_parms->cur->modem_num_quiet_flush_frames)
+        {
+            ++m_parms->modem_flush_frames;
+        }
+
+        // Only call freedv_rx if there is signal or for the first few
+        // "silent" frames to flush out the system
+        if (m_parms->modem_has_signal == true ||
+            m_parms->modem_flush_frames <= m_parms->cur->modem_num_quiet_flush_frames)
+        {
+            nout = freedv_rx(m_parms->freedv, speech_out, const_cast<short*>(demod_in));
+            if (m_parms->modem_has_signal == false && nout > 0)
+            {
+                // If we are flushing frames, Call freedv_rx but discard the output
+                zeroize_frames(speech_out, nout);
+            }
+
+            float snr_est = 0.0;
+            freedv_get_modem_stats(m_parms->freedv, nullptr, &snr_est);
+            log_message(m_parms->logger,
+                        LOG_DEBUG,
+                        "nout: %u, SNR est.: %f, modem RMS: %d",
+                        (uint)nout,
+                        snr_est,
+                        (int)modem_rms);
+        }
+        // When the transition from "signal" to "no signal" occurs, signal the modem
+        // needs to resync when the signal returns. Do this at the start of
+        // "loss of signal" instead of the beginning of "acquisition of signal" to
+        // ensure freedv functions called after the last call to receive and during
+        // this one are on a consistent state of the freedv object
+        else
+        {
+            freedv_set_sync(m_parms->freedv, FREEDV_SYNC_UNSYNC);
+        }
     }
-    // When the transition from "signal" to "no signal" occurs, signal the modem
-    // needs to resync when the signal returns. Do this at the start of
-    // "loss of signal" instead of the beginning of "acquisition of signal" to
-    // ensure freedv functions called after the last call to receive and during
-    // this one are on a consistent state of the freedv object
     else
     {
-        freedv_set_sync(m_parms->freedv, FREEDV_SYNC_UNSYNC);
+        memcpy(speech_out, demod_in, nin * sizeof(short));
+        nout = nin;
     }
 
     return nout;

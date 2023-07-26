@@ -14,6 +14,10 @@ extern "C"
 struct freedv;
 struct config;
 
+#define ANALOG_SAMPLE_RATE 8000
+#define ANALOG_SAMPLES_PER_FRAME 320
+
+
 short rms(const short vals[], size_t len);
 
 size_t read_input_file(short* buffer, size_t buffer_elems, FILE* file);

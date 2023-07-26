@@ -137,6 +137,9 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
         else if (strcasecmp(Key, "SquelchThresh700E") == 0 ) {
             cfg->freedv_squelch_thresh_700e = atof(Value);
         }
+        else if (strcasecmp(Key, "Enabled") == 0 ) {
+            cfg->freedv_enabled = atoi(Value);
+        }
     }
     else if (strcasecmp(Section, "JACK") == 0) {
         if (strcasecmp(Key, "TXPeriod700C") == 0) {
@@ -220,7 +223,6 @@ static int ini_callback(const mTCHAR *Section, const mTCHAR *Key, const mTCHAR *
 
 void read_config(const char* config_file, struct config* cfg) {
     memset(cfg, 0, sizeof(struct config));
-    cfg->freedv_mode = FREEDV_MODE_2400B;
     ini_browse(ini_callback, (void*)cfg, config_file);
 }
 

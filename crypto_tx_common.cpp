@@ -77,60 +77,98 @@ crypto_tx_common::crypto_tx_common(const char* name, const char* config_file)
     m_parms->logger = create_logger(config_file_name.c_str(),
                                     m_parms->cur->log_level);
 
-    // Use getrandom with the urandom device because it will block until the
-    // entropy pool is initialized
-    if (getrandom(iv, sizeof(iv), 0) != sizeof(iv)) {
-        log_message(m_parms->logger, LOG_WARN, "Did not fully read initialization vector");
-    }
-    else {
-        log_message(m_parms->logger, LOG_INFO, "Read initialization vector");
-    }
-
-    const size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
-    if (str_has_value(m_parms->cur->key_file) &&
-        key_bytes_read != FREEDV_MASTER_KEY_LENGTH)
+    if (m_parms->cur->freedv_enabled)
     {
-        log_message(m_parms->logger,
-                    LOG_WARN,
-                    "Truncated encryption key: Only %d bytes of a possible %d",
-                    (int)key_bytes_read,
-                    (int)FREEDV_MASTER_KEY_LENGTH);
+        m_parms->freedv = freedv_open(m_parms->cur->freedv_mode);
+        if (m_parms->freedv == NULL) {
+            log_message(m_parms->logger, LOG_ERROR, "Could not initialize voice modulator");
+        }
     }
 
-    m_parms->freedv = freedv_open(m_parms->cur->freedv_mode);
-    if (m_parms->freedv == NULL) {
-        log_message(m_parms->logger, LOG_ERROR, "Could not initialize voice modulator");
-        throw std::runtime_error("Could not initialize voice modulator");
-    }
+    if (m_parms->freedv != nullptr)
+    {
+        // Use getrandom with the urandom device because it will block until the
+        // entropy pool is initialized
+        if (getrandom(iv, sizeof(iv), 0) != sizeof(iv)) {
+            log_message(m_parms->logger, LOG_WARN, "Did not fully read initialization vector");
+        }
+        else {
+            log_message(m_parms->logger, LOG_INFO, "Read initialization vector");
+        }
 
-    if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled) {
-        freedv_set_crypto(m_parms->freedv, key, iv);
-    }
-    else {
-        log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
-    }
+        const size_t key_bytes_read = read_key_file(m_parms->cur->key_file, key);
+        if (str_has_value(m_parms->cur->key_file) &&
+            key_bytes_read != FREEDV_MASTER_KEY_LENGTH)
+        {
+            log_message(m_parms->logger,
+                        LOG_WARN,
+                        "Truncated encryption key: Only %d bytes of a possible %d",
+                        (int)key_bytes_read,
+                        (int)FREEDV_MASTER_KEY_LENGTH);
+        }
 
-    configure_freedv(m_parms->freedv, m_parms->cur);
+        if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled) {
+            freedv_set_crypto(m_parms->freedv, key, iv);
+        }
+        else {
+            log_message(m_parms->logger, LOG_WARN, "Encryption disabled");
+        }
+
+        configure_freedv(m_parms->freedv, m_parms->cur);
+    }
+}
+
+bool crypto_tx_common::using_freedv() const
+{
+    return m_parms->freedv != nullptr;
 }
 
 size_t crypto_tx_common::speech_samples_per_frame() const
 {
-    return static_cast<size_t>(freedv_get_n_speech_samples(m_parms->freedv));
+    if (using_freedv())
+    {
+        return static_cast<size_t>(freedv_get_n_speech_samples(m_parms->freedv));
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 uint crypto_tx_common::speech_sample_rate() const
 {
-    return freedv_get_speech_sample_rate(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_get_speech_sample_rate(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLE_RATE;
+    }
 }
 
 size_t crypto_tx_common::modem_samples_per_frame() const
 {
-    return static_cast<size_t>(freedv_get_n_nom_modem_samples(m_parms->freedv));
+    if (using_freedv())
+    {
+        return static_cast<size_t>(freedv_get_n_nom_modem_samples(m_parms->freedv));
+    }
+    else
+    {
+        return ANALOG_SAMPLES_PER_FRAME;
+    }
 }
 
 uint crypto_tx_common::modem_sample_rate() const
 {
-    return freedv_get_modem_sample_rate(m_parms->freedv);
+    if (using_freedv())
+    {
+        return freedv_get_modem_sample_rate(m_parms->freedv);
+    }
+    else
+    {
+        return ANALOG_SAMPLE_RATE;
+    }
 }
 
 const struct config* crypto_tx_common::get_config() const
@@ -150,9 +188,9 @@ void crypto_tx_common::force_rekey_next_frame()
 
 size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
 {
-    const int n_speech_samples = freedv_get_n_speech_samples(m_parms->freedv);
-    const int n_nom_modem_samples = freedv_get_n_nom_modem_samples(m_parms->freedv);
-    const int speech_samples_per_second = freedv_get_speech_sample_rate(m_parms->freedv);
+    const int n_speech_samples = speech_samples_per_frame();
+    const int n_nom_modem_samples = modem_samples_per_frame();
+    const int speech_samples_per_second = speech_sample_rate();
     const int speech_frames_per_second = speech_samples_per_second / n_speech_samples;
 
     if (m_parms->cur->voice_signal_min_thresh > 0)
@@ -178,7 +216,9 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
         m_parms->has_voice = true;
     }
 
-    if (str_has_value(m_parms->cur->key_file) && m_parms->cur->crypto_enabled)
+    if (using_freedv() &&
+        str_has_value(m_parms->cur->key_file) &&
+        m_parms->cur->crypto_enabled)
     {
         ++m_parms->frames_since_rekey;
 
@@ -219,13 +259,21 @@ size_t crypto_tx_common::transmit(short* mod_out, const short* speech_in)
 
     if (m_parms->has_voice == true)
     {
-        freedv_tx(m_parms->freedv, mod_out, const_cast<short*>(speech_in));
-        return n_nom_modem_samples;
+        if (using_freedv())
+        {
+            freedv_tx(m_parms->freedv, mod_out, const_cast<short*>(speech_in));
+        }
+        else
+        {
+            memcpy(mod_out, speech_in, n_speech_samples * sizeof(short));
+        }
     }
     else
     {
-        return 0;
+        zeroize_frames(mod_out, n_nom_modem_samples);
     }
+
+    return n_nom_modem_samples;
 }
 
 HCRYPTO_TX* crypto_tx_create(const char* name, const char* config_file_path)

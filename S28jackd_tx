@@ -3,8 +3,6 @@
 NAME="jackd_tx"
 DAEMON="/usr/bin/start_jackd_tx.sh"
 
-. /etc/profile.d/shell_functions.sh
-
 start()
 {
 	LOG_ARGS="-O daemon.info -E daemon.err"

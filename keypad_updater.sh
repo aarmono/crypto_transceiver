@@ -49,16 +49,22 @@ toggle_digital()
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
         if test "$DIGITAL_EN" -ne 0
         then
-            headset_tts "Digital"
+            CRYPTO_EN=`get_config_val Crypto Enabled`
+            if test "$CRYPTO_EN" -ne 0
+            then
+                headset_tts "Secure"
+            else
+                headset_tts "Digital"
+            fi
         else
-            headset_tts "Analog"
+            headset_tts "Plain"
         fi
     fi
 }
 
 adjust_volume()
 {
-    amixer -D "$HEADSET" sset Speaker "$1" && \
+    amixer -q -D "$HEADSET" sset Speaker "$1" && \
         cp /usr/share/sounds/beep.wav "$NOTIFY_FILE" && \
         /etc/init.d/S31jack_crypto_rx signal SIGUSR1
 }

@@ -13,14 +13,18 @@
 */
 
 #include <sys/types.h>
+#include <sys/time.h>
+#include <signal.h>
 #include <unistd.h>
 #include <time.h>
 
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 
 #include <vector>
+#include <memory>
 
 #include <gpiod.h>
 
@@ -62,6 +66,34 @@ static const char* EVENT_INCR = "incr";
 #define D_OFF    2
 #define UP_OFF   3
 #define DOWN_OFF 4
+
+struct signal_state_t
+{
+    struct gpiod_line_bulk lines = GPIOD_LINE_BULK_INITIALIZER;
+
+    int update_fd = 0;
+
+    std::vector<debounce> debouncers;
+
+    uint8_t alert_counter = 0;
+    uint8_t alert_val = 0;
+    float   alert_time = 0.0;
+
+    int prev_d_val = 0;
+
+    uint8_t prev_vol_val = 0;
+
+    key_state_t cur_state = STATE_RESET;
+
+    signal_state_t(unsigned int integrator)
+        : debouncers(NUM_LINES, integrator)
+    {
+    }
+};
+
+std::unique_ptr<signal_state_t> signal_state;
+
+static volatile sig_atomic_t read_io = 0;
 
 int get_lines(unsigned int            a_pin,
               unsigned int            b_pin,
@@ -128,8 +160,354 @@ int run_keypad_updater()
 void send_keypad_update(int fd, const char* button, const char* event)
 {
     char buf[80];
-    size_t len = snprintf(buf, sizeof(buf), "%s %s\n", button, event);
+
+    char* ptr = stpcpy(buf, button);
+    ptr = stpcpy(ptr, " ");
+    ptr = stpcpy(ptr, event);
+    ptr = stpcpy(ptr, "\n");
+
+    const size_t len = ptr - buf;
     write(fd, buf, len);
+}
+
+void sample_tick()
+{
+    int values[NUM_LINES] = {0,};
+    if (gpiod_line_get_value_bulk(&signal_state->lines, values) < 0)
+    {
+        fprintf(stderr, "Error reading lines\n");
+    }
+
+    for (uint i = 0; i < NUM_LINES; ++i)
+    {
+        values[i] = static_cast<int>(signal_state->debouncers[i].add_value(values[i]));
+    }
+
+    const uint8_t cur_vol_val =
+        (values[UP_OFF] << 0) | (values[DOWN_OFF] << 1);
+    if (signal_state->prev_vol_val == 0)
+    {
+        switch(cur_vol_val)
+        {
+        case 0:
+            // No button pressed
+            break;
+        case 1:
+            // Rising edge Up button
+            send_keypad_update(signal_state->update_fd, BUTTON_UP, EVENT_UPDATE);
+            break;
+        case 2:
+            // Rising edge Down button
+            send_keypad_update(signal_state->update_fd, BUTTON_DOWN, EVENT_UPDATE);
+            break;
+        case 3:
+            // Both buttons
+            break;
+        default:
+            // Invalid
+            break;
+        }
+    }
+
+    signal_state->prev_vol_val = cur_vol_val;
+
+    const int cur_d_val = values[D_OFF];
+    if (signal_state->prev_d_val == 0 && cur_d_val == 1)
+    {
+        send_keypad_update(signal_state->update_fd, BUTTON_D, EVENT_UPDATE);
+    }
+
+    signal_state->prev_d_val = cur_d_val;
+
+    const uint8_t cur_val = (values[A_OFF] << 0) | (values[B_OFF] << 1);
+    switch(signal_state->cur_state)
+    {
+    case STATE_RESET:
+        switch(cur_val)
+        {
+        case 0:
+            // No State Change
+            break;
+        case 1:
+        {
+            // A Pres
+            signal_state->cur_state = STATE_A_SELECT;
+
+            const float cur_time = get_cur_time();
+            if ((signal_state->alert_val != 1) ||
+                (cur_time - signal_state->alert_time) >= 2.0)
+            {
+                send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_SELECT);
+            }
+            break;
+        }
+        case 2:
+        {
+            signal_state->cur_state = STATE_B_SELECT;
+
+            const float cur_time = get_cur_time();
+            if ((signal_state -> alert_val != 2) ||
+                (cur_time - signal_state->alert_time) >= 2.0)
+            {
+                send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_SELECT);
+            }
+            break;
+        }
+        case 3:
+            // Invalid
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+
+    case STATE_A_SELECT:
+        switch(cur_val)
+        {
+        case 0:
+        {
+            // A Release
+            signal_state->cur_state = STATE_RESET;
+
+            const float cur_time = get_cur_time();
+            if ((signal_state->alert_val == 1) &&
+                (cur_time - signal_state->alert_time) < 2.0)
+            {
+                ++signal_state->alert_counter;
+                if (signal_state->alert_counter >= 3)
+                {
+                    send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_ALERT);
+
+                    signal_state->alert_counter = 0;
+                    signal_state->alert_val = 0;
+                    signal_state->alert_time = 0.0;
+                }
+            }
+            else
+            {
+                signal_state->alert_counter = 1;
+                signal_state->alert_val = 1;
+                signal_state->alert_time = cur_time;
+
+                send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_RESET);
+            }
+            break;
+        }
+        case 1:
+            // No State Change
+            break;
+        case 2:
+            // Invalid
+            break;
+        case 3:
+            // B Press
+            signal_state->cur_state = STATE_A_VALUE;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_VALUE);
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    case STATE_A_VALUE:
+        switch(cur_val)
+        {
+        case 0:
+            // Invalid
+            break;
+        case 1:
+            // B release
+            signal_state->cur_state = STATE_A_INCR;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_INCR);
+            break;
+        case 2:
+            // A Release
+            signal_state->cur_state = STATE_A_UPDATE;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_UPDATE);
+            break;
+        case 3:
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    case STATE_A_INCR:
+        switch(cur_val)
+        {
+        case 0:
+            // A Release
+            signal_state->cur_state = STATE_RESET;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_RESET);
+            break;
+        case 1:
+            // No State Change
+            break;
+        case 2:
+            // Invalid
+            break;
+        case 3:
+            // B Press
+            signal_state->cur_state = STATE_A_VALUE;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_VALUE);
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    case STATE_A_UPDATE:
+        switch(cur_val)
+        {
+        case 0:
+            // B Release
+            signal_state->cur_state = STATE_RESET;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_RESET);
+            break;
+        case 1:
+            // Invalid
+            break;
+        case 2:
+            // No State Change
+            break;
+        case 3:
+            // A Press
+            signal_state->cur_state = STATE_A_VALUE;
+            send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_VALUE);
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+
+    case STATE_B_SELECT:
+        switch(cur_val)
+        {
+        case 0:
+        {
+            // B Release
+            signal_state->cur_state = STATE_RESET;
+
+            const float cur_time = get_cur_time();
+            if ((signal_state->alert_val == 2) &&
+                (cur_time - signal_state->alert_time) < 2.0)
+            {
+                ++signal_state->alert_counter;
+                if (signal_state->alert_counter >= 3)
+                {
+                    send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_ALERT);
+
+                    signal_state->alert_counter = 0;
+                    signal_state->alert_val = 0;
+                    signal_state->alert_time = 0.0;
+                }
+            }
+            else
+            {
+                signal_state->alert_counter = 1;
+                signal_state->alert_val = 2;
+                signal_state->alert_time = cur_time;
+
+                send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_RESET);
+            }
+            break;
+        }
+        case 1:
+            // Invalid
+            break;
+        case 2:
+            // No state change
+            break;
+        case 3:
+            // A Press
+            signal_state->cur_state = STATE_B_VALUE;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_VALUE);
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    case STATE_B_VALUE:
+        switch(cur_val)
+        {
+        case 0:
+            // Invalid
+            break;
+        case 1:
+            // B Release
+            signal_state->cur_state = STATE_B_UPDATE;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_UPDATE);
+            break;
+        case 2:
+            // A Release
+            signal_state->cur_state = STATE_B_INCR;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_INCR);
+            break;
+        case 3:
+            // No State change
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    case STATE_B_INCR:
+        switch(cur_val)
+        {
+        case 0:
+            // B Release
+            signal_state->cur_state = STATE_RESET;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_RESET);
+            break;
+        case 1:
+            // Invalid
+            break;
+        case 2:
+            // No State change
+            break;
+        case 3:
+            // A Press
+            signal_state->cur_state = STATE_B_VALUE;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_VALUE);
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    case STATE_B_UPDATE:
+        switch(cur_val)
+        {
+        case 0:
+            // A Release
+            signal_state->cur_state = STATE_RESET;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_RESET);
+            break;
+        case 1:
+            // No State change
+            break;
+        case 2:
+            // Invalid
+            break;
+        case 3:
+            // B Press
+            signal_state->cur_state = STATE_B_VALUE;
+            send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_VALUE);
+            break;
+        default:
+            // Invalid
+            break;
+        }
+        break;
+    }
+}
+
+void handle_sigalrm(int sig)
+{
+    read_io = 1;
 }
 
 int main(int argc, char* argv[])
@@ -146,365 +524,56 @@ int main(int argc, char* argv[])
     const unsigned int up_pin = atoi(argv[4]);
     const unsigned int down_pin = atoi(argv[5]);
 
-    struct gpiod_line_bulk lines = GPIOD_LINE_BULK_INITIALIZER;
-    if (get_lines(a_pin, b_pin, d_pin, up_pin, down_pin, argv[6], argv[7], &lines) < 0)
+    static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[8]);
+
+    signal_state.reset(new signal_state_t(DEBOUNCE_INTEGRATOR));
+
+    if (get_lines(a_pin,
+                  b_pin,
+                  d_pin,
+                  up_pin,
+                  down_pin,
+                  argv[6],
+                  argv[7],
+                  &signal_state->lines) < 0)
     {
         fprintf(stderr, "Failed to open lines\n");
         return 1;
     }
 
-    static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[8]);
-    std::vector<debounce> debouncers(NUM_LINES, debounce(DEBOUNCE_INTEGRATOR));
+    signal_state->update_fd = run_keypad_updater();
 
-    int update_fd = run_keypad_updater();
+    send_keypad_update(signal_state->update_fd, BUTTON_A, EVENT_RESET);
+    send_keypad_update(signal_state->update_fd, BUTTON_B, EVENT_RESET);
+    send_keypad_update(signal_state->update_fd, BUTTON_D, EVENT_RESET);
+    send_keypad_update(signal_state->update_fd, BUTTON_UP, EVENT_RESET);
+    send_keypad_update(signal_state->update_fd, BUTTON_DOWN, EVENT_RESET);
 
-    send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
-    send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
-    send_keypad_update(update_fd, BUTTON_D, EVENT_RESET);
-    send_keypad_update(update_fd, BUTTON_UP, EVENT_RESET);
-    send_keypad_update(update_fd, BUTTON_DOWN, EVENT_RESET);
+    signal(SIGALRM, handle_sigalrm);
 
-    uint8_t alert_counter = 0;
-    uint8_t alert_val = 0;
-    float alert_time = 0.0;
+    // Sample every 10 ms
+    struct itimerval signal_interval =
+    {
+        { 0, 10000 },
+        { 0, 10000 }
+    };
 
-    int prev_d_val = 0;
-    uint8_t prev_vol_val = 0;
+    setitimer(ITIMER_REAL, &signal_interval, NULL);
 
-    key_state_t cur_state = STATE_RESET;
     while (true)
     {
-        int values[NUM_LINES] = {0,};
-        if (gpiod_line_get_value_bulk(&lines, values) < 0)
+        if (read_io != 0)
         {
-            fprintf(stderr, "Error reading lines\n");
+            read_io = 0;
+            sample_tick();
         }
 
-        for (uint i = 0; i < NUM_LINES; ++i)
-        {
-            values[i] = static_cast<int>(debouncers[i].add_value(values[i]));
-        }
-
-        const uint8_t cur_vol_val =
-            (values[UP_OFF] << 0) | (values[DOWN_OFF] << 1);
-        if (prev_vol_val == 0)
-        {
-            switch(cur_vol_val)
-            {
-            case 0:
-                // No button pressed
-                break;
-            case 1:
-                // Rising edge Up button
-                send_keypad_update(update_fd, BUTTON_UP, EVENT_UPDATE);
-                break;
-            case 2:
-                // Rising edge Down button
-                send_keypad_update(update_fd, BUTTON_DOWN, EVENT_UPDATE);
-                break;
-            case 3:
-                // Both buttons
-                break;
-            default:
-                // Invalid
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-        }
-
-        prev_vol_val = cur_vol_val;
-
-        const int cur_d_val = values[D_OFF];
-        if (prev_d_val == 0 && cur_d_val == 1)
-        {
-            send_keypad_update(update_fd, BUTTON_D, EVENT_UPDATE);
-        }
-
-        prev_d_val = cur_d_val;
-
-        const uint8_t cur_val = (values[A_OFF] << 0) | (values[B_OFF] << 1);
-        switch(cur_state)
-        {
-        case STATE_RESET:
-            switch(cur_val)
-            {
-            case 0:
-                // No State Change
-                break;
-            case 1:
-            {
-                // A Pres
-                cur_state = STATE_A_SELECT;
-
-                const float cur_time = get_cur_time();
-                if ((alert_val != 1) || (cur_time - alert_time) >= 2.0)
-                {
-                    send_keypad_update(update_fd, BUTTON_A, EVENT_SELECT);
-                }
-                break;
-            }
-            case 2:
-            {
-                cur_state = STATE_B_SELECT;
-
-                const float cur_time = get_cur_time();
-                if ((alert_val != 2) || (cur_time - alert_time) >= 2.0)
-                {
-                    send_keypad_update(update_fd, BUTTON_B, EVENT_SELECT);
-                }
-                break;
-            }
-            case 3:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-
-        case STATE_A_SELECT:
-            switch(cur_val)
-            {
-            case 0:
-            {
-                // A Release
-                cur_state = STATE_RESET;
-
-                const float cur_time = get_cur_time();
-                if ((alert_val == 1) && (cur_time - alert_time) < 2.0)
-                {
-                    ++alert_counter;
-                    if (alert_counter >= 3)
-                    {
-                        send_keypad_update(update_fd, BUTTON_A, EVENT_ALERT);
-
-                        alert_counter = 0;
-                        alert_val = 0;
-                        alert_time = 0.0;
-                    }
-                }
-                else
-                {
-                    alert_counter = 1;
-                    alert_val = 1;
-                    alert_time = cur_time;
-
-                    send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
-                }
-                break;
-            }
-            case 1:
-                // No State Change
-                break;
-            case 2:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 3:
-                // B Press
-                cur_state = STATE_A_VALUE;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_VALUE);
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        case STATE_A_VALUE:
-            switch(cur_val)
-            {
-            case 0:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 1:
-                // B release
-                cur_state = STATE_A_INCR;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_INCR);
-                break;
-            case 2:
-                // A Release
-                cur_state = STATE_A_UPDATE;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_UPDATE);
-                break;
-            case 3:
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        case STATE_A_INCR:
-            switch(cur_val)
-            {
-            case 0:
-                // A Release
-                cur_state = STATE_RESET;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
-                break;
-            case 1:
-                // No State Change
-                break;
-            case 2:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 3:
-                // B Press
-                cur_state = STATE_A_VALUE;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_VALUE);
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        case STATE_A_UPDATE:
-            switch(cur_val)
-            {
-            case 0:
-                // B Release
-                cur_state = STATE_RESET;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_RESET);
-                break;
-            case 1:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 2:
-                // No State Change
-                break;
-            case 3:
-                // A Press
-                cur_state = STATE_A_VALUE;
-                send_keypad_update(update_fd, BUTTON_A, EVENT_VALUE);
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-
-        case STATE_B_SELECT:
-            switch(cur_val)
-            {
-            case 0:
-            {
-                // B Release
-                cur_state = STATE_RESET;
-
-                const float cur_time = get_cur_time();
-                if ((alert_val == 2) && (cur_time - alert_time) < 2.0)
-                {
-                    ++alert_counter;
-                    if (alert_counter >= 3)
-                    {
-                        send_keypad_update(update_fd, BUTTON_B, EVENT_ALERT);
-
-                        alert_counter = 0;
-                        alert_val = 0;
-                        alert_time = 0.0;
-                    }
-                }
-                else
-                {
-                    alert_counter = 1;
-                    alert_val = 2;
-                    alert_time = cur_time;
-
-                    send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
-                }
-                break;
-            }
-            case 1:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 2:
-                // No state change
-                break;
-            case 3:
-                // A Press
-                cur_state = STATE_B_VALUE;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_VALUE);
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        case STATE_B_VALUE:
-            switch(cur_val)
-            {
-            case 0:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 1:
-                // B Release
-                cur_state = STATE_B_UPDATE;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_UPDATE);
-                break;
-            case 2:
-                // A Release
-                cur_state = STATE_B_INCR;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_INCR);
-                break;
-            case 3:
-                // No State change
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        case STATE_B_INCR:
-            switch(cur_val)
-            {
-            case 0:
-                // B Release
-                cur_state = STATE_RESET;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
-                break;
-            case 1:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 2:
-                // No State change
-                break;
-            case 3:
-                // A Press
-                cur_state = STATE_B_VALUE;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_VALUE);
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        case STATE_B_UPDATE:
-            switch(cur_val)
-            {
-            case 0:
-                // A Release
-                cur_state = STATE_RESET;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_RESET);
-                break;
-            case 1:
-                // No State change
-                break;
-            case 2:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            case 3:
-                // B Press
-                cur_state = STATE_B_VALUE;
-                send_keypad_update(update_fd, BUTTON_B, EVENT_VALUE);
-                break;
-            default:
-                fprintf(stderr, "Invalid button press state\n");
-                break;
-            }
-            break;
-        }
-
-        // Sample every ~10ms
-        usleep(10000);
+        // The sleep will be interrupted by the interrupt, allowing us
+        // to have fairly repeatable sample timing unaffected by the
+        // time it takes to perform the logic, while not having to run
+        // the code in the interrupt handler itself (and being constrained
+        // by the limitations of doing so).
+        sleep(1);
     }
 
 }

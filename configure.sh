@@ -107,10 +107,17 @@ configure_ptt_enable()
 # $2: Config Section
 # $3: Config Key
 # $4: 1 to display Console option (optional)
+# $5: Pin Description (optional)
 assign_pin()
 {
     VAL=`get_user_config_val $2 $3`
     DEFAULT=`get_sys_config_val $2 $3`
+
+    PIN_DESC="$2 $1"
+    if test -n "$5"
+    then
+        PIN_DESC="$5"
+    fi
 
     HEIGHT=36
     CONSOLE_ARGS=`mktemp`
@@ -122,7 +129,7 @@ assign_pin()
 
     dialog \
     --no-tags \
-    --title "Configure $2 $1 Pin (See: https://pinout.xyz)" \
+    --title "Configure $PIN_DESC Pin (See: https://pinout.xyz)" \
     --radiolist "Select an option or \"Default\" to use the system default." "$HEIGHT" 60 4 \
     default "Default (GPIO $DEFAULT)" `on_off $VAL ""` \
     --file "$CONSOLE_ARGS"                             \
@@ -334,6 +341,49 @@ configure_volume_gpio()
     done
 }
 
+configure_selector_gpio()
+{
+    while true
+    do
+        if is_initialized
+        then
+            dialog \
+            --title "Selector GPIO Configuration" \
+            --menu "Select an option to configure." 12 60 4 \
+            1 "Configure Primary Alert GPIO Pin" \
+            2 "Configure Secondary Alert GPIO Pin" \
+            3 "Configure Digital Transmit GPIO Pin" \
+            4 "Configure Pin Bias" \
+            5 "Configure Pin Active State" 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    assign_pin "" Selector AGPIONum "" "Primary Alert"
+                    ;;
+                2)
+                    assign_pin "" Selector BGPIONum "" "Secondary Alert"
+                    ;;
+                3)
+                    assign_pin "" Selector DGPIONum "" "Digital Transmit"
+                    ;;
+                4)
+                    configure_pin_bias Input Selector Bias
+                    ;;
+                5)
+                    configure_pin_active_level Input Selector ActiveLow
+                    ;;
+                "")
+                    return
+                    ;;
+            esac
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
 configure_hardware()
 {
     while true
@@ -342,10 +392,11 @@ configure_hardware()
         then
             dialog \
             --title "Hardware Configuration" \
-            --menu "Select an option to configure." 10 60 4 \
+            --menu "Select an option to configure." 11 60 4 \
             1 "Configure PTT GPIO" \
             2 "Configure Volume GPIO" \
-            3 "Assign Audio Devices" 2>$ANSWER
+            3 "Configure Selector GPIO" \
+            4 "Assign Audio Devices" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -356,6 +407,9 @@ configure_hardware()
                     configure_volume_gpio
                     ;;
                 3)
+                    configure_selector_gpio
+                    ;;
+                4)
                     assign_audio_devices
                     ;;
                 "")

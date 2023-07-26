@@ -60,6 +60,11 @@ alias has_sd_card="test -b $SD_DEV"
 # Runs espeak with settings optimized for radio transmission
 alias espeak_radio="espeak -v en -g 10 -s 140"
 
+# Runs espeak with settings optimized for direct headset listening.
+# The cadence is a bit faster since it isn't going through the radio
+# CODEC
+alias espeak_headset="espeak -v en -g 6 -s 160"
+
 # Takes a sound card name and strips off the "hw:"
 # prefix if it is present
 sound_strip_prefix()

@@ -1309,6 +1309,37 @@ transmit_voice()
     done
 }
 
+select_digital()
+{
+    while true
+    do
+        if is_initialized
+        then
+            VAL=`get_config_val Codec Enabled`
+
+            dialog \
+            --no-tags \
+            --title "Select Digital or Analog Transmission" \
+            --radiolist "If using Analog, all transmissions will be sent in the clear." 10 60 3 \
+            1       "Digital" `on_off $VAL 1`  \
+            0       "Analog"  `on_off $VAL 0` 2>$ANSWER
+
+            option=`cat $ANSWER`
+            case "$option" in
+                0|1)
+                    set_config_val Codec Enabled $option
+                    set_dirty
+                    ;;
+            esac
+
+            return 0
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return 1
+        fi
+    done
+}
+
 main_menu()
 {
     while true
@@ -1319,7 +1350,7 @@ main_menu()
         PTT_ENABLED=`get_config_val PTT Enabled`
         PTT_GPIONUM=`get_config_val PTT GPIONum`
 
-        HEIGHT=14
+        HEIGHT=15
         if test "$PTT_ENABLED" -ne 0 && test "$PTT_GPIONUM" -eq "-1"
         then
             echo "T \"Transmit Voice\"" > /tmp/transmit_opt
@@ -1335,6 +1366,7 @@ main_menu()
            H "Adjust Headset Volume" \
            R "Adjust Radio Volume" \
            K "Select Active Key" \
+           D "Select Digital/Analog" \
            M "View Boot Messages" \
            O "Configuration Options" \
            L "Shell Access (Experts Only)" 2>$ANSWER
@@ -1356,6 +1388,9 @@ main_menu()
                 K)
                     # Auto apply settings in the Main Menu
                     select_active_key && apply_settings
+                    ;;
+                D)
+                    select_digital && apply_settings
                     ;;
                 L)
                     clear && exec /sbin/getty -L `tty` 115200

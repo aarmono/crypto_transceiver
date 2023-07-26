@@ -110,19 +110,12 @@ configure_ptt_enable()
 # $2: Config Section
 # $3: Config Key
 # $4: 1 to display Console option (optional)
-# $5: Pin Description (optional)
 assign_pin()
 {
     VAL=`get_user_config_val $2 $3`
     DEFAULT=`get_sys_config_val $2 $3`
 
-    PIN_DESC="$2 $1"
-    if test -n "$5"
-    then
-        PIN_DESC="$5"
-    fi
-
-    HEIGHT=36
+    HEIGHT=37
     CONSOLE_ARGS=`mktemp`
     if test "$4" -eq 1
     then
@@ -132,8 +125,8 @@ assign_pin()
 
     dialog \
     --no-tags \
-    --title "Configure $PIN_DESC Pin (See: https://pinout.xyz)" \
-    --radiolist "Select an option or \"Default\" to use the system default." "$HEIGHT" 60 4 \
+    --title "Configure $2 $1 Pin" \
+    --radiolist "Select an option or \"Default\" to use the system default. Refer to https://pinout.xyz for more information." "$HEIGHT" 60 4 \
     default "Default (GPIO $DEFAULT)" `on_off $VAL ""` \
     --file "$CONSOLE_ARGS"                             \
     0       "GPIO 0"                  `on_off $VAL 0`  \
@@ -165,7 +158,7 @@ assign_pin()
     26      "GPIO 26"                 `on_off $VAL 26` \
     27      "GPIO 27"                 `on_off $VAL 27` 2>$ANSWER
 
-    rm "$CONSOLE_ARGS"
+    rm -f "$CONSOLE_ARGS"
 
     option=`cat $ANSWER`
     case "$option" in
@@ -327,50 +320,7 @@ configure_ptt()
     done
 }
 
-configure_volume_gpio()
-{
-    while true
-    do
-        if is_initialized
-        then
-            dialog \
-            --title "Volume GPIO Configuration" \
-            --menu "Select an option to configure." 12 60 4 \
-            1 "Configure Up GPIO Pin" \
-            2 "Configure Down GPIO Pin" \
-            3 "Configure Pin Bias" \
-            4 "Configure Pin Active State" \
-            5 "Configure Pin Debounce" 2>$ANSWER
-
-            option=`cat $ANSWER`
-            case "$option" in
-                1)
-                    assign_pin Up Volume UpGPIONum
-                    ;;
-                2)
-                    assign_pin Down Volume DownGPIONum
-                    ;;
-                3)
-                    configure_pin_bias Input Volume Bias
-                    ;;
-                4)
-                    configure_pin_active_level Input Volume ActiveLow
-                    ;;
-                5)
-                    configure_pin_debounce Input Volume Debounce
-                    ;;
-                "")
-                    return
-                    ;;
-            esac
-        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
-        then
-            return
-        fi
-    done
-}
-
-configure_selector_gpio()
+configure_keypad_gpio()
 {
     while true
     do
@@ -378,33 +328,41 @@ configure_selector_gpio()
         then
             dialog \
             --title "Selector GPIO Configuration" \
-            --menu "Select an option to configure." 13 60 4 \
-            1 "Configure Primary Alert GPIO Pin" \
-            2 "Configure Secondary Alert GPIO Pin" \
-            3 "Configure Digital Transmit GPIO Pin" \
-            4 "Configure Pin Bias" \
-            5 "Configure Pin Active State" \
-            6 "Configure Pin Debounce" 2>$ANSWER
+            --menu "Select an option to configure." 15 60 4 \
+            1 "Configure Volume Up GPIO Pin" \
+            2 "Configure Volume Down GPIO Pin" \
+            3 "Configure Primary Alert GPIO Pin" \
+            4 "Configure Secondary Alert GPIO Pin" \
+            5 "Configure Digital/Analog Toggle GPIO Pin" \
+            6 "Configure Pin Bias" \
+            7 "Configure Pin Active State" \
+            8 "Configure Pin Debounce" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
                 1)
-                    assign_pin "" Selector AGPIONum "" "Primary Alert"
+                    assign_pin "Volume Up" Keypad UpGPIONum
                     ;;
                 2)
-                    assign_pin "" Selector BGPIONum "" "Secondary Alert"
+                    assign_pin "Volume Down" Keypad DownGPIONum
                     ;;
                 3)
-                    assign_pin "" Selector DGPIONum "" "Digital Transmit"
+                    assign_pin "Primary Alert" Keypad AGPIONum
                     ;;
                 4)
-                    configure_pin_bias Input Selector Bias
+                    assign_pin "Secondary Alert" Keypad BGPIONum
                     ;;
                 5)
-                    configure_pin_active_level Input Selector ActiveLow
+                    assign_pin "Digital/Analog Toggle" Keypad DGPIONum
                     ;;
                 6)
-                    configure_pin_debounce Input Selector Debounce
+                    configure_pin_bias Input Keypad Bias
+                    ;;
+                7)
+                    configure_pin_active_level Input Keypad ActiveLow
+                    ;;
+                8)
+                    configure_pin_debounce Input Keypad Debounce
                     ;;
                 "")
                     return
@@ -425,11 +383,10 @@ configure_hardware()
         then
             dialog \
             --title "Hardware Configuration" \
-            --menu "Select an option to configure." 11 60 4 \
+            --menu "Select an option to configure." 10 60 4 \
             1 "Configure PTT GPIO" \
-            2 "Configure Volume GPIO" \
-            3 "Configure Selector GPIO" \
-            4 "Assign Audio Devices" 2>$ANSWER
+            2 "Configure Keypad GPIO" \
+            3 "Assign Audio Devices" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -437,12 +394,9 @@ configure_hardware()
                     configure_ptt
                     ;;
                 2)
-                    configure_volume_gpio
+                    configure_keypad_gpio
                     ;;
                 3)
-                    configure_selector_gpio
-                    ;;
-                4)
                     assign_audio_devices
                     ;;
                 "")
@@ -781,7 +735,6 @@ apply_settings()
             if test -e "$FILTHY"
             then
                 /etc/init.d/S33key_combo stop &> /dev/null
-                /etc/init.d/S32volume stop &> /dev/null
                 /etc/init.d/S31jack_crypto_rx stop &> /dev/null
                 /etc/init.d/S30jack_crypto_tx stop &> /dev/null
                 /etc/init.d/S29jackd_rx stop &> /dev/null
@@ -789,7 +742,7 @@ apply_settings()
 
                 while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
                       /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running ||
-                      /etc/inti.d/S32volume running || /etc/init.d/S33key_combo running
+                      /etc/init.d/S33key_combo running
                 do
                     sleep .1
                 done
@@ -798,7 +751,6 @@ apply_settings()
                 /etc/init.d/S29jackd_rx start &> /dev/null
                 /etc/init.d/S30jack_crypto_tx start &> /dev/null
                 /etc/init.d/S31jack_crypto_rx start &> /dev/null
-                /etc/init.d/S32volume start &> /dev/null
                 /etc/init.d/S33key_combo start &> /dev/null
 
                 # Handling "Filthy" also takes care of "Dirty"

@@ -58,7 +58,15 @@ toggle_digital()
     fi
 }
 
+adjust_volume()
+{
+    amixer -D "$HEADSET" sset Speaker "$1" && \
+        cp /usr/share/sounds/beep.wav "$NOTIFY_FILE" && \
+        /etc/init.d/S31jack_crypto_rx signal SIGUSR1
+}
+
 KEY_IDX=`reset_key_idx`
+HEADSET=`get_sound_hw_device VoiceDevice`
 
 while read -r button event
 do
@@ -108,6 +116,13 @@ do
                     ;;
                 d)
                     toggle_digital
+                    ;;
+                up)
+                    adjust_volume '10%+'
+                    ;;
+                down)
+                    adjust_volume '10%-'
+                    ;;
             esac
             ;;
     esac

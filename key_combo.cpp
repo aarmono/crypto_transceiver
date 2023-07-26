@@ -19,7 +19,8 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
-#include <future>
+
+#include <vector>
 
 #include <gpiod.h>
 
@@ -44,6 +45,8 @@ enum key_state_t
 static const char* BUTTON_A = "a";
 static const char* BUTTON_B = "b";
 static const char* BUTTON_D = "d";
+static const char* BUTTON_UP = "up";
+static const char* BUTTON_DOWN = "down";
 
 static const char* EVENT_ALERT = "alert";
 static const char* EVENT_RESET = "reset";
@@ -52,14 +55,24 @@ static const char* EVENT_VALUE = "value";
 static const char* EVENT_UPDATE = "update";
 static const char* EVENT_INCR = "incr";
 
+#define NUM_LINES 5
+
+#define A_OFF    0
+#define B_OFF    1
+#define D_OFF    2
+#define UP_OFF   3
+#define DOWN_OFF 4
+
 int get_lines(unsigned int            a_pin,
               unsigned int            b_pin,
               unsigned int            d_pin,
+              unsigned int            up_pin,
+              unsigned int            down_pin,
               const char*             bias,
               const char*             active_low,
               struct gpiod_line_bulk* lines)
 {
-    unsigned int offsets[3] = { a_pin, b_pin, d_pin };
+    unsigned int offsets[NUM_LINES] = { a_pin, b_pin, d_pin, up_pin, down_pin };
 
     struct gpiod_chip* chip = gpiod_chip_open_lookup("gpiochip0");
     if (chip == nullptr)
@@ -67,14 +80,14 @@ int get_lines(unsigned int            a_pin,
         return -1;
     }
 
-    int ret = gpiod_chip_get_lines(chip, offsets, 3, lines);
+    int ret = gpiod_chip_get_lines(chip, offsets, NUM_LINES, lines);
     if (ret < 0)
     {
         return ret;
     }
 
     const int flags = bias_flags(bias) | active_flags(active_low);
-    ret = gpiod_line_request_bulk_input_flags(lines, "volume_buttons", flags);
+    ret = gpiod_line_request_bulk_input_flags(lines, "keypad", flags);
     return ret;
 }
 
@@ -123,52 +136,85 @@ int main(int argc, char* argv[])
 {
     if (argc < 7)
     {
-        fprintf(stderr, "usage: %s <a_pin> <b_pin> <d_pin> <bias> <active_low> <debounce>\n", argv[0]);
+        fprintf(stderr, "usage: %s <a_pin> <b_pin> <d_pin> <up_pin> <down_pin> <bias> <active_low> <debounce>\n", argv[0]);
         return 1;
     }
 
     const unsigned int a_pin = atoi(argv[1]);
     const unsigned int b_pin = atoi(argv[2]);
     const unsigned int d_pin = atoi(argv[3]);
+    const unsigned int up_pin = atoi(argv[4]);
+    const unsigned int down_pin = atoi(argv[5]);
 
     struct gpiod_line_bulk lines = GPIOD_LINE_BULK_INITIALIZER;
-    if (get_lines(a_pin, b_pin, d_pin, argv[4], argv[5], &lines) < 0)
+    if (get_lines(a_pin, b_pin, d_pin, up_pin, down_pin, argv[6], argv[7], &lines) < 0)
     {
         fprintf(stderr, "Failed to open lines\n");
         return 1;
     }
 
-    static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[6]);
-    debounce a_debounce(DEBOUNCE_INTEGRATOR);
-    debounce b_debounce(DEBOUNCE_INTEGRATOR);
-    debounce d_debounce(DEBOUNCE_INTEGRATOR);
+    static const unsigned int DEBOUNCE_INTEGRATOR = atoi(argv[8]);
+    std::vector<debounce> debouncers(NUM_LINES, debounce(DEBOUNCE_INTEGRATOR));
 
     int update_fd = run_combo_update();
+
+    send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
+    send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
+    send_combo_update(update_fd, BUTTON_D, EVENT_RESET);
+    send_combo_update(update_fd, BUTTON_UP, EVENT_RESET);
+    send_combo_update(update_fd, BUTTON_DOWN, EVENT_RESET);
 
     uint8_t alert_counter = 0;
     uint8_t alert_val = 0;
     float alert_time = 0.0;
 
-    send_combo_update(update_fd, BUTTON_A, EVENT_RESET);
-    send_combo_update(update_fd, BUTTON_B, EVENT_RESET);
-    send_combo_update(update_fd, BUTTON_D, EVENT_RESET);
-
     int prev_d_val = 0;
+    uint8_t prev_vol_val = 0;
 
     key_state_t cur_state = STATE_RESET;
     while (true)
     {
-        int values[3] = {0, 0, 0};
+        int values[NUM_LINES] = {0,};
         if (gpiod_line_get_value_bulk(&lines, values) < 0)
         {
             fprintf(stderr, "Error reading lines\n");
         }
 
-        values[0] = static_cast<int>(a_debounce.add_value(values[0]));
-        values[1] = static_cast<int>(b_debounce.add_value(values[1]));
-        values[2] = static_cast<int>(d_debounce.add_value(values[2]));
+        for (uint i = 0; i < NUM_LINES; ++i)
+        {
+            values[i] = static_cast<int>(debouncers[i].add_value(values[i]));
+        }
 
-        const int cur_d_val = values[2];
+        const uint8_t cur_vol_val =
+            (values[UP_OFF] << 0) | (values[DOWN_OFF] << 1);
+        if (prev_vol_val == 0)
+        {
+            switch(cur_vol_val)
+            {
+            case 0:
+                // No button pressed
+                break;
+            case 1:
+                // Rising edge Up button
+                send_combo_update(update_fd, BUTTON_UP, EVENT_UPDATE);
+                break;
+            case 2:
+                // Rising edge Down button
+                send_combo_update(update_fd, BUTTON_DOWN, EVENT_UPDATE);
+                break;
+            case 3:
+                // Both buttons
+                break;
+            default:
+                // Invalid
+                fprintf(stderr, "Invalid button press state\n");
+                break;
+            }
+        }
+
+        prev_vol_val = cur_vol_val;
+
+        const int cur_d_val = values[D_OFF];
         if (prev_d_val == 0 && cur_d_val == 1)
         {
             send_combo_update(update_fd, BUTTON_D, EVENT_UPDATE);
@@ -176,7 +222,7 @@ int main(int argc, char* argv[])
 
         prev_d_val = cur_d_val;
 
-        const uint8_t cur_val = (values[0] << 0) | (values[1] << 1);
+        const uint8_t cur_val = (values[A_OFF] << 0) | (values[B_OFF] << 1);
         switch(cur_state)
         {
         case STATE_RESET:

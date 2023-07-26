@@ -247,6 +247,23 @@ configure_pin_active_level()
     dialog_on_off_default "$2" "$3" "Configure $2 $1 Active Level" "Active High" "Active Low"
 }
 
+configure_pin_debounce()
+{
+    VAL=`get_config_val $2 $3`
+    DEFAULT=`get_sys_config_val $2 $3`
+
+    dialog \
+    --title "Configure $2 $1 Debounce" \
+    --rangebox "Use the +/- buttons to adjust. Higher numbers reduce glitches but require heavier button presses." 9 60 5 20 "$VAL" 2>$ANSWER
+
+    option=`cat $ANSWER`
+    if test -n "$option"
+    then
+        set_config_val "$2" "$3" "$option"
+        set_dirty
+    fi
+}
+
 configure_ptt()
 {
     while true
@@ -310,11 +327,12 @@ configure_volume_gpio()
         then
             dialog \
             --title "Volume GPIO Configuration" \
-            --menu "Select an option to configure." 11 60 4 \
+            --menu "Select an option to configure." 12 60 4 \
             1 "Configure Up GPIO Pin" \
             2 "Configure Down GPIO Pin" \
             3 "Configure Pin Bias" \
-            4 "Configure Pin Active State" 2>$ANSWER
+            4 "Configure Pin Active State" \
+            5 "Configure Pin Debounce" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -329,6 +347,9 @@ configure_volume_gpio()
                     ;;
                 4)
                     configure_pin_active_level Input Volume ActiveLow
+                    ;;
+                5)
+                    configure_pin_debounce Input Volume Debounce
                     ;;
                 "")
                     return
@@ -349,12 +370,13 @@ configure_selector_gpio()
         then
             dialog \
             --title "Selector GPIO Configuration" \
-            --menu "Select an option to configure." 12 60 4 \
+            --menu "Select an option to configure." 13 60 4 \
             1 "Configure Primary Alert GPIO Pin" \
             2 "Configure Secondary Alert GPIO Pin" \
             3 "Configure Digital Transmit GPIO Pin" \
             4 "Configure Pin Bias" \
-            5 "Configure Pin Active State" 2>$ANSWER
+            5 "Configure Pin Active State" \
+            6 "Configure Pin Debounce" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -372,6 +394,9 @@ configure_selector_gpio()
                     ;;
                 5)
                     configure_pin_active_level Input Selector ActiveLow
+                    ;;
+                6)
+                    configure_pin_debounce Input Selector Debounce
                     ;;
                 "")
                     return

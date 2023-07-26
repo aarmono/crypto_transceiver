@@ -88,12 +88,15 @@ dialog_on_off_default()
                     set_config_val "$1" "$2" $option
                     set_dirty
                     ;;
+                *)
+                    return 1
+                    ;;
             esac
 
-            return
+            return 0
         elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
         then
-            return
+            return 1
         fi
     done
 }
@@ -206,11 +209,13 @@ configure_pin_bias()
     case "$option" in
         default)
             set_config_val $2 $3 ""
-            set_dirty
+            # Set filthy on all pin config changes just to be safe
+            set_filthy
             ;;
         pull-up|pull-down|disable)
             set_config_val $2 $3 $option
-            set_dirty
+            # Set filthy on all pin config changes just to be safe
+            set_filthy
             ;;
     esac
 }
@@ -233,18 +238,21 @@ configure_pin_drive()
     case "$option" in
         default)
             set_config_val $2 $3 ""
-            set_dirty
+            # Set filthy on all pin config changes just to be safe
+            set_filthy
             ;;
         open-drain|open-source|push-pull)
             set_config_val $2 $3 $option
-            set_dirty
+            # Set filthy on all pin config changes just to be safe
+            set_filthy
             ;;
     esac
 }
 
 configure_pin_active_level()
 {
-    dialog_on_off_default "$2" "$3" "Configure $2 $1 Active Level" "Active High" "Active Low"
+    dialog_on_off_default "$2" "$3" "Configure $2 $1 Active Level" "Active High" "Active Low" && \
+        set_filthy
 }
 
 configure_pin_debounce()
@@ -260,7 +268,7 @@ configure_pin_debounce()
     if test -n "$option"
     then
         set_config_val "$2" "$3" "$option"
-        set_dirty
+        set_filthy
     fi
 }
 
@@ -772,6 +780,7 @@ apply_settings()
         then
             if test -e "$FILTHY"
             then
+                /etc/init.d/S33key_combo stop &> /dev/null
                 /etc/init.d/S32volume stop &> /dev/null
                 /etc/init.d/S31jack_crypto_rx stop &> /dev/null
                 /etc/init.d/S30jack_crypto_tx stop &> /dev/null
@@ -780,7 +789,7 @@ apply_settings()
 
                 while /etc/init.d/S28jackd_tx running || /etc/init.d/S29jackd_rx running || \
                       /etc/init.d/S30jack_crypto_tx running || /etc/init.d/S31jack_crypto_rx running ||
-                      /etc/inti.d/S32volume running
+                      /etc/inti.d/S32volume running || /etc/init.d/S33key_combo running
                 do
                     sleep .1
                 done
@@ -790,20 +799,13 @@ apply_settings()
                 /etc/init.d/S30jack_crypto_tx start &> /dev/null
                 /etc/init.d/S31jack_crypto_rx start &> /dev/null
                 /etc/init.d/S32volume start &> /dev/null
+                /etc/init.d/S33key_combo start &> /dev/null
 
                 # Handling "Filthy" also takes care of "Dirty"
                 rm -f "$DIRTY" "$FILTHY"
             elif test -e "$DIRTY"
             then
-                /etc/init.d/S32volume stop &> /dev/null
-
-                while /etc/init.d/S32volume running
-                do
-                    sleep .1
-                done
-
                 killall -SIGHUP jack_crypto_tx jack_crypto_rx
-                /etc/init.d/S32volume start &> /dev/null
                 rm -f "$DIRTY"
             fi
 

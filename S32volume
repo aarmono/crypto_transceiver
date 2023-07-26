@@ -3,8 +3,6 @@
 NAME="volume"
 DAEMON="/usr/bin/volume_buttons.sh"
 
-. /etc/profile.d/shell_functions.sh
-
 start()
 {
 	printf "Starting ${NAME}: "

@@ -15,8 +15,9 @@ reset_key_idx()
 
 next_key_idx()
 {
-    NEXT_KEY_IDX=$((KEY_IDX+1))
-    while ! has_key "$NEXT_KEY_IDX"
+    NEXT_KEY_IDX=$(($1+1))
+    # Prevent infinite loop if no key
+    while test "$NEXT_KEY_IDX" -ne "$1" && ! has_key "$NEXT_KEY_IDX"
     do
         if test "$NEXT_KEY_IDX" -ge 256
         then
@@ -33,9 +34,19 @@ update_key_idx()
 {
     if set_config_val Crypto KeyIndex "$1"
     then
-        /etc/init.d/S30jack_crypto_tx signal SIGHUP
+        # Reverse order SIGHUP to give RX more time
+        # to reinitialize before playing TTS
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
-        headset_tts "$1 Confirm"
+        /etc/init.d/S30jack_crypto_tx signal SIGHUP
+
+        if has_key
+        then
+            headset_tts "$1 Confirm"
+        else
+            headset_tts "No Key"
+        fi
+    else
+        headset_tts "Error"
     fi
 }
 
@@ -45,8 +56,10 @@ toggle_digital()
     DIGITAL_EN=$((DIGITAL_EN^1))
     if set_config_val Codec Enabled "$DIGITAL_EN"
     then
-        /etc/init.d/S30jack_crypto_tx signal SIGHUP
+        # Reverse order SIGHUP to give RX more time
+        # to reinitialize before playing TTS
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
+        /etc/init.d/S30jack_crypto_tx signal SIGHUP
         CRYPTO_EN=`get_config_val Crypto Enabled`
         if test "$DIGITAL_EN" -ne 0
         then
@@ -64,6 +77,8 @@ toggle_digital()
                 headset_tts "Analog"
             fi
         fi
+    else
+        headset_tts "Error"
     fi
 }
 
@@ -100,6 +115,7 @@ do
         select)
             case "$button" in
                 a)
+                    KEY_IDX=`reset_key_idx`
                     headset_tts "Key Select"
                     ;;
             esac

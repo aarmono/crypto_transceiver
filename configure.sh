@@ -1184,10 +1184,11 @@ configure_encryption()
         then
             dialog \
             --title "Encryption Configuration" \
-            --menu "Select an option to configure." 10 60 4 \
+            --menu "Select an option to configure." 11 60 4 \
             1 "Enable Encryption" \
-            2 "Generate Encryption Keys" \
-            3 "Delete Encryption Keys" 2>$ANSWER
+            2 "Select Active Key" \
+            3 "Generate Encryption Keys" \
+            4 "Delete Encryption Keys" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -1195,9 +1196,12 @@ configure_encryption()
                     enable_encryption
                     ;;
                 2)
-                    generate_encryption_keys
+                    select_active_key
                     ;;
                 3)
+                    generate_encryption_keys
+                    ;;
+                4)
                     delete_encryption_keys
                     ;;
                 "")

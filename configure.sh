@@ -3,7 +3,6 @@
 . /etc/profile.d/shell_functions.sh
 
 exec 2>/dev/null
-set -o pipefail
 
 ANSWER=/tmp/answer
 SD_IMG=/tmp/sd.img

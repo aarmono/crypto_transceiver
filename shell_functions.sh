@@ -1,4 +1,5 @@
 # Common shell functions for use by other scripts
+set -o pipefail
 
 CRYPTO_INI_SYS=/etc/crypto.ini
 CRYPTO_INI_USR=/etc/crypto.ini.sd
@@ -361,38 +362,63 @@ has_key()
 # Loads the keys from the SD card
 load_sd_key()
 {
-    if mcopy_bin ::config/key* /etc/
+    MDIR_OUT=`mktemp`
+    # We want this to succeed if the SD card is inserted but no keys are found
+    # and fail if there is no SD card. So don't wildcard on the mdir call but
+    # instead pass it through grep
+    if mdir_sd -b ::config/ > "$MDIR_OUT"
     then
-        PI_KEYS=`mktemp`
         SD_KEYS=`mktemp`
 
-        find /etc/ -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
-        mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+        grep key < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+        NUM_KEYS=`wc -l < "$SD_KEYS"`
 
-        comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
-        RET=$?
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin ::config/key* /etc/
+        then
+            PI_KEYS=`mktemp`
 
-        rm -f "$PI_KEYS" "$SD_KEYS"
-        return $RET
+            find /etc/ -type f -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
+
+            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
+            RET=$?
+
+            rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
+            return $RET
+        else
+            rm -f "$SD_KEYS" "$MDIR_OUT"
+            return 1
+        fi
+    else
+        rm -f "$MDIR_OUT"
+        return 1
     fi
 }
 
 # Saves the keys to the SD card
 save_sd_key()
 {
-    if mcopy_bin /etc/key* ::config/
+    PI_KEYS=`mktemp`
+    if find /etc/ -type f -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
     then
-        PI_KEYS=`mktemp`
-        SD_KEYS=`mktemp`
-        find /etc/ -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
-        mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+        NUM_KEYS=`wc -l < $PI_KEYS`
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin /etc/key* ::config/
+        then
+            SD_KEYS=`mktemp`
+            mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
 
-        # Can't use mdel_sd in xargs
-        comm -23 "$SD_KEYS" "$PI_KEYS" | sed -e 's|^|::config/|' | xargs -r mdel -i "$SD_DEV"
-        RET=$?
+            # Can't use mdel_sd in xargs
+            comm -23 "$SD_KEYS" "$PI_KEYS" | sed -e 's|^|::config/|' | xargs -r mdel -i "$SD_DEV"
+            RET=$?
 
-        rm -f "$PI_KEYS" "$SD_KEYS"
-        return $RET
+            rm -f "$PI_KEYS" "$SD_KEYS"
+            return $RET
+        else
+            rm -f "$PI_KEYS"
+            return 1
+        fi
+    else
+        rm -f "$PI_KEYS"
+        return 1
     fi
 }
 

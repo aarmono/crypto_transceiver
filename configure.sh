@@ -1342,13 +1342,25 @@ select_digital()
         if is_initialized
         then
             VAL=`get_config_val Codec Enabled`
+            SECURE=`get_config_val Crypto Enabled`
+
+            if test "$SECURE" -ne 0
+            then
+                DIGITAL_STR="Secure"
+                ANALOG_STR="Plain"
+                INSECURE_MODE_STR="Plain"
+            else
+                DIGITAL_STR="Digital"
+                ANALOG_STR="Analog"
+                INSECURE_MODE_STR="All"
+            fi
 
             dialog \
             --no-tags \
-            --title "Select Digital or Analog Transmission" \
-            --radiolist "If using Analog, all transmissions will be sent in the clear." 10 60 3 \
-            1       "Digital" `on_off $VAL 1`  \
-            0       "Analog"  `on_off $VAL 0` 2>$ANSWER
+            --title "Select $DIGITAL_STR or $ANALOG_STR Transmission" \
+            --radiolist "$INSECURE_MODE_STR transmissions will be sent in the clear." 9 60 3 \
+            1       "$DIGITAL_STR" `on_off $VAL 1`  \
+            0       "$ANALOG_STR"  `on_off $VAL 0` 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -1383,6 +1395,17 @@ main_menu()
             HEIGHT=$((HEIGHT+1))
         fi
 
+        SECURE=`get_config_val Crypto Enabled`
+
+        if test "$SECURE" -ne 0
+        then
+            DIGITAL_STR="Secure"
+            ANALOG_STR="Plain"
+        else
+            DIGITAL_STR="Digital"
+            ANALOG_STR="Analog"
+        fi
+
         if dialog \
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Console Interface" \
@@ -1392,7 +1415,7 @@ main_menu()
            H "Adjust Headset Volume" \
            R "Adjust Radio Volume" \
            K "Select Active Key" \
-           D "Select Digital/Analog" \
+           D "Select $DIGITAL_STR/$ANALOG_STR" \
            M "View Boot Messages" \
            O "Configuration Options" \
            L "Shell Access (Experts Only)" 2>$ANSWER

@@ -47,9 +47,9 @@ toggle_digital()
     then
         /etc/init.d/S30jack_crypto_tx signal SIGHUP
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
+        CRYPTO_EN=`get_config_val Crypto Enabled`
         if test "$DIGITAL_EN" -ne 0
         then
-            CRYPTO_EN=`get_config_val Crypto Enabled`
             if test "$CRYPTO_EN" -ne 0
             then
                 headset_tts "Secure"
@@ -57,7 +57,12 @@ toggle_digital()
                 headset_tts "Digital"
             fi
         else
-            headset_tts "Plain"
+            if test "$CRYPTO_EN" -ne 0
+            then
+                headset_tts "Plain"
+            else
+                headset_tts "Analog"
+            fi
         fi
     fi
 }

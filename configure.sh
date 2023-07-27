@@ -1045,11 +1045,13 @@ show_key_slot_dialog()
 {
     rm -f /tmp/key_slots_dialog &>/dev/null
     touch /tmp/key_slots_dialog &>/dev/null
+    COUNT=0
     IDX=1
     while test "$IDX" -le 256
     do
         if test "$1" -eq 1 || has_key "$IDX"
         then
+            COUNT=$((COUNT+1))
             echo "$IDX \"`key_slot_str $IDX`\" `on_off "$IDX" "$3"`" >> /tmp/key_slots_dialog
         fi
         IDX=$((IDX+1))
@@ -1067,12 +1069,18 @@ show_key_slot_dialog()
         DEFAULT_ARG="--default-item $3"
     fi
 
-    dialog \
-    --title "Select Key Slot(s) to $2" \
-    --no-tags \
-    $DEFAULT_ARG \
-    --"$DIALOG_TYPE" "Slots with an asterisk (*) in front of the name have a key" 24 60 4 \
-    --file /tmp/key_slots_dialog
+    if test "$COUNT" -eq 0
+    then
+        dialog --msgbox "No Keys Loaded!" 0 0
+        return 1
+    else
+        dialog \
+        --title "Select Key Slot(s) to $2" \
+        --no-tags \
+        $DEFAULT_ARG \
+        --"$DIALOG_TYPE" "Slots with an asterisk (*) in front of the name have a key" 24 60 4 \
+        --file /tmp/key_slots_dialog
+    fi
 }
 
 generate_encryption_keys()

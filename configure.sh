@@ -867,7 +867,7 @@ save_to_sd()
             do
                 case "$option" in
                     A)
-                        if ! rm -f "$ASOUND_CFG" && alsactl store && save_sd_sound_config
+                        if ! (rm -f "$ASOUND_CFG" && alsactl store && save_sd_sound_config)
                         then
                             RESULT=1
                         fi
@@ -965,7 +965,7 @@ advanced_sd_ops()
                        --checklist "Select the Settings to Load/Save, then press OK" 10 60 3 \
                        A "Audio Settings" `on_off_checklist "$selection" "A"` \
                        R "Radio Settings" `on_off_checklist "$selection" "R"` \
-                       K "Encryption Key" `on_off_checklist "$selection" "K"` 2>$ANSWER
+                       K "Encryption Keys" `on_off_checklist "$selection" "K"` 2>$ANSWER
                     then
                         selection=`cat $ANSWER`
                     fi
@@ -1022,7 +1022,7 @@ start_alsamixer()
     do
         if sound_dev_active "$DEV"
         then
-            alsamixer -D "$DEV" -V all
+            XDG_CONFIG_HOME=/etc alsamixer -D "$DEV" -V all
             return
         elif ! dialog --yesno "$2 Device $DEV Not Ready! Retry?" 0 0
         then

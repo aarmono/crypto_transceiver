@@ -25,17 +25,8 @@ alias mdel_sd="mdel -i $SD_DEV"
 # Lists the sound devices in the system
 alias aplay_ls="aplay -l"
 
-# Loads the sound card config from the SD card
-alias load_sd_sound_config="mcopy_text ::config/asound.state $ASOUND_CFG"
-
 # Seeds the RNG with random data from the SD card, if available
 alias seed_rng_with_sd="mcopy_bin ::seed $SEED_FILE && dd if=$SEED_FILE of=/dev/urandom bs=512"
-
-# Saves the sound card config to the SD card
-alias save_sd_sound_config="mcopy_text $ASOUND_CFG ::config/asound.state"
-
-# Saves the user crypto.ini file to the SD card
-alias save_sd_crypto_config="mcopy_text "$CRYPTO_INI_USR" ::config/crypto.ini"
 
 # Saves a new random seed with data from the RNG
 alias save_sd_seed="dd if=/dev/random of=$SEED_FILE bs=512 count=1 && mcopy_bin $SEED_FILE ::seed"
@@ -296,31 +287,96 @@ copy_img_to_sd()
 
 ensure_sd_has_config_dir()
 {
-    if ! mdir -i "$SD_DEV" -b | grep -q '::/config/'
+    if ! (mdir_sd -b | grep -q '::/config/')
     then
-        mkdir /tmp/config && mcopy -i "$SD_DEV" /tmp/config :: && rmdir /tmp/config
+        mkdir -p /tmp/config && mcopy -i "$SD_DEV" /tmp/config :: && rmdir /tmp/config
     fi
 }
 
-# Loads the crypto.ini file from the SD card and
-# attempts to make the config consistent in the event of failure
+# Loads the sound card config from the SD card. The
+# SD card is treated as authoritative, meaning that
+# if no config file is on the SD card the local one
+# is deleted
+load_sd_sound_config()
+{
+    if has_sd_card
+    then
+        if mcopy_text ::config/asound.state "$ASOUND_CFG"
+        then
+            return 0
+        else
+            # Failed to copy file from SD card, meaning it must not exist
+            rm -f "$ASOUND_CFG"
+            return 0
+        fi
+    else
+        return 1
+    fi
+}
+
+# Saves the sound card config to the SD card. The
+# local file is treated as authoritative, meaning that
+# if there is no local config file any one on the SD
+# card is deleted
+save_sd_sound_config()
+{
+    if has_sd_card
+    then
+        if test -f "$ASOUND_CFG"
+        then
+            mcopy_text $ASOUND_CFG ::config/asound.state
+        elif mdir_sd -b ::config/asound.state
+        then
+            mdel_sd ::config/asound.state
+        else
+            return 0
+        fi
+    else
+        reutrn 1
+    fi
+}
+
+# Loads the crypto.ini file from the SD card. The
+# SD card is treated as authoritative, meaning that
+# if no config file is on the SD card the local one
+# is deleted
 load_sd_crypto_config()
 {
-    # Success condition
-    if mcopy_text ::config/crypto.ini "$CRYPTO_INI_USR" && gen_combined_crypto_config
+    if has_sd_card
     then
-        return 0
-    # Failed to copy file from SD card, user file did not already exist.
-    # Just create a crypto.ini.all from the system one and return an error
-    elif test ! -e "$CRYPTO_INI_USR"
-    then
-        cp "$CRYPTO_INI_SYS" "$CRYPTO_INI_ALL"
-        return 1
-    # Failed to copy file from SD card, user file already exists.
-    # Generate a crypto.ini.all from the system one and the old
-    # user one, but still return an error
+        # Success condition
+        if mcopy_text ::config/crypto.ini "$CRYPTO_INI_USR" && gen_combined_crypto_config
+        then
+            return 0
+        # Failed to copy file from SD card, meaning it must not exist.
+        # Delete the local copy
+        else
+            rm -f "$CRYPTO_INI_USR"
+            cp "$CRYPTO_INI_SYS" "$CRYPTO_INI_ALL"
+            return 0
+        fi
     else
-        gen_combined_crypto_config
+        return 1
+    fi
+}
+
+# Saves the user crypto.ini file to the SD card. The local
+# file is treated as authoritative, meaning that if there is
+# no local user config file any one on the SD card is deleted
+save_sd_crypto_config()
+{
+    if has_sd_card
+    then
+        if test -f "$CRYPTO_INI_USR"
+        then
+            mcopy_text "$CRYPTO_INI_USR" ::config/crypto.ini
+        elif mdir_sd -b ::config/crypto.ini
+        then
+            mdel_sd ::config/crypto.ini
+        else
+            return 0;
+        fi
+    else
         return 1
     fi
 }

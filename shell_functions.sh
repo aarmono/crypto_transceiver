@@ -415,6 +415,29 @@ has_key()
     test -f "$KEY_PATH"
 }
 
+sd_has_any_keys()
+{
+    mdir_sd -b ::config/key*
+}
+
+has_any_keys()
+{
+    test `find /etc -type f -name 'key*' | wc -l` -gt 0
+}
+
+# Loads keys from the SD card if and only if
+# 1. There are no local keys
+# 2. There is at least one key on the SD card
+load_sd_key_noclobber()
+{
+    if ! has_any_keys && sd_has_any_keys
+    then
+        mcopy_bin ::config/key* /etc/
+    else
+        return 1
+    fi
+}
+
 # Loads the keys from the SD card
 load_sd_key()
 {

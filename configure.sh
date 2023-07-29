@@ -1266,7 +1266,7 @@ configuration_menu()
         if dialog \
            --title "Configuration Options" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 18 60 4 \
+           --menu "Select an option. Press F1 for Help." 19 60 4 \
            1 "Configure Radio Mode" \
            2 "Configure Radio Squelch" \
            3 "Configure Encryption" \
@@ -1277,6 +1277,7 @@ configuration_menu()
            A "Apply Current Settings" \
            R "Reload Settings From SD Card" \
            S "Save Current Settings To SD Card" \
+           K "Save Encryption Keys To SD Card" \
            C "Advanced SD Card Operations" 2>$ANSWER
         then
             option=`cat $ANSWER`
@@ -1310,6 +1311,9 @@ configuration_menu()
                     ;;
                 S)
                     save_to_sd A R K
+                    ;;
+                K)
+                    save_to_sd K
                     ;;
                 C)
                     advanced_sd_ops

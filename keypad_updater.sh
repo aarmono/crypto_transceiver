@@ -38,7 +38,7 @@ update_key_idx()
     then
         CONFIRM_MSG="$2"
     else
-        CONFIRM_MSG="$1 Confirm"
+        CONFIRM_MSG="$1 Confirmed"
     fi
 
     if set_config_val Crypto KeyIndex "$1"
@@ -64,7 +64,7 @@ load_keys()
     if load_sd_key_noclobber
     then
         KEY_IDX=`next_key_idx 0`
-        update_key_idx "$KEY_IDX" "Load Confirm"
+        update_key_idx "$KEY_IDX" "Loaded. $KEY_IDX Confirmed"
     else
         headset_tts "Error"
     fi
@@ -85,7 +85,13 @@ toggle_digital()
         then
             if test "$CRYPTO_EN" -ne 0
             then
-                headset_tts "Secure"
+                KEY_IDX=`get_config_val Crypto KeyIndex`
+                if has_key "$KEY_IDX"
+                then
+                    headset_tts "Secure"
+                else
+                    headset_tts "No Key"
+                fi
             else
                 headset_tts "Digital"
             fi
@@ -151,7 +157,7 @@ do
                 b)
                     if sd_has_any_keys && ! has_any_keys
                     then
-                        headset_tts "Are You Sure?"
+                        headset_tts "Ready to Load"
                     else
                         headset_tts "Cannot Load"
                     fi

@@ -10,24 +10,7 @@ send_alert()
 
 reset_key_idx()
 {
-    get_config_val Crypto KeyIndex
-}
-
-next_key_idx()
-{
-    NEXT_KEY_IDX=$(($1+1))
-    # Prevent infinite loop if no key
-    while test "$NEXT_KEY_IDX" -ne "$1" && ! has_key "$NEXT_KEY_IDX"
-    do
-        if test "$NEXT_KEY_IDX" -ge 256
-        then
-            NEXT_KEY_IDX=1
-        else
-            NEXT_KEY_IDX=$((NEXT_KEY_IDX+1))
-        fi
-    done
-
-    echo "$NEXT_KEY_IDX"
+    get_sys_config_val Crypto KeyIndex
 }
 
 # $1: Key Index to select
@@ -41,7 +24,7 @@ update_key_idx()
         CONFIRM_MSG="$1 Selected"
     fi
 
-    if set_config_val Crypto KeyIndex "$1"
+    if set_sys_config_val Crypto KeyIndex "$1"
     then
         # Reverse order SIGHUP to give RX more time
         # to reinitialize before playing TTS
@@ -69,7 +52,7 @@ load_keys()
 {
     if load_sd_key_noclobber
     then
-        KEY_IDX=`next_key_idx 0`
+        KEY_IDX=`next_key_idx 256`
         update_key_idx "$KEY_IDX" "Loaded. Key $KEY_IDX Selected"
         lock_display
     else
@@ -92,7 +75,7 @@ toggle_digital()
         then
             if test "$CRYPTO_EN" -ne 0
             then
-                KEY_IDX=`get_config_val Crypto KeyIndex`
+                KEY_IDX=`get_sys_config_val Crypto KeyIndex`
                 if has_key "$KEY_IDX"
                 then
                     headset_tts "Secure"

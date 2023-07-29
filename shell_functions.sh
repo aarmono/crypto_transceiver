@@ -241,6 +241,18 @@ set_config_val()
     iniset "$1" "$2" "$3" "$CRYPTO_INI_USR" && gen_combined_crypto_config
 }
 
+# Saves a configuration value to the system config file
+set_sys_config_val()
+{
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: set_config_val <section> <key> <value>" >&2
+        return 1
+    fi
+
+    iniset "$1" "$2" "$3" "$CRYPTO_INI_SYS" && gen_combined_crypto_config
+}
+
 # Takes a parameter "VoiceDevice" or "ModemDevice"
 # and returns the configuration value for that setting
 get_sound_hw_device()
@@ -499,6 +511,23 @@ save_sd_key()
         rm -f "$PI_KEYS"
         return 1
     fi
+}
+
+next_key_idx()
+{
+    NEXT_KEY_IDX=$(($1+1))
+    # Prevent infinite loop if no key
+    while test "$NEXT_KEY_IDX" -ne "$1" && ! has_key "$NEXT_KEY_IDX"
+    do
+        if test "$NEXT_KEY_IDX" -ge 256
+        then
+            NEXT_KEY_IDX=1
+        else
+            NEXT_KEY_IDX=$((NEXT_KEY_IDX+1))
+        fi
+    done
+
+    echo "$NEXT_KEY_IDX"
 }
 
 headset_tts()

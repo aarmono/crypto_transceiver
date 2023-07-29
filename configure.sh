@@ -1158,11 +1158,11 @@ select_active_key()
     do
         if is_initialized
         then
-            CUR_IDX=`get_config_val Crypto KeyIndex`
+            CUR_IDX=`get_sys_config_val Crypto KeyIndex`
 
             show_key_slot_dialog 0 "Set As Active" "$CUR_IDX" 2>$ANSWER
             NEW_IDX=`cat $ANSWER`
-            if test -n "$NEW_IDX" && set_config_val Crypto KeyIndex "$NEW_IDX"
+            if test -n "$NEW_IDX" && set_sys_config_val Crypto KeyIndex "$NEW_IDX"
             then
                 set_dirty
                 return 0
@@ -1184,11 +1184,10 @@ configure_encryption()
         then
             dialog \
             --title "Encryption Configuration" \
-            --menu "Select an option to configure." 11 60 4 \
+            --menu "Select an option to configure." 10 60 4 \
             1 "Enable Encryption" \
-            2 "Select Active Key" \
-            3 "Generate Encryption Keys" \
-            4 "Delete Encryption Keys" 2>$ANSWER
+            2 "Generate Encryption Keys" \
+            3 "Delete Encryption Keys" 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -1196,12 +1195,9 @@ configure_encryption()
                     enable_encryption
                     ;;
                 2)
-                    select_active_key
-                    ;;
-                3)
                     generate_encryption_keys
                     ;;
-                4)
+                3)
                     delete_encryption_keys
                     ;;
                 "")
@@ -1275,8 +1271,8 @@ configuration_menu()
            6 "Disable Console Interface" \
            V "View Current Settings" \
            A "Apply Current Settings" \
-           R "Reload Settings From SD Card" \
-           S "Save Current Settings To SD Card" \
+           R "Reinitialize System From SD Card" \
+           S "Save Configuration To SD Card" \
            K "Save Encryption Keys To SD Card" \
            C "Advanced SD Card Operations" 2>$ANSWER
         then
@@ -1310,7 +1306,7 @@ configuration_menu()
                     load_from_sd A R K
                     ;;
                 S)
-                    save_to_sd A R K
+                    save_to_sd A R
                     ;;
                 K)
                     save_to_sd K
@@ -1393,17 +1389,39 @@ select_digital()
     done
 }
 
+load_keys()
+{
+    if load_sd_key_noclobber &> /dev/null
+    then
+        set_config_val Config ConfigEnabled 0
+        set_sys_config_val Crypt KeyIndex `next_key_idx 256`
+        set_dirty
+        apply_settings
+        dialog --msgbox "Keys Loaded!" 0 0
+        return 0
+    else
+        dialog --msgbox "Keys Not Loaded!" 0 0
+        return 1
+    fi
+}
+
 main_menu()
 {
     while true
     do
         rm -f /tmp/transmit_opt
+        rm -f /tmp/config_opt
+        rm -f /tmp/load_opt
+        rm -f /tmp/shell_opt
         touch /tmp/transmit_opt
+        touch /tmp/config_opt
+        touch /tmp/load_opt
+        touch /tmp/shell_opt
 
         PTT_ENABLED=`get_config_val PTT Enabled`
         PTT_GPIONUM=`get_config_val PTT GPIONum`
 
-        HEIGHT=15
+        HEIGHT=12
         if test "$PTT_ENABLED" -ne 0 && test "$PTT_GPIONUM" -eq "-1"
         then
             echo "T \"Transmit Voice\"" > /tmp/transmit_opt
@@ -1421,6 +1439,26 @@ main_menu()
             ANALOG_STR="Analog"
         fi
 
+        if ! has_any_keys
+        then
+            echo "L \"Load Keys From SD Card\"" > /tmp/load_opt
+        else
+            echo "K \"Select Active Key\"" > /tmp/load_opt
+        fi
+
+        if test `get_config_val Config ConfigEnabled` -ne 0 && ! has_any_keys
+        then
+            echo "B \"View Boot Messages\"" >> /tmp/config_opt
+            echo "O \"Configuration Options\"" >> /tmp/config_opt
+            HEIGHT=$((HEIGHT+2))
+        fi
+
+        if test `get_sys_config_val Diagnostics ShellEnabled` -ne 0
+        then
+            echo "S \"Shell Access (Experts Only)\"" >> /tmp/shell_opt
+            HEIGHT=$((HEIGHT+1))
+        fi
+
         if dialog \
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Console Interface" \
@@ -1429,11 +1467,10 @@ main_menu()
            A "Broadcast TTS Alert" \
            H "Adjust Headset Volume" \
            R "Adjust Radio Volume" \
-           K "Select Active Key" \
+           --file /tmp/load_opt \
            D "Select $DIGITAL_STR/$ANALOG_STR" \
-           M "View Boot Messages" \
-           O "Configuration Options" \
-           L "Shell Access (Experts Only)" 2>$ANSWER
+           --file /tmp/config_opt \
+           --file /tmp/shell_opt 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1456,15 +1493,18 @@ main_menu()
                 D)
                     select_digital && apply_settings
                     ;;
-                L)
+                S)
                     clear && exec /sbin/getty -L `tty` 115200
                     ;;
-                M)
+                B)
                     show_boot_messages
                     ;;
                 O)
                     configuration_menu
                     apply_settings
+                    ;;
+                L)
+                    load_keys
                     ;;
             esac
         else

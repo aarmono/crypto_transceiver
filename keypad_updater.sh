@@ -38,7 +38,7 @@ update_key_idx()
     then
         CONFIRM_MSG="$2"
     else
-        CONFIRM_MSG="$1 Confirmed"
+        CONFIRM_MSG="$1 Selected"
     fi
 
     if set_config_val Crypto KeyIndex "$1"
@@ -59,12 +59,19 @@ update_key_idx()
     fi
 }
 
+lock_display()
+{
+    CONFIGURE_PID=`ps -A | grep 'configure.sh' | grep -v grep | sed -E 's/^ +//g' | cut -d ' ' -f 1`
+    test -n "$CONFIGURE_PID" && kill "$CONFIGURE_PID" && killall -9 dialog
+}
+
 load_keys()
 {
     if load_sd_key_noclobber
     then
         KEY_IDX=`next_key_idx 0`
-        update_key_idx "$KEY_IDX" "Loaded. $KEY_IDX Confirmed"
+        update_key_idx "$KEY_IDX" "Loaded. Key $KEY_IDX Selected"
+        lock_display
     else
         headset_tts "Error"
     fi

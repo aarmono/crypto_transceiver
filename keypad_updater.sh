@@ -30,8 +30,17 @@ next_key_idx()
     echo "$NEXT_KEY_IDX"
 }
 
+# $1: Key Index to select
+# $2: Confirm message (optional)
 update_key_idx()
 {
+    if test -n "$2"
+    then
+        CONFIRM_MSG="$2"
+    else
+        CONFIRM_MSG="$1 Confirm"
+    fi
+
     if set_config_val Crypto KeyIndex "$1"
     then
         # Reverse order SIGHUP to give RX more time
@@ -39,12 +48,23 @@ update_key_idx()
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
         /etc/init.d/S30jack_crypto_tx signal SIGHUP
 
-        if has_key
+        if has_key "$1"
         then
-            headset_tts "$1 Confirm"
+            headset_tts "$CONFIRM_MSG"
         else
             headset_tts "No Key"
         fi
+    else
+        headset_tts "Error"
+    fi
+}
+
+load_keys()
+{
+    if load_sd_key_noclobber
+    then
+        KEY_IDX=`next_key_idx 0`
+        update_key_idx "$KEY_IDX" "Load Confirm"
     else
         headset_tts "Error"
     fi
@@ -118,12 +138,23 @@ do
                     KEY_IDX=`reset_key_idx`
                     headset_tts "Key Select"
                     ;;
+                b)
+                    headset_tts "Key Load"
+                    ;;
             esac
             ;;
         value)
             case "$button" in
                 a)
                     headset_tts "$KEY_IDX"
+                    ;;
+                b)
+                    if sd_has_any_keys && ! has_any_keys
+                    then
+                        headset_tts "Are You Sure?"
+                    else
+                        headset_tts "Cannot Load"
+                    fi
                     ;;
             esac
             ;;
@@ -138,6 +169,14 @@ do
             case "$button" in
                 a)
                     update_key_idx "$KEY_IDX"
+                    ;;
+                b)
+                    if sd_has_any_keys && ! has_any_keys
+                    then
+                        load_keys
+                    else
+                        headset_tts "Cannot Load"
+                    fi
                     ;;
                 d)
                     toggle_digital

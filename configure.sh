@@ -1211,7 +1211,7 @@ configure_encryption()
     done
 }
 
-configure_config_util()
+configure_startup()
 {
     while true
     do
@@ -1255,6 +1255,79 @@ configure_config_util()
     done
 }
 
+configure_password()
+{
+    if password_prompt
+    then
+        PASSWD_FILE=`mktemp`
+        PASSWD_FILE2=`mktemp`
+        while true
+        do
+            if dialog \
+               --title "Configuration Menu Password" \
+               --passwordbox "Enter New Configuration Menu Password. Leave Blank to Disable Password Protection" 8 60 2>"$PASSWD_FILE" && \
+               dialog \
+               --title "Verify Password" \
+               --passwordbox "Re-enter New Configuration Menu Password" 8 60 2> "$PASSWD_FILE2"
+            then
+                PASSWD1=`cat "$PASSWD_FILE"`
+                PASSWD2=`cat "$PASSWD_FILE2"`
+                if test "$PASSWD1" = "$PASSWD2"
+                then
+                    if test -z "$PASSWD1"
+                    then
+                        DLG_PASSWD=""
+                        MSGBOX_ACTION="Cleared"
+                    else
+                        DLG_PASSWD=`mkpasswd -P 0 -m sha512 < "$PASSWD_FILE"`
+                        MSGBOX_ACTION="Set"
+                    fi
+
+                    set_config_val Config ConfigPassword "$DLG_PASSWD"
+                    rm -f "$PASSWD_FILE" "$PASSWD_FILE2"
+                    dialog --msgbox "Password ${MSGBOX_ACTION}!" 0 0
+                    return 0
+                else
+                    dialog --msgbox "Passwords Do Not Match!" 0 0
+                fi
+            else
+                rm -f "$PASSWD_FILE" "$PASSWD_FILE2"
+                return 1
+            fi
+        done
+    else
+        return 1
+    fi
+}
+
+configure_config_util()
+{
+    while true
+    do
+        if dialog \
+           --title "Configure Console Interface" \
+           --menu "Select an option to configure." 9 60 4 \
+           1 "Disable Console Interface" \
+           2 "Password Protect Configuration Menu" 2>$ANSWER
+        then
+            option=`cat $ANSWER`
+            case "$option" in
+                1)
+                    configure_startup
+                    ;;
+                2)
+                    configure_password
+                    ;;
+                *)
+                    return
+                    ;;
+            esac
+        else
+            return
+        fi
+    done
+}
+
 configuration_menu()
 {
     while true
@@ -1268,7 +1341,7 @@ configuration_menu()
            3 "Configure Encryption" \
            4 "Configure TTS Alert Broadcasts" \
            5 "Configure Hardware" \
-           6 "Disable Console Interface" \
+           6 "Configure Console Interface" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
@@ -1322,6 +1395,54 @@ configuration_menu()
             return
         fi
     done
+}
+
+password_prompt()
+{
+    while true
+    do
+        if is_initialized
+        then
+            PASSWD=`get_config_val Config ConfigPassword`
+            if test -z "$PASSWD"
+            then
+                return 0
+            else
+                TITLE="Password Required"
+                while true
+                do
+                    PASSWD_FILE=`mktemp`
+                    if dialog \
+                       --title "$TITLE" \
+                       --passwordbox "Enter Configuration Menu Password" 8 60 2>"$PASSWD_FILE"
+                    then
+                        PASSWD_SALT=`echo "$PASSWD" | cut -d '$' -f 3`
+                        DLG_PASSWD=`mkpasswd -P 0 -S "$PASSWD_SALT" -m sha512 < "$PASSWD_FILE"`
+                        if test "$PASSWD" = "$DLG_PASSWD"
+                        then
+                            rm "$PASSWD_FILE"
+                            return 0
+                        else
+                            rm "$PASSWD_FILE"
+                            TITLE="Incorrect Password"
+                            sleep 1
+                        fi
+                    else
+                        rm "$PASSWD_FILE"
+                        return 1
+                    fi
+                done
+            fi
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return 1
+        fi
+    done
+}
+
+configuration_menu_prompt()
+{
+    password_prompt && configuration_menu
 }
 
 transmit_voice()
@@ -1393,7 +1514,6 @@ load_keys()
 {
     if load_sd_key_noclobber &> /dev/null
     then
-        set_config_val Config ConfigEnabled 0
         set_sys_config_val Crypt KeyIndex `next_key_idx 256`
         set_dirty
         apply_settings
@@ -1410,18 +1530,16 @@ main_menu()
     while true
     do
         rm -f /tmp/transmit_opt
-        rm -f /tmp/config_opt
         rm -f /tmp/load_opt
         rm -f /tmp/shell_opt
         touch /tmp/transmit_opt
-        touch /tmp/config_opt
         touch /tmp/load_opt
         touch /tmp/shell_opt
 
         PTT_ENABLED=`get_config_val PTT Enabled`
         PTT_GPIONUM=`get_config_val PTT GPIONum`
 
-        HEIGHT=12
+        HEIGHT=14
         if test "$PTT_ENABLED" -ne 0 && test "$PTT_GPIONUM" -eq "-1"
         then
             echo "T \"Transmit Voice\"" > /tmp/transmit_opt
@@ -1446,14 +1564,7 @@ main_menu()
             echo "K \"Select Active Key\"" > /tmp/load_opt
         fi
 
-        if test `get_config_val Config ConfigEnabled` -ne 0 && ! has_any_keys
-        then
-            echo "B \"View Boot Messages\"" >> /tmp/config_opt
-            echo "O \"Configuration Options\"" >> /tmp/config_opt
-            HEIGHT=$((HEIGHT+2))
-        fi
-
-        if test `get_sys_config_val Diagnostics ShellEnabled` -ne 0
+        if test "`get_sys_config_val Diagnostics ShellEnabled`" -ne 0
         then
             echo "S \"Shell Access (Experts Only)\"" >> /tmp/shell_opt
             HEIGHT=$((HEIGHT+1))
@@ -1469,7 +1580,8 @@ main_menu()
            R "Adjust Radio Volume" \
            --file /tmp/load_opt \
            D "Select $DIGITAL_STR/$ANALOG_STR" \
-           --file /tmp/config_opt \
+           O "Configuration Options" \
+           B "View Boot Messages" \
            --file /tmp/shell_opt 2>$ANSWER
         then
             option=`cat $ANSWER`
@@ -1494,13 +1606,13 @@ main_menu()
                     select_digital && apply_settings
                     ;;
                 S)
-                    clear && exec /sbin/getty -L `tty` 115200
+                    clear && exec /sbin/getty -L "`tty`" 115200
                     ;;
                 B)
                     show_boot_messages
                     ;;
                 O)
-                    configuration_menu
+                    configuration_menu_prompt
                     apply_settings
                     ;;
                 L)
@@ -1517,8 +1629,8 @@ main_menu()
 dmesg -n 1
 
 # ForceShowConfig setting must be turned on in the firmware itself
-if (test `get_sys_config_val Diagnostics ForceShowConfig` -ne 0) ||
-   (wait_initialized && test `get_config_val Config Enabled` -ne 0)
+if (test "`get_sys_config_val Diagnostics ForceShowConfig`" -ne 0) ||
+   (wait_initialized && test "`get_config_val Config Enabled`" -ne 0)
 then
     main_menu
 else

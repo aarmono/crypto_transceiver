@@ -903,7 +903,7 @@ save_to_sd()
 
 duplicate_sd_card_loop()
 {
-    while dialog --yesno "Insert New SD Card and select Yes to copy or No to exit" 0 0
+    while dialog --yesno "Insert SD Card and select Yes to copy or No to exit" 0 0
     do
         if partprobe && test -b "/dev/mmcblk0" && copy_img_to_sd "$1" "$2" 2>&1 | dialog --programbox "Writing SD Card" 20 60
         then
@@ -1012,7 +1012,7 @@ write_image()
             rm -f /tmp/key_opts
             touch /tmp/key_opts
 
-            HEIGHT=9
+            HEIGHT=11
             if has_any_keys
             then
                 echo "3 \"Keys Only\"" >> /tmp/key_opts
@@ -1022,8 +1022,8 @@ write_image()
             fi
 
             dialog \
-            --title "Create SD Card" \
-            --menu "Select a type of SD Card to create" "$HEIGHT" 60 4 \
+            --title "Flash SD Card" \
+            --menu "Select a type of image to flash. Flashing an SD Card with a Locked Device image will permanently make it read-only." "$HEIGHT" 60 4 \
             1 "Locked Handheld, No Keys" \
             2 "Locked Base Station, No Keys" \
             --file /tmp/key_opts 2>$ANSWER
@@ -1340,7 +1340,7 @@ configuration_menu()
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
-           C "Create SD Card" 2>$ANSWER
+           F "Flash SD Card" 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1374,7 +1374,7 @@ configuration_menu()
                 S)
                     save_to_sd A R
                     ;;
-                C)
+                F)
                     write_image
                     ;;
                 *)

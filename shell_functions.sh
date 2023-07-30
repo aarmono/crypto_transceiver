@@ -318,6 +318,8 @@ combine_img_p1()
     dd if="$2" of="$1" bs="$BLOCK_SIZE" seek="$START_BLOCK"
 }
 
+# Copies SD card image to SD card
+# $2 non-null to save random seed
 copy_img_to_sd()
 {
     if test -z "$1"
@@ -326,7 +328,10 @@ copy_img_to_sd()
         return 1
     fi
 
-    dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && partprobe /dev/mmcblk0 && echo "Success" 1>&2
+    dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && \
+        partprobe /dev/mmcblk0 && \
+        (test -z "$2" || save_sd_seed) && \
+        echo "Success" 1>&2
 }
 
 ensure_sd_has_config_dir()

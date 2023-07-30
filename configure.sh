@@ -5,7 +5,6 @@
 exec 2>/dev/null
 
 ANSWER=/tmp/answer
-SD_IMG=/tmp/sd.img
 # "Dirty" just means the jack_crypto_tx and jack_crypto_rx services
 # need to be SIGHUP-ed
 # "Filthy" means the audio services need to be restarted
@@ -906,33 +905,96 @@ duplicate_sd_card_loop()
 {
     while dialog --yesno "Insert New SD Card and select Yes to copy or No to exit" 0 0
     do
-        if partprobe && has_sd_card && copy_img_to_sd "$SD_IMG" 2>&1 | dialog --programbox "Writing SD Card" 20 60
+        if partprobe && test -b "/dev/mmcblk0" && copy_img_to_sd "$1" "$2" 2>&1 | dialog --programbox "Writing SD Card" 20 60
         then
-            true
+            sdtool /dev/mmcblk0 lock &> /dev/null
+            test "$?" -eq -2
         elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+        then
+            return 1
+        fi
+    done
+}
+
+# $1 1 to include keys, 0 to exclude
+# $2 h for handheld, b for base
+write_device_image()
+{
+    while true
+    do
+        if is_initialized
+        then
+            TMP_CRYPTO_INI=`mktemp`
+            cp "$CRYPTO_INI_USR" "$TMP_CRYPTO_INI"
+            case "$2" in
+                h)
+                    iniset Config Enabled 0 "$TMP_CRYPTO_INI"
+                    iniset Config ConfigPassword '*' "$TMP_CRYPTO_INI"
+                    ;;
+                b)
+                    iniset Config Enabled 1 "$TMP_CRYPTO_INI"
+                    iniset Config ConfigPassword '*' "$TMP_CRYPTO_INI"
+                    ;;
+            esac
+
+            rm -f "$ASOUND_CFG" && alsactl store
+
+            TMP_DOS_IMG=`mktemp`
+            TMP_SD_IMG=`mktemp`
+            cp "$SD_IMG_DOS" "$TMP_DOS_IMG"
+            cp "$SD_IMG" "$TMP_SD_IMG"
+
+            mdeltree -i "$TMP_DOS_IMG" ::config
+            mkdir -p /tmp/config && mcopy -i "$TMP_DOS_IMG" /tmp/config :: && rmdir /tmp/config
+            mcopy -t -n -D o -i "$TMP_DOS_IMG" "$ASOUND_CFG" ::config/asound.state
+            mcopy -t -n -D o -i "$TMP_DOS_IMG" "$TMP_CRYPTO_INI" ::config/crypto.ini
+            if test "$1" -ne 0
+            then
+                mcopy -n -D o -i "$TMP_DOS_IMG" /etc/key* ::config/
+            fi
+
+            combine_img_p1 "$TMP_SD_IMG" "$TMP_DOS_IMG"
+
+            duplicate_sd_card_loop "$TMP_SD_IMG" 1
+            rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
+            return
+        elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
             return
         fi
     done
 }
 
-duplicate_sd_card()
+write_key_image()
 {
     while true
     do
-        if has_sd_card && is_initialized
+        if is_initialized && has_any_keys
         then
-            if copy_sd_to_img "$SD_IMG" 2>&1 | dialog --programbox "Reading SD Card" 20 60
+            TMP_DOS_IMG=`mktemp`
+            TMP_SD_IMG=`mktemp`
+            mkdir -p /tmp/config
+
+            if has_any_keys && \
+               dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
+               mkdosfs "$TMP_DOS_IMG" && \
+               mcopy -i "$TMP_DOS_IMG" /tmp/config :: && \
+               mcopy -n -D o -i "$TMP_DOS_IMG" /etc/key* ::config/
             then
-                duplicate_sd_card_loop
-                rm -f "$SD_IMG"
-                return
-            elif ! dialog --yesno "SD Card Read Failed! Retry?" 0 0
-            then
-                rm -f "$SD_IMG"
-                return
+                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
+                echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG"
+                if dd if="$TMP_DOS_IMG" of="$TMP_SD_IMG" bs=512 seek=63
+                then
+                    duplicate_sd_card_loop "$TMP_SD_IMG"
+                    rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+                    return
+                else
+                    rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+                    return
+                fi
             else
-                rm -f "$SD_IMG"
+                rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+                return
             fi
         elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
@@ -941,43 +1003,47 @@ duplicate_sd_card()
     done
 }
 
-advanced_sd_ops()
+write_image()
 {
-    selection="A R K"
     while true
     do
         if is_initialized
         then
+            rm -f /tmp/key_opts
+            touch /tmp/key_opts
+
+            HEIGHT=9
+            if has_any_keys
+            then
+                echo "3 \"Keys Only\"" >> /tmp/key_opts
+                echo "4 \"Locked Handheld, With Keys\"" >> /tmp/key_opts
+                echo "5 \"Locked Base Station, With Keys\"" >> /tmp/key_opts
+                HEIGHT=$((HEIGHT+3))
+            fi
+
             dialog \
-            --title "Advanced SD Card Operations" \
-            --menu "Select an operation to perform on the SD Card." 11 60 4 \
-            1 "Select Configuration Items to Load/Save" \
-            2 "Save Selected Items To SD Card" \
-            3 "Load Selected Items From SD Card" \
-            4 "Duplicate This SD Card" 2>$ANSWER
+            --title "Create SD Card" \
+            --menu "Select a type of SD Card to create" "$HEIGHT" 60 4 \
+            1 "Locked Handheld, No Keys" \
+            2 "Locked Base Station, No Keys" \
+            --file /tmp/key_opts 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
                 1)
-                    if dialog \
-                       --no-tags \
-                       --title "SD Card Items" \
-                       --checklist "Select the Settings to Load/Save, then press OK" 10 60 3 \
-                       A "Audio Settings" `on_off_checklist "$selection" "A"` \
-                       R "Radio Settings" `on_off_checklist "$selection" "R"` \
-                       K "Encryption Keys" `on_off_checklist "$selection" "K"` 2>$ANSWER
-                    then
-                        selection=`cat $ANSWER`
-                    fi
+                    write_device_image 0 h
                     ;;
                 2)
-                    save_to_sd $selection
+                    write_device_image 0 b
                     ;;
                 3)
-                    load_from_sd $selection
+                    write_key_image
                     ;;
                 4)
-                    duplicate_sd_card
+                    write_device_image 1 h
+                    ;;
+                5)
+                    write_device_image 1 b
                     ;;
                 "")
                     return
@@ -1211,50 +1277,6 @@ configure_encryption()
     done
 }
 
-configure_startup()
-{
-    while true
-    do
-        if is_initialized
-        then
-            VAL=`get_user_config_val Config Enabled`
-            DEFAULT=`get_sys_config_val Config Enabled`
-
-            if test "$DEFAULT" = "0"
-            then
-                DEFAULT=Disabled
-            else
-                DEFAULT=Enabled
-            fi
-
-            dialog \
-            --no-tags \
-            --title "Disable Console Interface?" \
-            --radiolist "If Enabled, the Console Interface will be shown at startup. If Disabled, the display will be locked at startup. If Disabled and saved to the SD Card, it cannot be re-enabled once the system is turned off" 13 60 3 \
-            default "Default ($DEFAULT)" `on_off $VAL ""` \
-            1       "Enabled"            `on_off $VAL 1`  \
-            0       "Disabled"           `on_off $VAL 0` 2>$ANSWER
-
-            option=`cat $ANSWER`
-            case "$option" in
-                default)
-                    set_config_val Config Enabled ""
-                    # Don't need to set Dirty since services unaffected
-                    ;;
-                0|1)
-                    set_config_val Config Enabled $option
-                    # Don't need to set Dirty since services unaffected
-                    ;;
-            esac
-
-            return
-        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
-        then
-            return
-        fi
-    done
-}
-
 configure_password()
 {
     if password_prompt
@@ -1300,34 +1322,6 @@ configure_password()
     fi
 }
 
-configure_config_util()
-{
-    while true
-    do
-        if dialog \
-           --title "Configure Console Interface" \
-           --menu "Select an option to configure." 9 60 4 \
-           1 "Disable Console Interface" \
-           2 "Password Protect Configuration Menu" 2>$ANSWER
-        then
-            option=`cat $ANSWER`
-            case "$option" in
-                1)
-                    configure_startup
-                    ;;
-                2)
-                    configure_password
-                    ;;
-                *)
-                    return
-                    ;;
-            esac
-        else
-            return
-        fi
-    done
-}
-
 configuration_menu()
 {
     while true
@@ -1335,19 +1329,18 @@ configuration_menu()
         if dialog \
            --title "Configuration Options" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 19 60 4 \
+           --menu "Select an option. Press F1 for Help." 18 60 4 \
            1 "Configure Radio Mode" \
            2 "Configure Radio Squelch" \
            3 "Configure Encryption" \
            4 "Configure TTS Alert Broadcasts" \
            5 "Configure Hardware" \
-           6 "Configure Console Interface" \
+           6 "Set Configuration Menu Password" \
            V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
-           K "Save Encryption Keys To SD Card" \
-           C "Advanced SD Card Operations" 2>$ANSWER
+           C "Create SD Card" 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1367,7 +1360,7 @@ configuration_menu()
                     configure_hardware
                     ;;
                 6)
-                    configure_config_util
+                    configure_password
                     ;;
                 V)
                     show_user_settings
@@ -1381,11 +1374,8 @@ configuration_menu()
                 S)
                     save_to_sd A R
                     ;;
-                K)
-                    save_to_sd K
-                    ;;
                 C)
-                    advanced_sd_ops
+                    write_image
                     ;;
                 *)
                     return
@@ -1532,14 +1522,16 @@ main_menu()
         rm -f /tmp/transmit_opt
         rm -f /tmp/load_opt
         rm -f /tmp/shell_opt
+        rm -f /tmp/config_opt
         touch /tmp/transmit_opt
         touch /tmp/load_opt
         touch /tmp/shell_opt
+        touch /tmp/config_opt
 
         PTT_ENABLED=`get_config_val PTT Enabled`
         PTT_GPIONUM=`get_config_val PTT GPIONum`
 
-        HEIGHT=14
+        HEIGHT=13
         if test "$PTT_ENABLED" -ne 0 && test "$PTT_GPIONUM" -eq "-1"
         then
             echo "T \"Transmit Voice\"" > /tmp/transmit_opt
@@ -1570,6 +1562,12 @@ main_menu()
             HEIGHT=$((HEIGHT+1))
         fi
 
+        if test "`get_config_val Config ConfigPassword`" != '*'
+        then
+            echo "O \"Configuration Options\"" > /tmp/config_opt
+            HEIGHT=$((HEIGHT+1))
+        fi
+
         if dialog \
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Console Interface" \
@@ -1580,7 +1578,7 @@ main_menu()
            R "Adjust Radio Volume" \
            --file /tmp/load_opt \
            D "Select $DIGITAL_STR/$ANALOG_STR" \
-           O "Configuration Options" \
+           --file /tmp/config_opt \
            B "View Boot Messages" \
            --file /tmp/shell_opt 2>$ANSWER
         then

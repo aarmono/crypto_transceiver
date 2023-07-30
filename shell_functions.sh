@@ -12,6 +12,8 @@ TTS_FILE=/tmp/tts.wav
 NOTIFY_FILE=/tmp/notify.wav
 
 SD_DEV=/dev/mmcblk0p1
+SD_IMG=/tmp/sd.img
+SD_IMG_DOS=/tmp/sd_dos.img
 
 # Copies a text file to/from the SD card
 alias mcopy_text="mcopy -t -n -D o -i $SD_DEV"
@@ -286,6 +288,36 @@ copy_sd_to_img()
     test "$TOTAL_BYTES" -lt 200000000 && dd if=/dev/mmcblk0 of="$1" bs="$BLOCK_SIZE" count="$BLOCK_COUNT" conv=fsync status=progress && echo "Success!" 1>&2
 }
 
+# Extracts first partition from an SD card image
+extract_img_p1()
+{
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: extract_img_p1 <src_filepath> <dst_filepath>"
+        return 1
+    fi
+
+    BLOCK_SIZE=`fdisk -u -l "$1" | grep -o -E '[0-9]+ bytes$' | cut -d ' ' -f 1`
+    START_BLOCK=`fdisk -u -l "$1" | grep "${1}1" | xargs echo | cut -d ' ' -f 5`
+    END_BLOCK=`fdisk -u -l "$1" | grep "${1}1" | xargs echo | cut -d ' ' -f 6`
+
+    BLOCK_COUNT=$((END_BLOCK-START_BLOCK+1))
+    dd if="$1" of="$2" bs="$BLOCK_SIZE" count="$BLOCK_COUNT" skip="$START_BLOCK"
+}
+
+combine_img_p1()
+{
+    if test -z "$1" || test -z "$2"
+    then
+        echo "usage: extract_img_p1 <img_filepath> <part_filepath>"
+        return 1
+    fi
+
+    BLOCK_SIZE=`fdisk -u -l "$1" | grep -o -E '[0-9]+ bytes$' | cut -d ' ' -f 1`
+    START_BLOCK=`fdisk -u -l "$1" | grep "${1}1" | xargs echo | cut -d ' ' -f 5`
+    dd if="$2" of="$1" bs="$BLOCK_SIZE" seek="$START_BLOCK"
+}
+
 copy_img_to_sd()
 {
     if test -z "$1"
@@ -294,7 +326,7 @@ copy_img_to_sd()
         return 1
     fi
 
-    dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && partprobe /dev/mmcblk0 && save_sd_seed && echo "Success" 1>&2
+    dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && partprobe /dev/mmcblk0 && echo "Success" 1>&2
 }
 
 ensure_sd_has_config_dir()

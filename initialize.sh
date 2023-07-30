@@ -34,6 +34,11 @@ function main()
     # Put a new seed onto the SD card. This call will block until the RNG is
     # initialized, so this needs to run in a background process (it is)
     echo -n "Saving new seed..." && save_sd_seed && echo "Done!" || echo "Error."
+
+    echo -n "Creating SD card image..." && \
+        copy_sd_to_img "$SD_IMG" &> /dev/null && \
+        extract_img_p1 "$SD_IMG" "$SD_IMG_DOS" && \
+        echo "Done!" || echo "Error."
 }
 
 main | logger -t initialize -p daemon.info

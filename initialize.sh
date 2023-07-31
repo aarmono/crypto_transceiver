@@ -28,7 +28,7 @@ function main()
 
     if has_any_keys
     then
-        set_sys_config_val Crypto KeyIndex "`next_key_idx 256`"
+        set_key_index "`next_key_idx 256`"
     fi
 
     alsa_restore

@@ -10,7 +10,7 @@ send_alert()
 
 reset_key_idx()
 {
-    get_sys_config_val Crypto KeyIndex
+    get_key_index
 }
 
 # $1: Key Index to select
@@ -24,7 +24,7 @@ update_key_idx()
         CONFIRM_MSG="$1 Selected"
     fi
 
-    if set_sys_config_val Crypto KeyIndex "$1"
+    if set_key_index "$1"
     then
         # Reverse order SIGHUP to give RX more time
         # to reinitialize before playing TTS
@@ -68,7 +68,7 @@ toggle_digital()
         then
             if test "$CRYPTO_EN" -ne 0
             then
-                KEY_IDX=`get_sys_config_val Crypto KeyIndex`
+                KEY_IDX=`get_key_index`
                 if has_key "$KEY_IDX"
                 then
                     headset_tts "Secure"

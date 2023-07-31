@@ -976,14 +976,14 @@ write_key_image()
             mkdir -p /tmp/config
 
             if has_any_keys && \
-               dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
-               mkdosfs "$TMP_DOS_IMG" && \
-               mcopy -i "$TMP_DOS_IMG" /tmp/config :: && \
-               mcopy -n -D o -i "$TMP_DOS_IMG" /etc/key* ::config/
+               dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 &> /dev/null && \
+               mkdosfs "$TMP_DOS_IMG" &> /dev/null && \
+               mcopy -i "$TMP_DOS_IMG" /tmp/config :: &> /dev/null && \
+               mcopy -n -D o -i "$TMP_DOS_IMG" /etc/key* ::config/ &> /dev/null
             then
-                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
-                echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG"
-                if dd if="$TMP_DOS_IMG" of="$TMP_SD_IMG" bs=512 seek=63
+                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065 &> /dev/null
+                echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
+                if dd if="$TMP_DOS_IMG" of="$TMP_SD_IMG" bs=512 seek=63 &> /dev/null
                 then
                     duplicate_sd_card_loop "$TMP_SD_IMG"
                     rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"

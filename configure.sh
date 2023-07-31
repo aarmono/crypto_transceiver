@@ -1174,6 +1174,9 @@ generate_encryption_keys()
         then
             if show_key_slot_dialog 1 "Hold the New Keys" "" 1 2>$ANSWER
             then
+                has_any_keys
+                HAD_KEYS="$?"
+
                 RESULT=0
                 for IDX in `cat $ANSWER`
                 do
@@ -1187,6 +1190,11 @@ generate_encryption_keys()
 
                 if test $RESULT -eq 0
                 then
+                    if test "$HAD_KEYS" -ne 0 && has_any_keys
+                    then
+                        set_key_index "`next_key_idx 256`"
+                        set_dirty
+                    fi
                     dialog --msgbox "New Keys Created!" 0 0
                 else
                     dialog --msgbox "New Keys Not Created!" 0 0
@@ -1242,11 +1250,11 @@ select_active_key()
     do
         if is_initialized
         then
-            CUR_IDX=`get_sys_config_val Crypto KeyIndex`
+            CUR_IDX=`get_key_index`
 
             show_key_slot_dialog 0 "Set As Active" "$CUR_IDX" 2>$ANSWER
             NEW_IDX=`cat $ANSWER`
-            if test -n "$NEW_IDX" && set_sys_config_val Crypto KeyIndex "$NEW_IDX"
+            if test -n "$NEW_IDX" && set_key_index "$NEW_IDX"
             then
                 set_dirty
                 return 0
@@ -1531,7 +1539,7 @@ load_keys()
 {
     if load_sd_key_noclobber &> /dev/null
     then
-        set_sys_config_val Crypt KeyIndex `next_key_idx 256`
+        set_key_index "`next_key_idx 256`"
         set_dirty
         apply_settings
         dialog --msgbox "Keys Loaded!" 0 0

@@ -15,10 +15,14 @@ SD_DEV=/dev/mmcblk0p1
 SD_IMG=/tmp/sd.img
 SD_IMG_DOS=/tmp/sd_dos.img
 
+# Copies a text file
+alias mcopy_text="mcopy -t -n -D o"
 # Copies a text file to/from the SD card
-alias mcopy_text="mcopy -t -n -D o -i $SD_DEV"
+alias mcopy_text_sd="mcopy_text -i $SD_DEV"
+# Copies a binary file
+alias mcopy_bin="mcopy -D o -n"
 # Copies a binary file to/from the SD card
-alias mcopy_bin="mcopy -D o -n -i $SD_DEV"
+alias mcopy_bin_sd="mcopy_bin -i $SD_DEV"
 # Lists directories from the SD card
 alias mdir_sd="mdir -i $SD_DEV"
 # Deletes files from the SD card
@@ -28,10 +32,10 @@ alias mdel_sd="mdel -i $SD_DEV"
 alias aplay_ls="aplay -l"
 
 # Seeds the RNG with random data from the SD card, if available
-alias seed_rng_with_sd="mcopy_bin ::seed $SEED_FILE && dd if=$SEED_FILE of=/dev/urandom bs=512"
+alias seed_rng_with_sd="mcopy_bin_sd ::seed $SEED_FILE && dd if=$SEED_FILE of=/dev/urandom bs=512"
 
 # Saves a new random seed with data from the RNG
-alias save_sd_seed="dd if=/dev/random of=$SEED_FILE bs=512 count=1 && mcopy_bin $SEED_FILE ::seed"
+alias save_sd_seed="dd if=/dev/random of=$SEED_FILE bs=512 count=1 && mcopy_bin_sd $SEED_FILE ::seed"
 
 # Generates the crypto.ini.all from the user config and system config
 alias gen_combined_crypto_config="cat $CRYPTO_INI_SYS $CRYPTO_INI_USR > $CRYPTO_INI_ALL"
@@ -334,9 +338,16 @@ copy_img_to_sd()
 
 ensure_sd_has_config_dir()
 {
-    if ! (mdir_sd -b | grep -q '::/config/')
+    if test -z "$1"
     then
-        mkdir -p /tmp/config && mcopy -i "$SD_DEV" /tmp/config :: && rmdir /tmp/config
+        SD_DST="$SD_DEV"
+    else
+        SD_DST="$1"
+    fi
+
+    if ! (mdir -i "$SD_DST" -b | grep -q '::/config/')
+    then
+        mkdir -p /tmp/config && mcopy -i "$SD_DST" /tmp/config :: && rmdir /tmp/config
     fi
 }
 
@@ -348,7 +359,7 @@ load_sd_sound_config()
 {
     if has_sd_card
     then
-        if mcopy_text ::config/asound.state "$ASOUND_CFG"
+        if mcopy_text_sd ::config/asound.state "$ASOUND_CFG"
         then
             return 0
         else
@@ -371,7 +382,7 @@ save_sd_sound_config()
     then
         if test -f "$ASOUND_CFG"
         then
-            mcopy_text $ASOUND_CFG ::config/asound.state
+            mcopy_text_sd $ASOUND_CFG ::config/asound.state
         elif mdir_sd -b ::config/asound.state
         then
             mdel_sd ::config/asound.state
@@ -392,7 +403,7 @@ load_sd_crypto_config()
     if has_sd_card
     then
         # Success condition
-        if mcopy_text ::config/crypto.ini "$CRYPTO_INI_USR" && gen_combined_crypto_config
+        if mcopy_text_sd ::config/crypto.ini "$CRYPTO_INI_USR" && gen_combined_crypto_config
         then
             return 0
         # Failed to copy file from SD card, meaning it must not exist.
@@ -416,7 +427,7 @@ save_sd_crypto_config()
     then
         if test -f "$CRYPTO_INI_USR"
         then
-            mcopy_text "$CRYPTO_INI_USR" ::config/crypto.ini
+            mcopy_text_sd "$CRYPTO_INI_USR" ::config/crypto.ini
         elif mdir_sd -b ::config/crypto.ini
         then
             mdel_sd ::config/crypto.ini
@@ -479,7 +490,7 @@ load_sd_key_noclobber()
 {
     if ! has_any_keys && sd_has_any_keys
     then
-        mcopy_bin ::config/key* /etc/
+        mcopy_bin_sd ::config/key* /etc/
     else
         return 1
     fi
@@ -499,7 +510,7 @@ load_sd_key()
         grep key < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
         NUM_KEYS=`wc -l < "$SD_KEYS"`
 
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin ::config/key* /etc/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/key* /etc/
         then
             PI_KEYS=`mktemp`
 
@@ -527,7 +538,7 @@ save_sd_key()
     if find /etc/ -type f -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
     then
         NUM_KEYS=`wc -l < $PI_KEYS`
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin /etc/key* ::config/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/key* ::config/
         then
             SD_KEYS=`mktemp`
             mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"

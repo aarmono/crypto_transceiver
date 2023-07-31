@@ -962,19 +962,25 @@ write_device_image()
             cp "$SD_IMG" "$TMP_SD_IMG"
 
             mdeltree -i "$TMP_DOS_IMG" ::config
-            mkdir -p /tmp/config && mcopy -i "$TMP_DOS_IMG" /tmp/config :: && rmdir /tmp/config
-            mcopy -t -n -D o -i "$TMP_DOS_IMG" "$ASOUND_CFG" ::config/asound.state
-            mcopy -t -n -D o -i "$TMP_DOS_IMG" "$TMP_CRYPTO_INI" ::config/crypto.ini
-            if test "$1" -ne 0
+            if ensure_sd_has_config_dir "$TMP_DOS_IMG" && \
+               mcopy_text -i "$TMP_DOS_IMG" "$ASOUND_CFG" ::config/asound.state && \
+               mcopy_text -i "$TMP_DOS_IMG" "$TMP_CRYPTO_INI" ::config/crypto.ini
             then
-                mcopy -n -D o -i "$TMP_DOS_IMG" /etc/key* ::config/
+                if test "$1" -ne 0
+                then
+                    mcopy_bin -i "$TMP_DOS_IMG" /etc/key* ::config/
+                fi
+
+                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1
+                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG" "$TMP_CRYPTO_INI"
+                return
+            elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+            then
+                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG" "$TMP_CRYPTO_INI"
+                return
+            else
+                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG" "$TMP_CRYPTO_INI"
             fi
-
-            combine_img_p1 "$TMP_SD_IMG" "$TMP_DOS_IMG"
-
-            duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1
-            rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
-            return
         elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
             return
@@ -990,23 +996,24 @@ write_key_image()
         then
             TMP_DOS_IMG=`mktemp`
             TMP_SD_IMG=`mktemp`
-            mkdir -p /tmp/config
 
-            if has_any_keys && \
-               dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 &> /dev/null && \
+            if dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
                mkdosfs "$TMP_DOS_IMG" &> /dev/null && \
-               mcopy -i "$TMP_DOS_IMG" /tmp/config :: &> /dev/null && \
-               mcopy -n -D o -i "$TMP_DOS_IMG" /etc/key* ::config/ &> /dev/null
+               ensure_sd_has_config_dir "$TMP_DOS_IMG" && \
+               mcopy_bin -i "$TMP_DOS_IMG" /etc/key* ::config/
             then
-                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065 &> /dev/null
+                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
                 echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
 
                 duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG"
                 rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
                 return
-            else
-                rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+            elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+            then
+                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
                 return
+            else
+                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
             fi
         elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then

@@ -1366,7 +1366,7 @@ configuration_menu()
                     apply_settings
                     ;;
                 R)
-                    password_prompt && load_from_sd A R K
+                    password_prompt && load_from_sd A R
                     ;;
                 S)
                     save_to_sd A R

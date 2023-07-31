@@ -42,7 +42,7 @@ state at all unless a way is found to "jailbreak" out of this mode. The author
 is not aware of any way to do so, but that doesn't mean no way exists.
 
 The "Flash SD Card" Configuration Option allows SD Cards to be programmed with
-Device images in a "Locked mode where either the Configuration Menu is disabled
+Device images in a "Locked" mode where either the Configuration Menu is disabled
 (the "Base Station" configuration) or the display is locked (the "Handheld"
 configuration). The SD Card is also permanently made read-only to prevent
 tampering with the image.

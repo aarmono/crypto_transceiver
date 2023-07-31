@@ -15,6 +15,8 @@ SD_DEV=/dev/mmcblk0p1
 SD_IMG=/tmp/sd.img
 SD_IMG_DOS=/tmp/sd_dos.img
 
+USB_DEV=/dev/sda1
+
 # Copies a text file
 alias mcopy_text="mcopy -t -n -D o"
 # Copies a text file to/from the SD card
@@ -23,8 +25,12 @@ alias mcopy_text_sd="mcopy_text -i $SD_DEV"
 alias mcopy_bin="mcopy -D o -n"
 # Copies a binary file to/from the SD card
 alias mcopy_bin_sd="mcopy_bin -i $SD_DEV"
+# Copies a binary file to/from the USB drive
+alias mcopy_bin_usb="mcopy_bin -i $USB_DEV"
 # Lists directories from the SD card
 alias mdir_sd="mdir -i $SD_DEV"
+# Lists directories from the USB drive
+alias mdir_usb="mdir -i $USB_DEV"
 # Deletes files from the SD card
 alias mdel_sd="mdel -i $SD_DEV"
 
@@ -54,6 +60,9 @@ alias is_tx_initialized="test -e /var/run/tx_initialized"
 
 # Tests whether the system has an SD card installed
 alias has_sd_card="test -b $SD_DEV"
+
+# Tests whether the system has a USB flash drive installed
+alias has_usb_drive="test -b $USB_DEV"
 
 # Runs espeak with settings optimized for radio transmission
 alias espeak_radio="espeak -v en -g 10 -s 140"
@@ -331,8 +340,15 @@ copy_img_to_sd()
         return 1
     fi
 
-    dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && \
-        partprobe /dev/mmcblk0 && \
+    if test -n "$2"
+    then
+        DST_DEV="$2"
+    else
+        DST_DEV="/dev/mmcblk0"
+    fi
+
+    dd if="$1" of="$DST_DEV" bs=512 conv=fsync status=progress && \
+        partprobe "$DST_DEV" && \
         echo "Success" 1>&2
 }
 
@@ -478,6 +494,16 @@ sd_has_any_keys()
     mdir_sd -b ::config/key*
 }
 
+usb_has_any_keys()
+{
+    mdir_usb -b ::config/key*
+}
+
+ext_has_any_keys()
+{
+    sd_has_any_keys || usb_has_any_keys
+}
+
 has_any_keys()
 {
     test `find /etc -type f -name 'key*' | wc -l` -gt 0
@@ -485,12 +511,20 @@ has_any_keys()
 
 # Loads keys from the SD card if and only if
 # 1. There are no local keys
-# 2. There is at least one key on the SD card
+# 2. There is at least one key on the SD card (first) or USB drive (second)
 load_sd_key_noclobber()
 {
-    if ! has_any_keys && sd_has_any_keys
+    if ! has_any_keys
     then
-        mcopy_bin_sd ::config/key* /etc/
+        if sd_has_any_keys
+        then
+            mcopy_bin_sd ::config/key* /etc/
+        elif usb_has_any_keys
+        then
+            mcopy_bin_usb ::config/key* /etc/
+        else
+            return 1
+        fi
     else
         return 1
     fi

@@ -907,26 +907,43 @@ save_to_sd()
 # $4 lock the SD Card
 duplicate_sd_card_loop()
 {
-    while dialog --yesno "Insert SD Card and select Yes to copy or No to exit" 0 0
+    if test -z "$4"
+    then
+        DEV_PROMPT="SD Card or USB Drive"
+    else
+        DEV_PROMPT="SD Card"
+    fi
+
+    while dialog --yesno "Insert $DEV_PROMPT and select Yes to copy or No to exit" 0 0
     do
         if test "$3" -ne 0
         then
-            dd if=/dev/random of="$SEED_FILE" bs=512 count=1 && mcopy -D o -n -i "$2" "$SEED_FILE" ::seed
+            dd if=/dev/random of="$SEED_FILE" bs=512 count=1 && mcopy_bin -i "$2" "$SEED_FILE" ::seed
         fi
 
         combine_img_p1 "$1" "$2"
 
-        if partprobe && test -b "/dev/mmcblk0" && copy_img_to_sd "$1" 2>&1 | dialog --programbox "Writing SD Card" 20 60
+        # Only write keys to USB drives
+        if test -z "$4" && has_usb_drive
+        then
+            DST_DRIVE="/dev/sda"
+            DST_NAME="USB Drive"
+        else
+            DST_DRIVE="/dev/mmcblk0"
+            DST_NAME="SD Card"
+        fi
+
+        if partprobe && test -b "$DST_DRIVE" && copy_img_to_sd "$1" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
         then
             if test "$4" -ne 0
             then
-                sdtool /dev/mmcblk0 lock &> /dev/null
-                if test "$?" -ne 254 && ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+                sdtool "$DST_DRIVE" lock &> /dev/null
+                if test "$?" -ne 254 && ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
                 then
                     return 1
                 fi
             fi
-        elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+        elif ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
         then
             return 1
         fi
@@ -1041,8 +1058,8 @@ write_image()
             fi
 
             dialog \
-            --title "Flash SD Card" \
-            --menu "Select a type of image to flash. Flashing an SD Card with a Locked Device image will permanently make it read-only." "$HEIGHT" 60 4 \
+            --title "Deployment Options" \
+            --menu "Select a type of image to deploy. Deploying a Locked Device Image to an SD Card will permanently make it read-only." "$HEIGHT" 60 4 \
             1 "Locked Handheld, No Keys" \
             2 "Locked Base Station, No Keys" \
             --file /tmp/key_opts 2>$ANSWER
@@ -1340,7 +1357,7 @@ configuration_menu()
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
-           F "Flash SD Card" 2>$ANSWER
+           D "Deploy Images" 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1371,7 +1388,7 @@ configuration_menu()
                 S)
                     save_to_sd A R
                     ;;
-                F)
+                D)
                     write_image
                     ;;
                 *)
@@ -1561,7 +1578,7 @@ main_menu()
 
         if ! has_any_keys
         then
-            echo "L \"Load Keys From SD Card\"" > /tmp/load_opt
+            echo "L \"Load Keys\"" > /tmp/load_opt
         else
             echo "K \"Select Active Key\"" > /tmp/load_opt
         fi

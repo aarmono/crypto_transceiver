@@ -138,7 +138,7 @@ do
                     headset_tts "$KEY_IDX"
                     ;;
                 b)
-                    if sd_has_any_keys && ! has_any_keys
+                    if ! has_any_keys && ext_has_any_keys
                     then
                         headset_tts "Ready to Load"
                     else
@@ -160,7 +160,7 @@ do
                     update_key_idx "$KEY_IDX"
                     ;;
                 b)
-                    if sd_has_any_keys && ! has_any_keys
+                    if ! has_any_keys && ext_has_any_keys
                     then
                         load_keys
                     else

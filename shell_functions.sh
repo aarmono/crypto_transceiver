@@ -319,7 +319,6 @@ combine_img_p1()
 }
 
 # Copies SD card image to SD card
-# $2 non-null to save random seed
 copy_img_to_sd()
 {
     if test -z "$1"
@@ -330,7 +329,6 @@ copy_img_to_sd()
 
     dd if="$1" of=/dev/mmcblk0 bs=512 conv=fsync status=progress && \
         partprobe /dev/mmcblk0 && \
-        (test -z "$2" || save_sd_seed) && \
         echo "Success" 1>&2
 }
 

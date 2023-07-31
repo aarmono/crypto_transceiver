@@ -937,8 +937,22 @@ duplicate_sd_card_loop()
         then
             if test "$4" -ne 0
             then
-                sdtool "$DST_DRIVE" lock &> /dev/null
-                if test "$?" -ne 254 && ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
+                case "`get_sys_config_val Config ProtectMode`" in
+                    lock)
+                        LOCK_CMD="lock"
+                        LOCK_CODE=254
+                        ;;
+                    permlock)
+                        LOCK_CMD="permlock"
+                        LOCK_CODE=255
+                        ;;
+                    *)
+                        LOCK_CMD="unlock"
+                        LOCK_CODE=253
+                        ;;
+                esac
+                sdtool "$DST_DRIVE" "$LOCK_CMD" &> /dev/null
+                if test "$?" -ne "$LOCK_CODE" && ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
                 then
                     return 1
                 fi

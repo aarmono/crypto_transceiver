@@ -1082,24 +1082,6 @@ show_boot_messages()
     --textbox /var/log/messages 0 0
 }
 
-show_user_settings()
-{
-    while true
-    do
-        if is_initialized
-        then
-            dialog \
-            --title "Current Settings" \
-            --textbox "$CRYPTO_INI_USR" 30 80
-
-            return
-        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
-        then
-            return
-        fi
-    done
-}
-
 start_alsamixer()
 {
     DEV=`get_config_val JACK "$1"`
@@ -1348,14 +1330,13 @@ configuration_menu()
         if dialog \
            --title "Configuration Options" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 18 60 4 \
+           --menu "Select an option. Press F1 for Help." 17 60 4 \
            1 "Configure Radio Mode" \
            2 "Configure Radio Squelch" \
            3 "Configure Encryption" \
            4 "Configure TTS Alert Broadcasts" \
            5 "Configure Hardware" \
            6 "Set Configuration Menu Password" \
-           V "View Current Settings" \
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
@@ -1380,9 +1361,6 @@ configuration_menu()
                     ;;
                 6)
                     configure_password
-                    ;;
-                V)
-                    show_user_settings
                     ;;
                 A)
                     apply_settings

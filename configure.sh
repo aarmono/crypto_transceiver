@@ -1384,6 +1384,8 @@ configuration_menu()
     done
 }
 
+PASSWD_ATTEMPTS=0
+
 password_prompt()
 {
     while true
@@ -1408,10 +1410,21 @@ password_prompt()
                         if test "$PASSWD" = "$DLG_PASSWD"
                         then
                             rm "$PASSWD_FILE"
+
+                            PASSWD_ATTEMPTS=0
+
                             return 0
                         else
                             rm "$PASSWD_FILE"
                             TITLE="Incorrect Password"
+
+                            PASSWD_ATTEMPTS=$((PASSWD_ATTEMPTS+1))
+                            if test "$PASSWD_ATTEMPTS" -ge 10
+                            then
+                                disable_config
+                                exit 0
+                            fi
+
                             sleep 1
                         fi
                     else

@@ -901,14 +901,31 @@ save_to_sd()
     done
 }
 
+# $1 Card image
+# $2 Partition image
+# $3 Add seed to partition
+# $4 lock the SD Card
 duplicate_sd_card_loop()
 {
     while dialog --yesno "Insert SD Card and select Yes to copy or No to exit" 0 0
     do
-        if partprobe && test -b "/dev/mmcblk0" && copy_img_to_sd "$1" "$2" 2>&1 | dialog --programbox "Writing SD Card" 20 60
+        if test "$3" -ne 0
         then
-            sdtool /dev/mmcblk0 lock &> /dev/null
-            test "$?" -eq -2
+            dd if=/dev/random of="$SEED_FILE" bs=512 count=1 && mcopy -D o -n -i "$2" "$SEED_FILE" ::seed
+        fi
+
+        combine_img_p1 "$1" "$2"
+
+        if partprobe && test -b "/dev/mmcblk0" && copy_img_to_sd "$1" 2>&1 | dialog --programbox "Writing SD Card" 20 60
+        then
+            if test "$4" -ne 0
+            then
+                sdtool /dev/mmcblk0 lock &> /dev/null
+                if test "$?" -ne 254 && ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+                then
+                    return 1
+                fi
+            fi
         elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
         then
             return 1
@@ -955,7 +972,7 @@ write_device_image()
 
             combine_img_p1 "$TMP_SD_IMG" "$TMP_DOS_IMG"
 
-            duplicate_sd_card_loop "$TMP_SD_IMG" 1
+            duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1
             rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
             return
         elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
@@ -983,15 +1000,10 @@ write_key_image()
             then
                 dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065 &> /dev/null
                 echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
-                if dd if="$TMP_DOS_IMG" of="$TMP_SD_IMG" bs=512 seek=63 &> /dev/null
-                then
-                    duplicate_sd_card_loop "$TMP_SD_IMG"
-                    rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
-                    return
-                else
-                    rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
-                    return
-                fi
+
+                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG"
+                rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+                return
             else
                 rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
                 return
@@ -1369,7 +1381,7 @@ configuration_menu()
                     apply_settings
                     ;;
                 R)
-                    load_from_sd A R K
+                    password_prompt && load_from_sd A R K
                     ;;
                 S)
                     save_to_sd A R

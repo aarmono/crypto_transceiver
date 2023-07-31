@@ -26,6 +26,11 @@ function main()
 
     echo -n "Loading crypto configuration..." && load_sd_crypto_config && echo "Done!" || echo "Not found."
 
+    if has_any_keys
+    then
+        set_sys_config_val Crypto KeyIndex "`next_key_idx 256`"
+    fi
+
     alsa_restore
 
     set_initialized

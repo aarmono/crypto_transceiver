@@ -72,6 +72,9 @@ alias espeak_radio="espeak -v en -g 10 -s 140"
 # CODEC
 alias espeak_headset="espeak -v en -g 6 -s 160"
 
+# Gets the current Key Index
+alias get_key_index="get_sys_config_val Crypto KeyIndex"
+
 # Takes a sound card name and strips off the "hw:"
 # prefix if it is present
 sound_strip_prefix()
@@ -507,6 +510,17 @@ ext_has_any_keys()
 has_any_keys()
 {
     test `find /etc -type f -name 'key*' | wc -l` -gt 0
+}
+
+set_key_index()
+{
+    if test -z "$1"
+    then
+        echo "usage: set_key_index <index>" >&2
+        return 1
+    fi
+
+    set_sys_config_val Crypto KeyIndex "$1"
 }
 
 # Loads keys from the SD card if and only if

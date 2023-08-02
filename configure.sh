@@ -901,6 +901,23 @@ save_to_sd()
     done
 }
 
+try_ensure_is_writable()
+{
+    if test "$1" = "/dev/sda"
+    then
+        return 0
+    else
+        sdtool "$1" unlock &> /dev/null
+        SD_STAT="$?"
+        if test "$SD_STAT" -eq 255
+        then
+            dialog --msgbox "SD Card is read-only" 0 0
+        fi
+
+        return test "$SD_STAT" -eq 253
+    fi
+}
+
 # $1 Card image
 # $2 Partition image
 # $3 Add seed to partition
@@ -933,7 +950,7 @@ duplicate_sd_card_loop()
             DST_NAME="SD Card"
         fi
 
-        if partprobe && test -b "$DST_DRIVE" && copy_img_to_sd "$1" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
+        if partprobe && test -b "$DST_DRIVE" && try_ensure_is_writable "$DST_DRIVE" && copy_img_to_sd "$1" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
         then
             if test "$4" -ne 0
             then

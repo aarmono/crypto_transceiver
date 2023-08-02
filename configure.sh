@@ -1512,14 +1512,19 @@ select_digital()
     do
         if is_initialized
         then
-            VAL=`get_config_val Codec Enabled`
-            SECURE=`get_config_val Crypto Enabled`
+            VAL="`get_config_val Codec Enabled`"
 
-            if test "$SECURE" -ne 0
+            if test "`get_config_val Crypto Enabled`" -ne 0
             then
-                DIGITAL_STR="Secure"
                 ANALOG_STR="Plain"
-                INSECURE_MODE_STR="Plain"
+                if has_key "`get_key_index`"
+                then
+                    DIGITAL_STR="Secure"
+                    INSECURE_MODE_STR="Plain"
+                else
+                    DIGITAL_STR="Insecure (No Key)"
+                    INSECURE_MODE_STR="All"
+                fi
             else
                 DIGITAL_STR="Digital"
                 ANALOG_STR="Analog"
@@ -1587,11 +1592,14 @@ main_menu()
             HEIGHT=$((HEIGHT+1))
         fi
 
-        SECURE=`get_config_val Crypto Enabled`
-
-        if test "$SECURE" -ne 0
+        if test "`get_config_val Crypto Enabled`" -ne 0
         then
-            DIGITAL_STR="Secure"
+            if has_key "`get_key_index`"
+            then
+                DIGITAL_STR="Secure"
+            else
+                DIGITAL_STR="Insecure (No Key)"
+            fi
             ANALOG_STR="Plain"
         else
             DIGITAL_STR="Digital"

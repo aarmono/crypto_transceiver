@@ -1571,6 +1571,8 @@ load_keys()
 
 main_menu()
 {
+    export DIALOGOPTS="--backtitle \"Version: $VERSION\""
+
     while true
     do
         rm -f /tmp/transmit_opt

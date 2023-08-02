@@ -401,7 +401,7 @@ save_sd_sound_config()
     then
         if test -f "$ASOUND_CFG"
         then
-            mcopy_text_sd $ASOUND_CFG ::config/asound.state
+            mcopy_text_sd "$ASOUND_CFG" ::config/asound.state
         elif mdir_sd -b ::config/asound.state
         then
             mdel_sd ::config/asound.state

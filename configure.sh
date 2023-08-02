@@ -110,8 +110,8 @@ configure_ptt_enable()
 # $4: 1 to display Console option (optional)
 assign_pin()
 {
-    VAL=`get_user_config_val $2 $3`
-    DEFAULT=`get_sys_config_val $2 $3`
+    VAL=`get_user_config_val "$2" "$3"`
+    DEFAULT=`get_sys_config_val "$2" "$3"`
 
     HEIGHT=37
     CONSOLE_ARGS=`mktemp`
@@ -161,13 +161,13 @@ assign_pin()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            set_config_val $2 $3 ""
+            set_config_val "$2" "$3" ""
             # Pin assignments can conflict between services, so just restart
             # everything
             set_filthy
             ;;
         console)
-            set_config_val $2 $3 "-1"
+            set_config_val "$2" "$3" "-1"
             # Restart everything
             set_filthy
             ;;
@@ -175,7 +175,7 @@ assign_pin()
         10|11|12|13|14|15|16| \
         17|18|19|20|21|22|23| \
         24|25|26|27)
-            set_config_val $2 $3 $option
+            set_config_val "$2" "$3" $option
             # Restart everything
             set_filthy
             ;;
@@ -184,8 +184,8 @@ assign_pin()
 
 configure_pin_bias()
 {
-    VAL=`get_user_config_val $2 $3`
-    DEFAULT=`get_sys_config_val $2 $3`
+    VAL=`get_user_config_val "$2" "$3"`
+    DEFAULT=`get_sys_config_val "$2" "$3"`
 
     dialog \
     --no-tags \
@@ -199,12 +199,12 @@ configure_pin_bias()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            set_config_val $2 $3 ""
+            set_config_val "$2" "$3" ""
             # Set filthy on all pin config changes just to be safe
             set_filthy
             ;;
         pull-up|pull-down|disable)
-            set_config_val $2 $3 $option
+            set_config_val "$2" "$3" "$option"
             # Set filthy on all pin config changes just to be safe
             set_filthy
             ;;
@@ -213,8 +213,8 @@ configure_pin_bias()
 
 configure_pin_drive()
 {
-    VAL=`get_user_config_val $2 $3`
-    DEFAULT=`get_sys_config_val $2 $3`
+    VAL=`get_user_config_val "$2" "$3"`
+    DEFAULT=`get_sys_config_val "$2" "$3"`
 
     dialog \
     --no-tags \
@@ -228,12 +228,12 @@ configure_pin_drive()
     option=`cat $ANSWER`
     case "$option" in
         default)
-            set_config_val $2 $3 ""
+            set_config_val "$2" "$3" ""
             # Set filthy on all pin config changes just to be safe
             set_filthy
             ;;
         open-drain|open-source|push-pull)
-            set_config_val $2 $3 $option
+            set_config_val "$2" "$3" "$option"
             # Set filthy on all pin config changes just to be safe
             set_filthy
             ;;
@@ -248,8 +248,8 @@ configure_pin_active_level()
 
 configure_pin_debounce()
 {
-    VAL=`get_config_val $2 $3`
-    DEFAULT=`get_sys_config_val $2 $3`
+    VAL=`get_config_val "$2" "$3"`
+    DEFAULT=`get_sys_config_val "$2" "$3"`
 
     dialog \
     --title "Configure $2 $1 Debounce" \
@@ -442,7 +442,7 @@ configure_mode()
                     set_dirty
                     ;;
                 700C|700D|700E|800XA|1600|2400B)
-                    set_config_val Codec Mode $option
+                    set_config_val Codec Mode "$option"
                     set_dirty
                     ;;
             esac
@@ -688,7 +688,7 @@ configure_tts_alerts()
 
 assign_audio_device()
 {
-    VAL=`get_config_val JACK $2`
+    VAL=`get_config_val JACK "$2"`
 
     dialog \
     --no-tags \
@@ -704,7 +704,7 @@ assign_audio_device()
     option=`cat $ANSWER`
     case "$option" in
         hw:USB_LL | hw:USB_LR | hw:USB_UL | hw:USB_UR)
-            set_config_val JACK $2 "$option"
+            set_config_val JACK "$2" "$option"
             set_filthy
             ;;
         "")
@@ -1541,7 +1541,7 @@ select_digital()
             option=`cat $ANSWER`
             case "$option" in
                 0|1)
-                    set_config_val Codec Enabled $option
+                    set_config_val Codec Enabled "$option"
                     set_dirty
                     ;;
             esac

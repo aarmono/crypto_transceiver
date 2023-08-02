@@ -1475,7 +1475,7 @@ password_prompt()
                             TITLE="Incorrect Password"
 
                             PASSWD_ATTEMPTS=$((PASSWD_ATTEMPTS+1))
-                            if test "$PASSWD_ATTEMPTS" -ge 10
+                            if test "$PASSWD_ATTEMPTS" -ge 3
                             then
                                 disable_config
                                 exit 0

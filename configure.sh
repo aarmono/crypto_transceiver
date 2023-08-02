@@ -914,7 +914,7 @@ try_ensure_is_writable()
             dialog --msgbox "SD Card is read-only" 0 0
         fi
 
-        return test "$SD_STAT" -eq 253
+        test "$SD_STAT" -eq 253
     fi
 }
 

@@ -1700,8 +1700,6 @@ main_menu()
     done
 }
 
-dmesg -n 1
-
 # ForceShowConfig setting must be turned on in the firmware itself
 if (test "`get_sys_config_val Diagnostics ForceShowConfig`" -ne 0) ||
    (wait_initialized && test "`get_config_val Config Enabled`" -ne 0)

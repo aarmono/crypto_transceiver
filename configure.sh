@@ -934,6 +934,16 @@ try_ensure_is_writable()
     fi
 }
 
+# Make sure a file named BAD_WP doesn't already exist on the card
+# Try to create it
+# Make sure the file isn't created
+test_write_protect()
+{
+    ! mdir_sd ::/BAD_WP && \
+        mcopy_text_sd /var/run/initialized ::/BAD_WP && \
+        ! mdir_sd ::/BAD_WP
+}
+
 # $1 Card image
 # $2 Partition image
 # $3 Add seed to partition
@@ -987,8 +997,18 @@ duplicate_sd_card_loop()
                 sdtool_with_status "$DST_DRIVE" "$LOCK_CMD"
                 if test "$?" -ne "$LOCK_CODE"
                 then
+                    # If we didn't get the correct status code back,
+                    # the write protect failed
                     dialog --msgbox "Could Not Write Protect!" 0 0
+                elif test "$LOCK_CODE" -ne 253 && ! test_write_protect
+                then
+                    # If we're doing a lock or permlock but are still able
+                    # to write files to the device after, then write protect
+                    # isn't actually "protecting" anything
+                    dialog --msgbox "Write Protect Doesnt Work!" 0 0
                 else
+                    # Otherwise write protect appears to have succeeded
+                    # and appears to work
                     dialog --msgbox "Write Protect Suceeded!" 0 0
                 fi
             fi

@@ -1020,7 +1020,7 @@ duplicate_sd_card_loop()
 }
 
 # $1 1 to include keys, 0 to exclude
-# $2 h for handheld, b for base
+# $2 1 to Enable Console Interface, 0 to Disable
 write_device_image()
 {
     while true
@@ -1029,16 +1029,14 @@ write_device_image()
         then
             TMP_CRYPTO_INI=`mktemp`
             cp "$CRYPTO_INI_USR" "$TMP_CRYPTO_INI"
-            case "$2" in
-                h)
-                    iniset Config Enabled 0 "$TMP_CRYPTO_INI"
-                    iniset Config ConfigPassword '*' "$TMP_CRYPTO_INI"
-                    ;;
-                b)
-                    iniset Config Enabled 1 "$TMP_CRYPTO_INI"
-                    iniset Config ConfigPassword '*' "$TMP_CRYPTO_INI"
-                    ;;
-            esac
+
+            iniset Config ConfigPassword '*' "$TMP_CRYPTO_INI"
+            if test "$2" -ne 0
+            then
+                iniset Config Enabled 1 "$TMP_CRYPTO_INI"
+            else
+                iniset Config Enabled 0 "$TMP_CRYPTO_INI"
+            fi
 
             rm -f "$ASOUND_CFG" && alsactl store
 
@@ -1136,19 +1134,19 @@ write_image()
             option=`cat $ANSWER`
             case "$option" in
                 1)
-                    write_device_image 0 h
+                    write_device_image 0 0
                     ;;
                 2)
-                    write_device_image 0 b
+                    write_device_image 0 1
                     ;;
                 3)
                     write_key_image
                     ;;
                 4)
-                    write_device_image 1 h
+                    write_device_image 1 0
                     ;;
                 5)
-                    write_device_image 1 b
+                    write_device_image 1 1
                     ;;
                 "")
                     return

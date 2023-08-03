@@ -352,9 +352,22 @@ copy_img_to_sd()
         DST_DEV="/dev/mmcblk0"
     fi
 
-    dd if="$1" of="$DST_DEV" bs=512 conv=fsync status=progress && \
+    SRC_SIZE=`stat -c '%s' "$1"`
+    SRC_BLOCKS=$(((SRC_SIZE+511)/512))
+    VER_FILE=`mktemp`
+
+    echo "Copying" 1>&2 && \
+        dd if="$1" of="$DST_DEV" bs=512 conv=fsync status=progress && \
+        echo "Verifying" 1>&2 && \
+        dd if="$DST_DEV" of="$VER_FILE" bs=512 count="$SRC_BLOCKS" status=progress && \
+        diff "$VER_FILE" "$1" && \
         partprobe "$DST_DEV" && \
         echo "Success" 1>&2
+    RET="$?"
+
+    rm -f "$VER_FILE"
+
+    return "$RET"
 }
 
 ensure_sd_has_config_dir()

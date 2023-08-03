@@ -901,18 +901,34 @@ save_to_sd()
     done
 }
 
+# sdtool uses the same return code for a command timeout as
+# for a permlocked drive. So have to do a lock/permlock
+# then a status
+#
+# $1: Device (eg. /dev/mmcblk0)
+# $2: Commend (eg. lock/permlock)
+sdtool_with_status()
+{
+    sdtool "$1" "$2" &> /dev/null
+    sdtool "$1" status &> /dev/null
+}
+
 try_ensure_is_writable()
 {
     if test "$1" = "/dev/sda"
     then
         return 0
     else
-        sdtool "$1" unlock &> /dev/null
+        sdtool_with_status "$1" unlock &> /dev/null
         SD_STAT="$?"
-        if test "$SD_STAT" -eq 255
-        then
-            dialog --msgbox "SD Card is read-only" 0 0
-        fi
+        case "$SD_STAT" in
+            255)
+                dialog --msgbox "SD Card is permanent write-protected" 0 0
+                ;;
+            254)
+                dialog --msgbox "SD Card is temporary write-protected but could not be unlocked" 0 0
+                ;;
+        esac
 
         test "$SD_STAT" -eq 253
     fi
@@ -968,10 +984,12 @@ duplicate_sd_card_loop()
                         LOCK_CODE=253
                         ;;
                 esac
-                sdtool "$DST_DRIVE" "$LOCK_CMD" &> /dev/null
-                if test "$?" -ne "$LOCK_CODE" && ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
+                sdtool_with_status "$DST_DRIVE" "$LOCK_CMD"
+                if test "$?" -ne "$LOCK_CODE"
                 then
-                    return 1
+                    dialog --msgbox "Could Not Write Protect!" 0 0
+                else
+                    dialog --msgbox "Write Protect Suceeded!" 0 0
                 fi
             fi
         elif ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0

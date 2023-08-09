@@ -1009,7 +1009,7 @@ duplicate_sd_card_loop()
                 else
                     # Otherwise write protect appears to have succeeded
                     # and appears to work
-                    dialog --msgbox "Write Protect Suceeded!" 0 0
+                    dialog --msgbox "Write Protect Succeeded!" 0 0
                 fi
             fi
         elif ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0

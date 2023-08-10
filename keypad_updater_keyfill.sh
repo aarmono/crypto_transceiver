@@ -9,10 +9,12 @@ toggle_keyfill()
         /etc/init.d/manual/S50sshd stop
         /etc/init.d/manual/S10pppoe_server stop
         ifconfig eth0 down
+        /etc/init.d/manual/S60keyfill_led stop
     else
         ifconfig eth0 up
         /etc/init.d/manual/S10pppoe_server start
         /etc/init.d/manual/S50sshd start
+        /etc/init.d/manual/S60keyfill_led start
     fi
 }
 

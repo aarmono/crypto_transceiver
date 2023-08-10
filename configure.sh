@@ -1432,6 +1432,7 @@ run_key_fill()
     ifconfig eth0 up
     /etc/init.d/manual/S10pppoe_server start &> /dev/null
     /etc/init.d/manual/S50sshd start &> /dev/null
+    /etc/init.d/manual/S60keyfill_led start &> /dev/null
 
     dialog \
     --title "Ethernet Key Fill" \
@@ -1440,6 +1441,7 @@ run_key_fill()
     /etc/init.d/manual/S50sshd stop &> /dev/null
     /etc/init.d/manual/S10pppoe_server stop &> /dev/null
     ifconfig eth0 down
+    /etc/init.d/manual/S60keyfill_led stop &> /dev/null
 }
 
 configuration_menu()

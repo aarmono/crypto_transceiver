@@ -1,7 +1,7 @@
 # Common shell functions for use by other scripts
 set -o pipefail
 
-VERSION="0.13.0"
+VERSION="0.14.0"
 
 CRYPTO_INI_SYS=/etc/crypto.ini
 CRYPTO_INI_USR=/etc/crypto.ini.sd

@@ -46,10 +46,18 @@ load_keys()
 {
     if load_sd_key_noclobber
     then
+        /etc/init.d/manual/S10pppoe_client stop
+
         KEY_IDX=`next_key_idx 256`
         update_key_idx "$KEY_IDX" "Loaded. Key $KEY_IDX Selected"
+
+        ifconfig eth0 down
     else
+        /etc/init.d/manual/S10pppoe_client stop
+
         headset_tts "Error"
+
+        ifconfig eth0 down
     fi
 }
 
@@ -119,6 +127,10 @@ do
                 a)
                     KEY_IDX=`reset_key_idx`
                     ;;
+                b)
+                    /etc/init.d/manual/S10pppoe_client stop
+                    ifconfig eth0 down
+                    ;;
             esac
             ;;
         select)
@@ -128,6 +140,10 @@ do
                     headset_tts "Key Select"
                     ;;
                 b)
+                    if ! has_any_keys
+                    then
+                        ifconfig eth0 up
+                    fi
                     headset_tts "Key Load"
                     ;;
             esac
@@ -140,6 +156,7 @@ do
                 b)
                     if ! has_any_keys && ext_has_any_keys
                     then
+                        /etc/init.d/manual/S10pppoe_client start
                         headset_tts "Ready to Load"
                     else
                         headset_tts "Cannot Load"

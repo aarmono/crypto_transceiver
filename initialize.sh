@@ -44,6 +44,8 @@ function main()
         copy_sd_to_img "$SD_IMG" &> /dev/null && \
         extract_img_p1 "$SD_IMG" "$SD_IMG_DOS" && \
         echo "Done!" || echo "Error."
+
+    /usr/bin/ssh-keygen -A
 }
 
 main | logger -t initialize -p daemon.info

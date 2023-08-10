@@ -519,7 +519,7 @@ usb_has_any_keys()
 
 ext_has_any_keys()
 {
-    sd_has_any_keys || usb_has_any_keys
+    sd_has_any_keys || usb_has_any_keys || ethernet_link_detected
 }
 
 has_any_keys()
@@ -551,6 +551,9 @@ load_sd_key_noclobber()
         elif usb_has_any_keys
         then
             mcopy_bin_usb ::config/key* /etc/keys/
+        elif pppoe_link_established
+        then
+            echo 'get key* /etc/keys/' | sftp -b - keyfill@10.0.0.1 &> /dev/null
         else
             return 1
         fi
@@ -650,4 +653,14 @@ execute_alert_broadcast()
      espeak_radio -w "$TTS_FILE" "$@" &> /dev/null && \
         /etc/init.d/S30jack_crypto_tx signal SIGUSR1 && \
         headset_tts "$@"
+}
+
+ethernet_link_detected()
+{
+    ethtool eth0 | grep -q 'Link detected: yes'
+}
+
+pppoe_link_established()
+{
+    ping -c 1 10.0.0.1 &> /dev/null
 }

@@ -1415,14 +1415,40 @@ configure_password()
     fi
 }
 
+run_key_fill()
+{
+    ifconfig eth0 up
+    /etc/init.d/manual/S10pppoe_server start &> /dev/null
+    /etc/init.d/manual/S50sshd start &> /dev/null
+
+    dialog \
+    --title "Ethernet Key Fill" \
+    --msgbox "Key Fill Active. Press OK To Stop" 5 37
+
+    /etc/init.d/manual/S50sshd stop &> /dev/null
+    /etc/init.d/manual/S10pppoe_server stop &> /dev/null
+    ifconfig eth0 down
+}
+
 configuration_menu()
 {
     while true
     do
+        rm -f /tmp/key_opts
+        touch /tmp/key_opts
+
+        HEIGHT=17
+
+        if has_any_keys
+        then
+            echo "F \"Enable Ethernet Key Fill\"" > /tmp/key_opts
+            HEIGHT=$((HEIGHT+1))
+        fi
+
         if dialog \
            --title "Configuration Options" \
            --hfile "/usr/share/help/config.txt" \
-           --menu "Select an option. Press F1 for Help." 17 60 4 \
+           --menu "Select an option. Press F1 for Help." "$HEIGHT" 60 4 \
            1 "Configure Radio Mode" \
            2 "Configure Radio Squelch" \
            3 "Configure Encryption" \
@@ -1432,7 +1458,8 @@ configuration_menu()
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
-           D "Deploy Images" 2>$ANSWER
+           D "Deploy Images" \
+           --file /tmp/key_opts 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1465,6 +1492,9 @@ configuration_menu()
                     ;;
                 D)
                     write_image
+                    ;;
+                F)
+                    run_key_fill
                     ;;
                 *)
                     return
@@ -1609,15 +1639,47 @@ select_digital()
 
 load_keys()
 {
+    if ! sd_has_any_keys && ! usb_has_any_keys && dialog --yesno "Load Keys Using Ethernet?" 0 0
+    then
+        dialog --infobox "Please wait..." 0 0
+
+        ifconfig eth0 up
+        COUNT=0
+        while ! ethernet_link_detected && test "$COUNT" -lt 10
+        do
+            COUNT=$((COUNT+1))
+            sleep 1
+        done
+
+        if ethernet_link_detected
+        then
+            /etc/init.d/manual/S10pppoe_client start &> /dev/null
+            COUNT=0
+            while ! pppoe_link_established
+            do
+                COUNT=$((COUNT+1))
+                sleep 1
+            done
+        fi
+    fi
+
     if load_sd_key_noclobber &> /dev/null
     then
         set_key_index "`next_key_idx 256`"
         set_dirty
         apply_settings
+
+        /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Loaded!" 0 0
+        ifconfig eth0 down
+
         return 0
     else
+
+        /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Not Loaded!" 0 0
+        ifconfig eth0 down
+
         return 1
     fi
 }
@@ -1726,7 +1788,10 @@ main_menu()
                     apply_settings
                     ;;
                 L)
-                    load_keys
+                    if ! has_any_keys
+                    then
+                        load_keys
+                    fi
                     ;;
             esac
         else

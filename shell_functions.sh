@@ -477,10 +477,10 @@ save_sd_crypto_config()
 # to stdout
 get_key_path()
 {
-    KEY_PATH="/etc/key"
+    KEY_PATH="/etc/keys/key"
     if test "$1" -gt 1
     then
-        KEY_PATH="/etc/key$1"
+        KEY_PATH="/etc/keys/key$1"
     fi
 
     echo "$KEY_PATH"
@@ -524,7 +524,7 @@ ext_has_any_keys()
 
 has_any_keys()
 {
-    test `find /etc -type f -name 'key*' | wc -l` -gt 0
+    test `find /etc/keys -type f -name 'key*' | wc -l` -gt 0
 }
 
 set_key_index()
@@ -547,10 +547,10 @@ load_sd_key_noclobber()
     then
         if sd_has_any_keys
         then
-            mcopy_bin_sd ::config/key* /etc/
+            mcopy_bin_sd ::config/key* /etc/keys/
         elif usb_has_any_keys
         then
-            mcopy_bin_usb ::config/key* /etc/
+            mcopy_bin_usb ::config/key* /etc/keys/
         else
             return 1
         fi
@@ -573,11 +573,11 @@ load_sd_key()
         grep key < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
         NUM_KEYS=`wc -l < "$SD_KEYS"`
 
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/key* /etc/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/key* /etc/keys/
         then
             PI_KEYS=`mktemp`
 
-            find /etc/ -type f -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
+            find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/keys/||g' | sort > "$PI_KEYS"
 
             comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
             RET=$?
@@ -598,10 +598,10 @@ load_sd_key()
 save_sd_key()
 {
     PI_KEYS=`mktemp`
-    if find /etc/ -type f -name 'key*' | sed -e 's|/etc/||g' | sort > "$PI_KEYS"
+    if find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/keys/||g' | sort > "$PI_KEYS"
     then
         NUM_KEYS=`wc -l < $PI_KEYS`
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/key* ::config/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/keys/key* ::config/
         then
             SD_KEYS=`mktemp`
             mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"

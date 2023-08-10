@@ -1052,7 +1052,7 @@ write_device_image()
             then
                 if test "$1" -ne 0
                 then
-                    mcopy_bin -i "$TMP_DOS_IMG" /etc/key* ::config/
+                    mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
                 fi
 
                 duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1
@@ -1084,7 +1084,7 @@ write_key_image()
             if dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
                mkdosfs "$TMP_DOS_IMG" &> /dev/null && \
                ensure_sd_has_config_dir "$TMP_DOS_IMG" && \
-               mcopy_bin -i "$TMP_DOS_IMG" /etc/key* ::config/
+               mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
             then
                 dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
                 echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null

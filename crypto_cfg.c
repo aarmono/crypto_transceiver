@@ -38,7 +38,7 @@ int active_flags(const char* option)
 
 void get_key_path(char* buffer, size_t buffer_size, uint key_index)
 {
-    static const char* KEY_PREFIX="/etc/key";
+    static const char* KEY_PREFIX="/etc/keys/key";
     if (key_index <= 1)
     {
         strncpy(buffer, KEY_PREFIX, buffer_size - 1);

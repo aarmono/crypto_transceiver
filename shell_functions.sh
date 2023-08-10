@@ -664,3 +664,13 @@ pppoe_link_established()
 {
     ping -c 1 10.0.0.1 &> /dev/null
 }
+
+config_enabled()
+{
+    test "`get_config_val Config ConfigPassword`" != '*'
+}
+
+key_fill_only()
+{
+    test "`get_config_val Config KeyFillOnly`" -ne 0
+}

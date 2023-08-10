@@ -1345,7 +1345,7 @@ configure_encryption()
             --title "Encryption Configuration" \
             --menu "Select an option to configure." 10 60 4 \
             1 "Enable Encryption" \
-            2 "Generate Encryption Keys" \
+            2 "Create Encryption Keys" \
             3 "Delete Encryption Keys" 2>$ANSWER
 
             option=`cat $ANSWER`
@@ -1684,10 +1684,8 @@ load_keys()
     fi
 }
 
-main_menu()
+radio_menu()
 {
-    export DIALOGOPTS="--backtitle \"Version: $VERSION\""
-
     while true
     do
         rm -f /tmp/transmit_opt
@@ -1736,7 +1734,7 @@ main_menu()
             HEIGHT=$((HEIGHT+1))
         fi
 
-        if test "`get_config_val Config ConfigPassword`" != '*'
+        if config_enabled
         then
             echo "O \"Configuration Options\"" > /tmp/config_opt
             HEIGHT=$((HEIGHT+1))
@@ -1799,6 +1797,87 @@ main_menu()
             exit 0
         fi
     done
+}
+
+key_fill_menu()
+{
+    while true
+    do
+        rm -f /tmp/load_opt
+        rm -f /tmp/del_opt
+        rm -f /tmp/shell_opt
+        touch /tmp/load_opt
+        touch /tmp/del_opt
+        touch /tmp/shell_opt
+
+        HEIGHT=10
+
+        if ! has_any_keys
+        then
+            echo "L \"Load Keys\"" > /tmp/load_opt
+        else
+            echo "F \"Enable Ethernet Key Fill\"" > /tmp/load_opt
+            echo "D \"Delete Keys\"" > /tmp/del_opt
+            HEIGHT=$((HEIGHT+1))
+        fi
+
+        if test "`get_sys_config_val Diagnostics ShellEnabled`" -ne 0
+        then
+            echo "S \"Shell Access (Experts Only)\"" >> /tmp/shell_opt
+            HEIGHT=$((HEIGHT+1))
+        fi
+
+        if dialog \
+           --cancel-label "LOCK" \
+           --title "Crypto Voice Module Key Fill Interface" \
+           --menu "Select an option." $HEIGHT 60 4 \
+           --file /tmp/load_opt \
+           C "Create Encryption Keys" \
+           --file /tmp/del_opt \
+           B "View Boot Messages" \
+           --file /tmp/shell_opt 2>$ANSWER
+        then
+            option=`cat $ANSWER`
+            case "$option" in
+                F)
+                    run_key_fill
+                    ;;
+                D)
+                    delete_encryption_keys
+                    ;;
+                C)
+                    generate_encryption_keys
+                    ;;
+                S)
+                    clear && exec /sbin/getty -L "`tty`" 115200
+                    ;;
+                B)
+                    show_boot_messages
+                    ;;
+                L)
+                    if ! has_any_keys
+                    then
+                        load_keys
+                    fi
+                    ;;
+            esac
+        else
+            disable_config
+            exit 0
+        fi
+    done
+}
+
+main_menu()
+{
+    export DIALOGOPTS="--backtitle \"Version: $VERSION\""
+
+    if key_fill_only
+    then
+        key_fill_menu
+    else
+        radio_menu
+    fi
 }
 
 # ForceShowConfig setting must be turned on in the firmware itself

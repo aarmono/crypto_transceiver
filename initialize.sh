@@ -40,12 +40,22 @@ function main()
     # initialized, so this needs to run in a background process (it is)
     echo -n "Saving new seed..." && save_sd_seed && echo "Done!" || echo "Error."
 
-    echo -n "Creating SD card image..." && \
-        copy_sd_to_img "$SD_IMG" &> /dev/null && \
-        extract_img_p1 "$SD_IMG" "$SD_IMG_DOS" && \
-        echo "Done!" || echo "Error."
+    # Only need the SD card image if the configuration menu is enabled
+    # and this is not a Key Fill device
+    if config_enabled && ! key_fill_only
+    then
+        echo -n "Creating SD card image..." && \
+            copy_sd_to_img "$SD_IMG" &> /dev/null && \
+            extract_img_p1 "$SD_IMG" "$SD_IMG_DOS" && \
+            echo "Done!" || echo "Error."
+    fi
 
-    /usr/bin/ssh-keygen -A
+    # Only need SSH keys if the configuration menu is enabled or
+    # this is a Key Fill device
+    if config_enabled || key_fill_only
+    then
+        /usr/bin/ssh-keygen -A
+    fi
 }
 
 main | logger -t initialize -p daemon.info

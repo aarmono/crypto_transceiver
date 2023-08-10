@@ -1021,6 +1021,7 @@ duplicate_sd_card_loop()
 
 # $1 1 to include keys, 0 to exclude
 # $2 1 to Enable Console Interface, 0 to Disable
+# $3 1 for Key Fill Device, 0 for Radio
 write_device_image()
 {
     while true
@@ -1036,6 +1037,13 @@ write_device_image()
                 iniset Config Enabled 1 "$TMP_CRYPTO_INI"
             else
                 iniset Config Enabled 0 "$TMP_CRYPTO_INI"
+            fi
+
+            if test "$3" -ne 0
+            then
+                iniset Config KeyFillOnly 1 "$TMP_CRYPTO_INI"
+            else
+                iniset Config KeyFillOnly 0 "$TMP_CRYPTO_INI"
             fi
 
             rm -f "$ASOUND_CFG" && alsactl store
@@ -1115,38 +1123,42 @@ write_image()
             rm -f /tmp/key_opts
             touch /tmp/key_opts
 
-            HEIGHT=11
+            HEIGHT=12
             if has_any_keys
             then
-                echo "3 \"Keys Only\"" >> /tmp/key_opts
-                echo "4 \"Locked Handheld, With Keys\"" >> /tmp/key_opts
-                echo "5 \"Locked Base Station, With Keys\"" >> /tmp/key_opts
+                echo "4 \"Keys Only\"" >> /tmp/key_opts
+                echo "5 \"Locked Handheld, With Keys\"" >> /tmp/key_opts
+                echo "6 \"Locked Base Station, With Keys\"" >> /tmp/key_opts
                 HEIGHT=$((HEIGHT+3))
             fi
 
             dialog \
             --title "Deployment Options" \
             --menu "Select a type of image to deploy. Deploying a Locked Device Image to an SD Card will permanently make it read-only." "$HEIGHT" 60 4 \
-            1 "Locked Handheld, No Keys" \
-            2 "Locked Base Station, No Keys" \
+            1 "Locked Key Gen/Fill Device" \
+            2 "Locked Handheld, No Keys" \
+            3 "Locked Base Station, No Keys" \
             --file /tmp/key_opts 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
                 1)
-                    write_device_image 0 0
+                    write_device_image 0 1 1
                     ;;
                 2)
-                    write_device_image 0 1
+                    write_device_image 0 0 0
                     ;;
                 3)
-                    write_key_image
+                    write_device_image 0 1 0
                     ;;
                 4)
-                    write_device_image 1 0
+                    write_key_image
                     ;;
                 5)
-                    write_device_image 1 1
+                    write_device_image 1 0 0
+                    ;;
+                6)
+                    write_device_image 1 1 0
                     ;;
                 "")
                     return

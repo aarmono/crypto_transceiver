@@ -1655,9 +1655,9 @@ load_keys()
 {
     if ! sd_has_any_keys && ! usb_has_any_keys && dialog --yesno "Load Keys Using Ethernet?" 0 0
     then
-        dialog --infobox "Please wait..." 0 0
-
         ifconfig eth0 up
+        dialog --infobox "Enabling Ethernet..." 0 0
+
         COUNT=0
         while ! ethernet_link_detected && test "$COUNT" -lt 10
         do
@@ -1668,6 +1668,8 @@ load_keys()
         if ethernet_link_detected
         then
             /etc/init.d/manual/S10pppoe_client start &> /dev/null
+            dialog --infobox "Connecting to Key Fill Device..." 0 0
+
             COUNT=0
             while ! pppoe_link_established
             do

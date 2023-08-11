@@ -597,6 +597,11 @@ load_sd_key()
     fi
 }
 
+load_sd_ddk()
+{
+    mcopy_bin_sd ::config/*.ddk /etc/
+}
+
 # Saves the keys to the SD card
 save_sd_key()
 {
@@ -673,4 +678,9 @@ config_enabled()
 key_fill_only()
 {
     test "`get_config_val Config KeyFillOnly`" -ne 0
+}
+
+get_device_serial()
+{
+    find /etc/ -name '*.ddk' | sed -e 's|/etc/||g' -e 's|.ddk||g' | head -n 1
 }

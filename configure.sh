@@ -948,6 +948,7 @@ test_write_protect()
 # $2 Partition image
 # $3 Add seed to partition
 # $4 lock the SD Card
+# $5 Serialize the SD Card
 duplicate_sd_card_loop()
 {
     if test -z "$4"
@@ -964,7 +965,24 @@ duplicate_sd_card_loop()
             dd if=/dev/random of="$SEED_FILE" bs=512 count=1 && mcopy_bin -i "$2" "$SEED_FILE" ::seed
         fi
 
-        combine_img_p1 "$1" "$2"
+        if test "$5" -ne 0
+        then
+            DEVICE_SERIAL_NUMBER=`uuidd -r`
+            DEVICE_DECRYPTION_KEYFILE=`mktemp`
+            DEVICE_ENCRYPTION_KEYFILE=`mktemp`
+            dialog --infobox "Generating Device Keys. This may take a while..." 0 0
+            openssl genrsa -out "$DEVICE_DECRYPTION_KEYFILE" 4096
+            openssl rsa -in "$DEVICE_DECRYPTION_KEYFILE" -pubout -out "$DEVICE_ENCRYPTION_KEYFILE"
+
+            SERIAL_PART_IMG=`mktemp`
+            cp "$2" "$SERIAL_PART_IMG"
+            mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE" ::config/"${DEVICE_SERIAL_NUMBER}.ddk"
+
+            combine_img_p1 "$1" "$SERIAL_PART_IMG"
+            rm -f "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE"
+        else
+            combine_img_p1 "$1" "$2"
+        fi
 
         # Only write keys to USB drives
         if test -z "$4" && has_usb_drive
@@ -978,6 +996,11 @@ duplicate_sd_card_loop()
 
         if partprobe && test -b "$DST_DRIVE" && try_ensure_is_writable "$DST_DRIVE" && copy_img_to_sd "$1" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
         then
+            if test -n "$DEVICE_ENCRYPTION_KEYFILE"
+            then
+                mv "$DEVICE_ENCRYPTION_KEYFILE" "/etc/deks/${DEVICE_SERIAL_NUMBER}.dek"
+            fi
+
             if test "$4" -ne 0
             then
                 case "`get_sys_config_val Config ProtectMode`" in
@@ -999,22 +1022,48 @@ duplicate_sd_card_loop()
                 then
                     # If we didn't get the correct status code back,
                     # the write protect failed
-                    dialog --msgbox "Could Not Write Protect!" 0 0
+                    MSG="Could Not Write Protect!"
+                    if test -n "$DEVICE_SERIAL_NUMBER"
+                    then
+                        MSG="${MSG}\nDevice Serial Number: $DEVICE_SERIAL_NUMBER"
+                    fi
+
+                    dialog --msgbox "$MSG" 0 0
                 elif test "$LOCK_CODE" -ne 253 && ! test_write_protect
                 then
                     # If we're doing a lock or permlock but are still able
                     # to write files to the device after, then write protect
                     # isn't actually "protecting" anything
-                    dialog --msgbox "Write Protect Doesnt Work!" 0 0
+                    MSG="Write Protect Doesnt Work!"
+                    if test -n "$DEVICE_SERIAL_NUMBER"
+                    then
+                        MSG="${MSG}\nDevice Serial Number: $DEVICE_SERIAL_NUMBER"
+                    fi
+
+                    dialog --msgbox "$MSG" 0 0
                 else
                     # Otherwise write protect appears to have succeeded
                     # and appears to work
-                    dialog --msgbox "Write Protect Succeeded!" 0 0
+                    MSG="Write Protect Succeeded!"
+                    if test -n "$DEVICE_SERIAL_NUMBER"
+                    then
+                        MSG="${MSG}\nDevice Serial Number: $DEVICE_SERIAL_NUMBER"
+                    fi
+
+                    dialog --msgbox "$MSG" 0 0
                 fi
             fi
         elif ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
         then
+            if test -n "$DEVICE_DECRYPTION_KEYFILE"
+            then
+                rm "$DEVICE_ENCRYPTION_KEYFILE"
+            fi
+
             return 1
+        elif test -n "$DEVICE_ENCRYPTION_KEYFILE"
+        then
+            rm "$DEVICE_ENCRYPTION_KEYFILE"
         fi
     done
 }
@@ -1022,6 +1071,7 @@ duplicate_sd_card_loop()
 # $1 1 to include keys, 0 to exclude
 # $2 1 to Enable Console Interface, 0 to Disable
 # $3 1 for Key Fill Device, 0 for Radio
+# $4 1 to Serialize the Device
 write_device_image()
 {
     while true
@@ -1063,7 +1113,7 @@ write_device_image()
                     mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
                 fi
 
-                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1
+                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1 $4
                 rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG" "$TMP_CRYPTO_INI"
                 return
             elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
@@ -1146,19 +1196,19 @@ write_image()
                     write_device_image 0 1 1
                     ;;
                 2)
-                    write_device_image 0 0 0
+                    write_device_image 0 0 0 1
                     ;;
                 3)
-                    write_device_image 0 1 0
+                    write_device_image 0 1 0 1
                     ;;
                 4)
                     write_key_image
                     ;;
                 5)
-                    write_device_image 1 0 0
+                    write_device_image 1 0 0 1
                     ;;
                 6)
-                    write_device_image 1 1 0
+                    write_device_image 1 1 0 1
                     ;;
                 "")
                     return
@@ -1886,7 +1936,15 @@ key_fill_menu()
 
 main_menu()
 {
-    export DIALOGOPTS="--backtitle \"Version: $VERSION\""
+    DEVICE_SERIAL=`get_device_serial`
+    DIALOGOPTS="--backtitle \"Version: $VERSION"
+    if test -n "$DEVICE_SERIAL"
+    then
+        DIALOGOPTS="$DIALOGOPTS Device Serial Number: $DEVICE_SERIAL\""
+    else
+        DIALOGOPTS="$DIALOGOPTS\""
+    fi
+    export DIALOGOPTS
 
     if key_fill_only
     then
@@ -1902,5 +1960,11 @@ if (test "`get_sys_config_val Diagnostics ForceShowConfig`" -ne 0) ||
 then
     main_menu
 else
-    exec dialog --msgbox "Display Locked" 0 0
+    DEVICE_SERIAL=`get_device_serial`
+    if test -z "$DEVICE_SERIAL"
+    then
+        exec dialog --msgbox "Display Locked" 0 0
+    else
+        exec dialog --backtitle "Device Serial Number: $DEVICE_SERIAL" --msgbox "Display Locked" 0 0
+    fi
 fi

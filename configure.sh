@@ -998,7 +998,7 @@ duplicate_sd_card_loop()
         then
             if test -n "$DEVICE_ENCRYPTION_KEYFILE"
             then
-                mv "$DEVICE_ENCRYPTION_KEYFILE" "/etc/dkeks/${DEVICE_SERIAL_NUMBER}.kek"
+                mv "$DEVICE_ENCRYPTION_KEYFILE" "${DKEK_DIR}/${DEVICE_SERIAL_NUMBER}.kek"
             fi
 
             if test "$4" -ne 0
@@ -1150,11 +1150,11 @@ write_key_image()
                         ;;
                     1)
                         ensure_sd_has_black_keys_dir "$TMP_DOS_IMG"
-                        mcopy_bin -i "$TMP_DOS_IMG" /etc/black_keys/*.key* ::black_keys/
+                        mcopy_bin -i "$TMP_DOS_IMG" "$BLACK_KEY_DIR"/*.key* ::black_keys/
                         ;;
                     2)
                         ensure_sd_has_config_dir "$TMP_DOS_IMG"
-                        mcopy_bin -i "$TMP_DOS_IMG" /etc/dkeks/*.kek ::config/
+                        mcopy_bin -i "$TMP_DOS_IMG" "$DKEK_DIR"/*.kek ::config/
                         ;;
                 esac
 
@@ -1207,7 +1207,7 @@ write_image()
 
             if has_any_red_keys
             then
-                echo "6 \"Red Keys Only (OBSOLETE)\"" >> /tmp/red_key_opts
+                echo "6 \"Red Keys Only\"" >> /tmp/red_key_opts
                 echo "7 \"Locked Handheld, With Red Keys (OBSOLETE)\"" >> /tmp/red_key_opts
                 echo "8 \"Locked Base Station, With Red Keys (OBSOLETE)\"" >> /tmp/red_key_opts
                 HEIGHT=$((HEIGHT+3))
@@ -1550,7 +1550,7 @@ show_device_delete_dialog()
     HEIGHT=8
     for FILE in `get_all_dkeks`
     do
-        DEVICE_SERIAL=`echo "$FILE" | sed -e 's|/etc/dkeks/||g' -e 's|.kek||g'`
+        DEVICE_SERIAL=`echo "$FILE" | sed -e "s|${DKEK_DIR}/||g" -e 's|.kek||g'`
         echo "\"$FILE\" \"$DEVICE_SERIAL\" off" >> /tmp/device_delete_dialog
         HEIGHT=$((HEIGHT<24 ? HEIGHT+1 : HEIGHT))
     done

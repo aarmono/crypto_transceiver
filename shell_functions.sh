@@ -19,6 +19,9 @@ SD_IMG_DOS=/tmp/sd_dos.img
 
 USB_DEV=/dev/sda1
 
+BLACK_KEY_DIR=/etc/black/keys
+DKEK_DIR=/etc/black/dkeks
+
 # Copies a text file
 alias mcopy_text="mcopy -t -n -D o"
 # Copies a text file to/from the SD card
@@ -511,14 +514,14 @@ get_all_black_key_paths()
         KEY_NAME="${KEY_NAME}$1"
     fi
 
-    find /etc/black_keys/ -type f -name "*.$KEY_NAME"
+    find "$BLACK_KEY_DIR" -type f -name "*.$KEY_NAME"
 }
 
 # echoes a black key path for the specified Key Slot
 # and Device Serial to stdout
 get_black_key_path()
 {
-    KEY_PATH="/etc/black_keys/${2}.key"
+    KEY_PATH="${BLACK_KEY_DIR}/${2}.key"
     if test "$1" -gt 1
     then
         KEY_PATH="${KEY_PATH}${1}"
@@ -550,7 +553,7 @@ gen_key()
     then
         for KEK in `get_all_dkeks`
         do
-            DEVICE_SERIAL=`echo "$KEK" | sed -e 's|/etc/dkeks/||g' -e 's|.kek||g'`
+            DEVICE_SERIAL=`echo "$KEK" | sed -e "s|${DKEK_DIR}/||g" -e 's|.kek||g'`
             BLK_KEY_PATH=`get_black_key_path "$1" "$DEVICE_SERIAL"`
             TMP_BLK_KEY=`mktemp`
             openssl pkeyutl -encrypt -pubin -inkey "$KEK" -in "$KEY_PATH" -out "$TMP_BLK_KEY" && \
@@ -594,7 +597,7 @@ has_any_red_keys()
 
 has_any_black_keys()
 {
-    test `find /etc/black_keys -type f -name '*.key*' | wc -l` -gt 0
+    test `find "$BLACK_KEY_DIR" -type f -name '*.key*' | wc -l` -gt 0
 }
 
 has_any_keys()
@@ -604,7 +607,7 @@ has_any_keys()
 
 get_all_dkeks()
 {
-    find /etc/dkeks/ -type f -name '*.kek'
+    find "$DKEK_DIR" -type f -name '*.kek'
 }
 
 has_any_dkeks()
@@ -632,13 +635,24 @@ load_sd_key_noclobber()
     then
         if sd_has_any_keys
         then
+            mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR" && decrypt_black_keys
+            BLACK=$?
             mcopy_bin_sd ::config/key* /etc/keys/
+            RED=$?
+            return $((BlACK||RED))
         elif usb_has_any_keys
         then
+            mcopy_bin_usb ::black_keys/*.key* "$BLACK_KEY_DIR" && decrypt_black_keys
+            BLACK=$?
             mcopy_bin_usb ::config/key* /etc/keys/
+            RED=$?
+            return $((BLACK||RED))
         elif pppoe_link_established
         then
-            echo 'get key* /etc/keys/' | sftp -b - keyfill@10.0.0.1 &> /dev/null
+            if echo "get keys/*.key* $BLACK_KEY_DIR" | sftp -b - keyfill@10.0.0.1 &> /dev/null
+            then
+                decrypt_black_keys
+            fi
         else
             return 1
         fi
@@ -661,13 +675,13 @@ load_sd_dkek()
         grep kek < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
         NUM_KEYS=`wc -l < "$SD_KEYS"`
 
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/*.kek /etc/dkeks/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/*.kek "$DKEK_DIR"
         then
             PI_KEYS=`mktemp`
 
-            find /etc/dkeks/ -type f -name '*.kek' | sed -e 's|/etc/dkeks/||g' | sort > "$PI_KEYS"
+            get_all_dkeks | sed -e "s|${DKEK_DIR}/||g" | sort > "$PI_KEYS"
 
-            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
+            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e "s|^|${DKEK_DIR}/|" | xargs -r rm -f
             RET=$?
 
             rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
@@ -731,13 +745,13 @@ load_sd_black_key()
         grep -E '[[:alnum:]]+\.key' < "$MDIR_OUT" | sed -e 's|::/black_keys/||g' | sort > "$SD_KEYS"
         NUM_KEYS=`wc -l < "$SD_KEYS"`
 
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::black_keys/*.key* /etc/black_keys/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR"
         then
             PI_KEYS=`mktemp`
 
-            find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/black_keys/||g' | sort > "$PI_KEYS"
+            find "$BLACK_KEY_DIR" -type f -name '*.key*' | sed -e "s|${BLACK_KEY_DIR}/||g" | sort > "$PI_KEYS"
 
-            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/black_keys/|' | xargs -r rm -f
+            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e "s|^|${BLACK_KEY_DIR}/|" | xargs -r rm -f
             RET=$?
 
             rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
@@ -764,9 +778,9 @@ decrypt_black_keys()
     KDK=`get_device_kdk`
     if test -n "$KDK"
     then
-        for BLK_KEY_PATH in /etc/black_keys/$DEVICE_SERIAL.key*
+        for BLK_KEY_PATH in "${BLACK_KEY_DIR}/${DEVICE_SERIAL}".key*
         do
-            RED_KEY_PATH=/etc/keys/`echo "$BLK_KEY_PATH" | sed -e 's|/etc/black_keys/[0-9a-z-]\+\.||g'`
+            RED_KEY_PATH=/etc/keys/`echo "$BLK_KEY_PATH" | sed -e "s|${BLACK_KEY_DIR}/[0-9a-z-]\+\.||g"`
             TMP_RED_KEY=`mktemp`
             openssl pkeyutl -decrypt -inkey "$KDK" -in "$BLK_KEY_PATH" -out "$TMP_RED_KEY" && \
                 mv "$TMP_RED_KEY" "$RED_KEY_PATH" || rm -f "$TMP_RED_KEY"
@@ -786,10 +800,10 @@ load_sd_dkdk()
 save_sd_dkek()
 {
     PI_KEYS=`mktemp`
-    if find /etc/dkeks/ -type f -name '*.kek' | sed -e 's|/etc/dkeks/||g' | sort > "$PI_KEYS"
+    if get_all_dkeks | sed -e "s|${DKEK_DIR}/||g" | sort > "$PI_KEYS"
     then
         NUM_KEYS=`wc -l < $PI_KEYS`
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/dkeks/*.kek ::config/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd "$DKEK_DIR"/*.kek ::config/
         then
             SD_KEYS=`mktemp`
             mdir_sd -b ::config/*.kek | sed -e 's|::/config/||g' | sort > "$SD_KEYS"

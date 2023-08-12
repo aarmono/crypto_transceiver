@@ -22,11 +22,13 @@ function main()
 
     echo -n "Loading sound configuration..." && load_sd_sound_config && echo "Done!" || echo "Not found."
 
-    echo -n "Loading key..." && load_sd_key && echo "Done!" || echo "Not found."
+    echo -n "Loading keys..." && load_sd_key && echo "Done!" || echo "Not found."
 
     echo -n "Loading crypto configuration..." && load_sd_crypto_config && echo "Done!" || echo "Not found."
 
-    echo -n "Loading Device Decryption Key..." && load_sd_ddk && echo "Done!" || echo "Not found."
+    echo -n "Loading Device Key Decryption Key..." && load_sd_dkdk && echo "Done!" || echo "Not found."
+
+    echo -n "Loading Device Key Encryption Keys..." && load_sd_dkek && echo "Done!" || echo "Not found."
 
     if has_any_keys
     then

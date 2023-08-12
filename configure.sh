@@ -828,8 +828,8 @@ load_from_sd()
                             set_filthy
                         fi
                         ;;
-                    K)
-                        if ! load_sd_key
+                    E)
+                        if ! load_sd_dkek
                         then
                             RESULT=1
                         else
@@ -877,8 +877,8 @@ save_to_sd()
                             RESULT=1
                         fi
                         ;;
-                    K)
-                        if ! save_sd_key
+                    E)
+                        if ! save_sd_dkek
                         then
                             RESULT=1
                         fi
@@ -970,7 +970,7 @@ duplicate_sd_card_loop()
             DEVICE_SERIAL_NUMBER=`uuidd -r`
             DEVICE_DECRYPTION_KEYFILE=`mktemp`
             DEVICE_ENCRYPTION_KEYFILE=`mktemp`
-            dialog --infobox "Generating Device Keys. This may take a while..." 0 0
+            dialog --infobox "Generating Device Key. This may take a while..." 0 0
             openssl genrsa -out "$DEVICE_DECRYPTION_KEYFILE" 4096
             openssl rsa -in "$DEVICE_DECRYPTION_KEYFILE" -pubout -out "$DEVICE_ENCRYPTION_KEYFILE"
 
@@ -1176,9 +1176,9 @@ write_image()
             HEIGHT=12
             if has_any_keys
             then
-                echo "4 \"Keys Only\"" >> /tmp/key_opts
-                echo "5 \"Locked Handheld, With Keys\"" >> /tmp/key_opts
-                echo "6 \"Locked Base Station, With Keys\"" >> /tmp/key_opts
+                echo "4 \"Red Keys Only\"" >> /tmp/key_opts
+                echo "5 \"Locked Handheld, With Red Keys\"" >> /tmp/key_opts
+                echo "6 \"Locked Base Station, With Red Keys\"" >> /tmp/key_opts
                 HEIGHT=$((HEIGHT+3))
             fi
 
@@ -1494,18 +1494,70 @@ run_key_fill()
     /etc/init.d/manual/S60keyfill_led stop &> /dev/null
 }
 
+show_device_delete_dialog()
+{
+    rm -f /tmp/device_delete_dialog &>/dev/null
+    touch /tmp/device_delete_dialog &>/dev/null
+
+    HEIGHT=8
+    for FILE in `find /etc/deks/ -name '*.dek'`
+    do
+        DEVICE_SERIAL=`echo "$FILE" | sed -e 's|/etc/deks/||g' -e 's|.dek||g'`
+        echo "\"$FILE\" \"$DEVICE_SERIAL\" off" >> /tmp/device_delete_dialog
+        HEIGHT=$((HEIGHT<24 ? HEIGHT+1 : HEIGHT))
+    done
+
+    dialog \
+    --title "Select Devices to Delete" \
+    --no-tags \
+    --checklist "Deleting a Device removes its Key Encryption Key. Once saved to the SD Card, this cannot be undone." "$HEIGHT" 60 4 \
+    --file /tmp/device_delete_dialog
+}
+
+delete_devices()
+{
+    while true
+    do
+        if is_initialized
+        then
+            if show_device_delete_dialog 2>$ANSWER
+            then
+                if cat "$ANSWER" | xargs rm -f
+                then
+                    dialog --msgbox "Devices Deleted!" 0 0
+                else
+                    dialog --msgbox "Devices Not Deleted!" 0 0
+                fi
+            fi
+
+            return
+        elif ! dialog --yesno "Config Not Initialized! Retry?" 0 0
+        then
+            return
+        fi
+    done
+}
+
 configuration_menu()
 {
     while true
     do
         rm -f /tmp/key_opts
+        rm -f /tmp/dev_opts
         touch /tmp/key_opts
+        touch /tmp/dev_opts
 
         HEIGHT=17
 
         if has_any_keys
         then
             echo "F \"Enable Ethernet Key Fill\"" > /tmp/key_opts
+            HEIGHT=$((HEIGHT+1))
+        fi
+
+        if has_any_dkeks
+        then
+            echo "V \"Delete Devices\"" > /tmp/dev_opts
             HEIGHT=$((HEIGHT+1))
         fi
 
@@ -1523,6 +1575,7 @@ configuration_menu()
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
            D "Deploy Images" \
+           --file /tmp/dev_opts \
            --file /tmp/key_opts 2>$ANSWER
         then
             option=`cat $ANSWER`
@@ -1549,16 +1602,19 @@ configuration_menu()
                     apply_settings
                     ;;
                 R)
-                    password_prompt && load_from_sd A R
+                    password_prompt && load_from_sd A R E
                     ;;
                 S)
-                    save_to_sd A R
+                    save_to_sd A R E
                     ;;
                 D)
                     write_image
                     ;;
                 F)
                     run_key_fill
+                    ;;
+                V)
+                    delete_devices
                     ;;
                 *)
                     return

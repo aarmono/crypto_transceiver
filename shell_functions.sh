@@ -527,6 +527,11 @@ has_any_keys()
     test `find /etc/keys -type f -name 'key*' | wc -l` -gt 0
 }
 
+has_any_dkeks()
+{
+    test `find /etc/deks/ -type f -name '*.dek' | wc -l` -gt 0
+}
+
 set_key_index()
 {
     if test -z "$1"
@@ -558,6 +563,41 @@ load_sd_key_noclobber()
             return 1
         fi
     else
+        return 1
+    fi
+}
+
+# Loads device key encryption keys from the SD card
+load_sd_dkek()
+{
+    MDIR_OUT=`mktemp`
+    # We want this to succeed if the SD card is inserted but no keys are found
+    # and fail if there is no SD card. So don't wildcard on the mdir call but
+    # instead pass it through grep
+    if mdir_sd -b ::config/ > "$MDIR_OUT"
+    then
+        SD_KEYS=`mktemp`
+
+        grep dek < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+        NUM_KEYS=`wc -l < "$SD_KEYS"`
+
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/*.dek /etc/deks/
+        then
+            PI_KEYS=`mktemp`
+
+            find /etc/deks/ -type f -name '*.dek' | sed -e 's|/etc/deks/||g' | sort > "$PI_KEYS"
+
+            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
+            RET=$?
+
+            rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
+            return $RET
+        else
+            rm -f "$SD_KEYS" "$MDIR_OUT"
+            return 1
+        fi
+    else
+        rm -f "$MDIR_OUT"
         return 1
     fi
 }
@@ -597,22 +637,22 @@ load_sd_key()
     fi
 }
 
-load_sd_ddk()
+load_sd_dkdk()
 {
     mcopy_bin_sd ::config/*.ddk /etc/
 }
 
-# Saves the keys to the SD card
-save_sd_key()
+# Saves device key encryption keys to the SD card
+save_sd_dkek()
 {
     PI_KEYS=`mktemp`
-    if find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/keys/||g' | sort > "$PI_KEYS"
+    if find /etc/deks/ -type f -name '*.dek' | sed -e 's|/etc/deks/||g' | sort > "$PI_KEYS"
     then
         NUM_KEYS=`wc -l < $PI_KEYS`
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/keys/key* ::config/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/deks/*.dek ::config/
         then
             SD_KEYS=`mktemp`
-            mdir_sd -b ::config/key* | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+            mdir_sd -b ::config/*.dek | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
 
             # Can't use mdel_sd in xargs
             comm -23 "$SD_KEYS" "$PI_KEYS" | sed -e 's|^|::config/|' | xargs -r mdel -i "$SD_DEV"

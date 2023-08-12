@@ -1068,7 +1068,7 @@ duplicate_sd_card_loop()
     done
 }
 
-# $1 1 to include keys, 0 to exclude
+# $1 1 to include red keys, 0 to exclude
 # $2 1 to Enable Console Interface, 0 to Disable
 # $3 1 for Key Fill Device, 0 for Radio
 # $4 1 to Serialize the Device
@@ -1130,6 +1130,7 @@ write_device_image()
     done
 }
 
+# $1: 0 to write red keys, 1 to write black keys, 2 to write key encryption keys
 write_key_image()
 {
     while true
@@ -1140,10 +1141,23 @@ write_key_image()
             TMP_SD_IMG=`mktemp`
 
             if dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
-               mkdosfs "$TMP_DOS_IMG" &> /dev/null && \
-               ensure_sd_has_config_dir "$TMP_DOS_IMG" && \
-               mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
+               mkdosfs "$TMP_DOS_IMG" &> /dev/null
             then
+                case "$1" in
+                    0)
+                        ensure_sd_has_config_dir "$TMP_DOS_IMG"
+                        mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
+                        ;;
+                    1)
+                        ensure_sd_has_black_keys_dir "$TMP_DOS_IMG"
+                        mcopy_bin -i "$TMP_DOS_IMG" /etc/black_keys/*.key* ::black_keys/
+                        ;;
+                    2)
+                        ensure_sd_has_config_dir "$TMP_DOS_IMG"
+                        mcopy_bin -i "$TMP_DOS_IMG" /etc/dkeks/*.kek ::config/
+                        ;;
+                esac
+
                 dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
                 echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
 
@@ -1170,15 +1184,32 @@ write_image()
     do
         if is_initialized
         then
-            rm -f /tmp/key_opts
-            touch /tmp/key_opts
+            rm -f /tmp/red_key_opts
+            rm -f /tmp/black_key_opts
+            rm -f /tmp/dkek_opts
+            touch /tmp/red_key_opts
+            touch /tmp/black_key_opts
+            touch /tmp/dkek_opts
 
             HEIGHT=12
+
+            if has_any_dkeks
+            then
+                echo "4 \"Key Encryption Keys Only\"" >> /tmp/dkek_opts
+                HEIGHT=$((HEIGHT+1))
+            fi
+
+            if has_any_black_keys
+            then
+                echo "5 \"Black Keys Only\"" >> /tmp/black_key_opts
+                HEIGHT=$((HEIGHT+1))
+            fi
+
             if has_any_red_keys
             then
-                echo "4 \"Red Keys Only\"" >> /tmp/key_opts
-                echo "5 \"Locked Handheld, With Red Keys\"" >> /tmp/key_opts
-                echo "6 \"Locked Base Station, With Red Keys\"" >> /tmp/key_opts
+                echo "6 \"Red Keys Only (OBSOLETE)\"" >> /tmp/red_key_opts
+                echo "7 \"Locked Handheld, With Red Keys (OBSOLETE)\"" >> /tmp/red_key_opts
+                echo "8 \"Locked Base Station, With Red Keys (OBSOLETE)\"" >> /tmp/red_key_opts
                 HEIGHT=$((HEIGHT+3))
             fi
 
@@ -1188,7 +1219,9 @@ write_image()
             1 "Locked Key Gen/Fill Device" \
             2 "Locked Handheld, No Keys" \
             3 "Locked Base Station, No Keys" \
-            --file /tmp/key_opts 2>$ANSWER
+            --file /tmp/dkek_opts \
+            --file /tmp/black_key_opts \
+            --file /tmp/red_key_opts 2>$ANSWER
 
             option=`cat $ANSWER`
             case "$option" in
@@ -1202,12 +1235,18 @@ write_image()
                     write_device_image 0 1 0 1
                     ;;
                 4)
-                    write_key_image
+                    write_key_image 2
                     ;;
                 5)
-                    write_device_image 1 0 0 1
+                    write_key_image 1
                     ;;
                 6)
+                    write_key_image 0
+                    ;;
+                7)
+                    write_device_image 1 0 0 1
+                    ;;
+                8)
                     write_device_image 1 1 0 1
                     ;;
                 "")

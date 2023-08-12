@@ -385,6 +385,21 @@ ensure_sd_has_config_dir()
     fi
 }
 
+ensure_sd_has_black_keys_dir()
+{
+    if test -z "$1"
+    then
+        SD_DST="$SD_DEV"
+    else
+        SD_DST="$1"
+    fi
+
+    if ! (mdir -i "$SD_DST" -b | grep -q '::/black_keys/')
+    then
+        mkdir -p /tmp/black_keys && mcopy -i "$SD_DST" /tmp/black_keys :: && rmdir /tmp/black_keys
+    fi
+}
+
 # Loads the sound card config from the SD card. The
 # SD card is treated as authoritative, meaning that
 # if no config file is on the SD card the local one

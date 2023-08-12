@@ -1134,7 +1134,7 @@ write_key_image()
 {
     while true
     do
-        if is_initialized && has_any_keys
+        if is_initialized && has_any_red_keys
         then
             TMP_DOS_IMG=`mktemp`
             TMP_SD_IMG=`mktemp`
@@ -1174,7 +1174,7 @@ write_image()
             touch /tmp/key_opts
 
             HEIGHT=12
-            if has_any_keys
+            if has_any_red_keys
             then
                 echo "4 \"Red Keys Only\"" >> /tmp/key_opts
                 echo "5 \"Locked Handheld, With Red Keys\"" >> /tmp/key_opts
@@ -1312,7 +1312,7 @@ generate_encryption_keys()
         then
             if show_key_slot_dialog 1 "Hold the New Keys" "" 1 2>$ANSWER
             then
-                has_any_keys
+                has_any_red_keys
                 HAD_KEYS="$?"
 
                 RESULT=0
@@ -1328,7 +1328,7 @@ generate_encryption_keys()
 
                 if test $RESULT -eq 0
                 then
-                    if test "$HAD_KEYS" -ne 0 && has_any_keys
+                    if test "$HAD_KEYS" -ne 0 && has_any_red_keys
                     then
                         set_key_index "`next_key_idx 256`"
                         set_dirty
@@ -1558,7 +1558,7 @@ configuration_menu()
 
         HEIGHT=17
 
-        if has_any_keys
+        if has_any_black_keys
         then
             echo "F \"Enable Ethernet Key Fill\"" > /tmp/key_opts
             HEIGHT=$((HEIGHT+1))
@@ -1934,20 +1934,26 @@ key_fill_menu()
 {
     while true
     do
+        rm -f /tmp/fill_opt
         rm -f /tmp/load_opt
         rm -f /tmp/del_opt
         rm -f /tmp/shell_opt
+        touch /tmp/fill_opt
         touch /tmp/load_opt
         touch /tmp/del_opt
         touch /tmp/shell_opt
 
         HEIGHT=10
 
+        if has_any_black_keys
+        then
+            echo "F \"Enable Ethernet Key Fill\"" > /tmp/fill_opt
+        fi
+
         if ! has_any_keys
         then
             echo "L \"Load Keys\"" > /tmp/load_opt
         else
-            echo "F \"Enable Ethernet Key Fill\"" > /tmp/load_opt
             echo "D \"Delete Keys\"" > /tmp/del_opt
             HEIGHT=$((HEIGHT+1))
         fi
@@ -1962,6 +1968,7 @@ key_fill_menu()
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Key Fill Interface" \
            --menu "Select an option." $HEIGHT 60 4 \
+           --file /tmp/fill_opt \
            --file /tmp/load_opt \
            C "Create Encryption Keys" \
            --file /tmp/del_opt \

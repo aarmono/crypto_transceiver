@@ -30,7 +30,7 @@ function main()
 
     echo -n "Loading crypto configuration..." && load_sd_crypto_config && echo "Done!" || echo "Not found."
 
-    if has_any_keys
+    if has_any_red_keys
     then
         set_key_index "`next_key_idx 256`"
     fi

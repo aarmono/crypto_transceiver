@@ -572,9 +572,19 @@ ext_has_any_keys()
     sd_has_any_keys || usb_has_any_keys || ethernet_link_detected
 }
 
-has_any_keys()
+has_any_red_keys()
 {
     test `find /etc/keys -type f -name 'key*' | wc -l` -gt 0
+}
+
+has_any_black_keys()
+{
+    test `find /etc/black_keys -type f -name '*.key*' | wc -l` -gt 0
+}
+
+has_any_keys()
+{
+    has_any_red_keys || has_any_black_keys
 }
 
 get_all_dkeks()

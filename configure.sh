@@ -976,7 +976,7 @@ duplicate_sd_card_loop()
 
             SERIAL_PART_IMG=`mktemp`
             cp "$2" "$SERIAL_PART_IMG"
-            mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE" ::config/"${DEVICE_SERIAL_NUMBER}.ddk"
+            mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE" ::config/"${DEVICE_SERIAL_NUMBER}.kdk"
 
             combine_img_p1 "$1" "$SERIAL_PART_IMG"
             rm -f "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE"
@@ -998,7 +998,7 @@ duplicate_sd_card_loop()
         then
             if test -n "$DEVICE_ENCRYPTION_KEYFILE"
             then
-                mv "$DEVICE_ENCRYPTION_KEYFILE" "/etc/deks/${DEVICE_SERIAL_NUMBER}.dek"
+                mv "$DEVICE_ENCRYPTION_KEYFILE" "/etc/dkeks/${DEVICE_SERIAL_NUMBER}.kek"
             fi
 
             if test "$4" -ne 0
@@ -1500,9 +1500,9 @@ show_device_delete_dialog()
     touch /tmp/device_delete_dialog &>/dev/null
 
     HEIGHT=8
-    for FILE in `find /etc/deks/ -name '*.dek'`
+    for FILE in `find /etc/dkeks/ -name '*.kek'`
     do
-        DEVICE_SERIAL=`echo "$FILE" | sed -e 's|/etc/deks/||g' -e 's|.dek||g'`
+        DEVICE_SERIAL=`echo "$FILE" | sed -e 's|/etc/dkeks/||g' -e 's|.kek||g'`
         echo "\"$FILE\" \"$DEVICE_SERIAL\" off" >> /tmp/device_delete_dialog
         HEIGHT=$((HEIGHT<24 ? HEIGHT+1 : HEIGHT))
     done

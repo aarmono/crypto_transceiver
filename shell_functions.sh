@@ -529,7 +529,7 @@ has_any_keys()
 
 has_any_dkeks()
 {
-    test `find /etc/deks/ -type f -name '*.dek' | wc -l` -gt 0
+    test `find /etc/dkeks/ -type f -name '*.kek' | wc -l` -gt 0
 }
 
 set_key_index()
@@ -578,14 +578,14 @@ load_sd_dkek()
     then
         SD_KEYS=`mktemp`
 
-        grep dek < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+        grep kek < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
         NUM_KEYS=`wc -l < "$SD_KEYS"`
 
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/*.dek /etc/deks/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/*.kek /etc/dkeks/
         then
             PI_KEYS=`mktemp`
 
-            find /etc/deks/ -type f -name '*.dek' | sed -e 's|/etc/deks/||g' | sort > "$PI_KEYS"
+            find /etc/dkeks/ -type f -name '*.kek' | sed -e 's|/etc/dkeks/||g' | sort > "$PI_KEYS"
 
             comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
             RET=$?
@@ -639,20 +639,20 @@ load_sd_key()
 
 load_sd_dkdk()
 {
-    mcopy_bin_sd ::config/*.ddk /etc/
+    mcopy_bin_sd ::config/*.kdk /etc/
 }
 
 # Saves device key encryption keys to the SD card
 save_sd_dkek()
 {
     PI_KEYS=`mktemp`
-    if find /etc/deks/ -type f -name '*.dek' | sed -e 's|/etc/deks/||g' | sort > "$PI_KEYS"
+    if find /etc/dkeks/ -type f -name '*.kek' | sed -e 's|/etc/dkeks/||g' | sort > "$PI_KEYS"
     then
         NUM_KEYS=`wc -l < $PI_KEYS`
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/deks/*.dek ::config/
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd /etc/dkeks/*.kek ::config/
         then
             SD_KEYS=`mktemp`
-            mdir_sd -b ::config/*.dek | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+            mdir_sd -b ::config/*.kek | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
 
             # Can't use mdel_sd in xargs
             comm -23 "$SD_KEYS" "$PI_KEYS" | sed -e 's|^|::config/|' | xargs -r mdel -i "$SD_DEV"
@@ -722,5 +722,5 @@ key_fill_only()
 
 get_device_serial()
 {
-    find /etc/ -name '*.ddk' | sed -e 's|/etc/||g' -e 's|.ddk||g' | head -n 1
+    find /etc/ -name '*.kdk' | sed -e 's|/etc/||g' -e 's|.kdk||g' | head -n 1
 }

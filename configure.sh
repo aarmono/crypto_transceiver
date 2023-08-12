@@ -1246,10 +1246,19 @@ start_alsamixer()
 
 key_slot_str()
 {
-    has_red_key "$1" && echo "*Slot $1" || echo " Slot $1"
+    if has_red_key "$1"
+    then
+        echo "*Slot $1 (Red)"
+    elif has_black_key "$1"
+    then
+        echo "*Slot $1 (Black)"
+    else
+        echo " Slot $1"
+    fi
 }
 
-# $1: 1 to show all or 0 to show only entries with keys
+# $1: 1 to show all, 0 to show only entries with red or black keys,
+#     2 to show only entries with red keys
 # $2: Title Text
 # $3: On Key Slot (optional)
 # $4: 1 to display checklist (optional)
@@ -1261,7 +1270,7 @@ show_key_slot_dialog()
     IDX=1
     while test "$IDX" -le 256
     do
-        if test "$1" -eq 1 || has_red_key "$IDX"
+        if test "$1" -eq 1 || has_red_key "$IDX" || (test "$1" -eq 0 && has_black_key "$IDX")
         then
             COUNT=$((COUNT+1))
             echo "$IDX \"`key_slot_str $IDX`\" `on_off "$IDX" "$3"`" >> /tmp/key_slots_dialog
@@ -1349,7 +1358,7 @@ delete_encryption_keys()
                 RESULT=0
                 for IDX in `cat $ANSWER`
                 do
-                    if rm "`get_red_key_path $IDX`"
+                    if get_all_paths "$IDX" | xargs rm -f
                     then
                         set_dirty
                     else
@@ -1381,7 +1390,7 @@ select_active_key()
         then
             CUR_IDX=`get_key_index`
 
-            show_key_slot_dialog 0 "Set As Active" "$CUR_IDX" 2>$ANSWER
+            show_key_slot_dialog 2 "Set As Active" "$CUR_IDX" 2>$ANSWER
             NEW_IDX=`cat $ANSWER`
             if test -n "$NEW_IDX" && set_key_index "$NEW_IDX"
             then

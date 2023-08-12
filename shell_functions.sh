@@ -486,6 +486,19 @@ get_red_key_path()
     echo "$KEY_PATH"
 }
 
+# Returns the file paths of all black keys in the
+# specified Key Slot
+get_all_black_key_paths()
+{
+    KEY_NAME="key"
+    if test "$1" -gt 1
+    then
+        KEY_NAME="${KEY_NAME}$1"
+    fi
+
+    find /etc/black_keys/ -type f -name "*.$KEY_NAME"
+}
+
 # echoes a black key path for the specified Key Slot
 # and Device Serial to stdout
 get_black_key_path()
@@ -497,6 +510,14 @@ get_black_key_path()
     fi
 
     echo "$KEY_PATH"
+}
+
+# Returns the file paths of all red and black keys
+# in the specified Key Slot
+get_all_key_paths()
+{
+    get_red_key_path
+    get_all_black_key_paths
 }
 
 # Generates a new key and stores it to the specified Key Slot
@@ -533,13 +554,7 @@ has_red_key()
 # Tests whether or not a black key is in a particular Key Slot
 has_black_key()
 {
-    KEY_NAME="key"
-    if test "$1" -gt 1
-    then
-        KEY_NAME="${KEY_NAME}$1"
-    fi
-
-    test "`find /etc/black_keys/ -type f -name "*.$KEY_NAME" | wc -l`" -gt 0
+    test "`get_all_black_key_paths $1 | wc -l`" -gt 0
 }
 
 sd_has_any_keys()

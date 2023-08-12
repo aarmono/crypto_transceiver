@@ -1103,7 +1103,7 @@ write_device_image()
             cp "$SD_IMG_DOS" "$TMP_DOS_IMG"
             cp "$SD_IMG" "$TMP_SD_IMG"
 
-            mdeltree -i "$TMP_DOS_IMG" ::config
+            mdeltree -i "$TMP_DOS_IMG" ::config ::black_keys
             if ensure_sd_has_config_dir "$TMP_DOS_IMG" && \
                mcopy_text -i "$TMP_DOS_IMG" "$ASOUND_CFG" ::config/asound.state && \
                mcopy_text -i "$TMP_DOS_IMG" "$TMP_CRYPTO_INI" ::config/crypto.ini

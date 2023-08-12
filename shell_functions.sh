@@ -516,8 +516,8 @@ get_black_key_path()
 # in the specified Key Slot
 get_all_key_paths()
 {
-    get_red_key_path
-    get_all_black_key_paths
+    get_red_key_path "$1"
+    get_all_black_key_paths "$1"
 }
 
 # Generates a new key and stores it to the specified Key Slot
@@ -559,12 +559,12 @@ has_black_key()
 
 sd_has_any_keys()
 {
-    mdir_sd -b ::config/key*
+    mdir_sd -b ::config/key* || mdir_sd -b ::black_keys/*.key*
 }
 
 usb_has_any_keys()
 {
-    mdir_usb -b ::config/key*
+    mdir_usb -b ::config/key* || mdir_sd -b ::black_keys/*.key*
 }
 
 ext_has_any_keys()
@@ -657,8 +657,8 @@ load_sd_dkek()
     fi
 }
 
-# Loads the keys from the SD card
-load_sd_key()
+# Loads the red keys from the SD card
+load_sd_red_key()
 {
     MDIR_OUT=`mktemp`
     # We want this to succeed if the SD card is inserted but no keys are found
@@ -668,7 +668,7 @@ load_sd_key()
     then
         SD_KEYS=`mktemp`
 
-        grep key < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
+        grep -E '^key' < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
         NUM_KEYS=`wc -l < "$SD_KEYS"`
 
         if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/key* /etc/keys/
@@ -677,7 +677,7 @@ load_sd_key()
 
             find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/keys/||g' | sort > "$PI_KEYS"
 
-            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/|' | xargs -r rm -f
+            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/keys/|' | xargs -r rm -f
             RET=$?
 
             rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
@@ -689,6 +689,66 @@ load_sd_key()
     else
         rm -f "$MDIR_OUT"
         return 1
+    fi
+}
+
+# Loads the black keys from the SD card
+load_sd_black_key()
+{
+    MDIR_OUT=`mktemp`
+    # We want this to succeed if the SD card is inserted but no keys are found
+    # and fail if there is no SD card. So don't wildcard on the mdir call but
+    # instead pass it through grep
+    if mdir_sd -b ::black_keys/ > "$MDIR_OUT"
+    then
+        SD_KEYS=`mktemp`
+
+        grep -E '[[:alnum:]]+\.key' < "$MDIR_OUT" | sed -e 's|::/black_keys/||g' | sort > "$SD_KEYS"
+        NUM_KEYS=`wc -l < "$SD_KEYS"`
+
+        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::black_keys/*.key* /etc/black_keys/
+        then
+            PI_KEYS=`mktemp`
+
+            find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/black_keys/||g' | sort > "$PI_KEYS"
+
+            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/black_keys/|' | xargs -r rm -f
+            RET=$?
+
+            rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
+            return $RET
+        else
+            rm -f "$SD_KEYS" "$MDIR_OUT"
+            return 1
+        fi
+    else
+        rm -f "$MDIR_OUT"
+        return 1
+    fi
+}
+
+# Loads red and black keys from the SD card
+load_sd_key()
+{
+    load_sd_red_key && load_sd_black_key && decrypt_black_keys
+}
+
+decrypt_black_keys()
+{
+    DEVICE_SERIAL=`get_device_serial`
+    KDK=`get_device_kdk`
+    if test -n "$KDK"
+    then
+        for BLK_KEY_PATH in /etc/black_keys/$DEVICE_SERIAL.key*
+        do
+            RED_KEY_PATH=/etc/keys/`echo "$BLK_KEY_PATH" | sed -e 's|/etc/black_keys/[0-9a-z-]\+\.||g'`
+            TMP_RED_KEY=`mktemp`
+            openssl pkeyutl -decrypt -inkey "$KDK" -in "$BLK_KEY_PATH" -out "$TMP_RED_KEY" && \
+                mv "$TMP_RED_KEY" "$RED_KEY_PATH" || rm -f "$TMP_RED_KEY"
+        done
+        return 0
+    else
+        return 0
     fi
 }
 
@@ -775,7 +835,12 @@ key_fill_only()
     test "`get_config_val Config KeyFillOnly`" -ne 0
 }
 
+get_device_kdk()
+{
+    find /etc/ -name '*.kdk' | head -n 1
+}
+
 get_device_serial()
 {
-    find /etc/ -name '*.kdk' | sed -e 's|/etc/||g' -e 's|.kdk||g' | head -n 1
+    get_device_kdk | sed -e 's|/etc/||g' -e 's|.kdk||g'
 }

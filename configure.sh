@@ -1358,7 +1358,7 @@ delete_encryption_keys()
                 RESULT=0
                 for IDX in `cat $ANSWER`
                 do
-                    if get_all_paths "$IDX" | xargs rm -f
+                    if get_all_key_paths "$IDX" | xargs rm -f
                     then
                         set_dirty
                     else

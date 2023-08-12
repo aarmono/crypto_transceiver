@@ -31,7 +31,7 @@ update_key_idx()
         /etc/init.d/S31jack_crypto_rx signal SIGHUP
         /etc/init.d/S30jack_crypto_tx signal SIGHUP
 
-        if has_key "$1"
+        if has_red_key "$1"
         then
             headset_tts "$CONFIRM_MSG"
         else
@@ -77,7 +77,7 @@ toggle_digital()
             if test "$CRYPTO_EN" -ne 0
             then
                 KEY_IDX=`get_key_index`
-                if has_key "$KEY_IDX"
+                if has_red_key "$KEY_IDX"
                 then
                     headset_tts "Secure"
                 else

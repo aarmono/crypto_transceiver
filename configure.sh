@@ -1246,7 +1246,7 @@ start_alsamixer()
 
 key_slot_str()
 {
-    has_key "$1" && echo "*Slot $1" || echo " Slot $1"
+    has_red_key "$1" && echo "*Slot $1" || echo " Slot $1"
 }
 
 # $1: 1 to show all or 0 to show only entries with keys
@@ -1261,7 +1261,7 @@ show_key_slot_dialog()
     IDX=1
     while test "$IDX" -le 256
     do
-        if test "$1" -eq 1 || has_key "$IDX"
+        if test "$1" -eq 1 || has_red_key "$IDX"
         then
             COUNT=$((COUNT+1))
             echo "$IDX \"`key_slot_str $IDX`\" `on_off "$IDX" "$3"`" >> /tmp/key_slots_dialog
@@ -1349,7 +1349,7 @@ delete_encryption_keys()
                 RESULT=0
                 for IDX in `cat $ANSWER`
                 do
-                    if rm "`get_key_path $IDX`"
+                    if rm "`get_red_key_path $IDX`"
                     then
                         set_dirty
                     else
@@ -1500,7 +1500,7 @@ show_device_delete_dialog()
     touch /tmp/device_delete_dialog &>/dev/null
 
     HEIGHT=8
-    for FILE in `find /etc/dkeks/ -name '*.kek'`
+    for FILE in `get_all_dkeks`
     do
         DEVICE_SERIAL=`echo "$FILE" | sed -e 's|/etc/dkeks/||g' -e 's|.kek||g'`
         echo "\"$FILE\" \"$DEVICE_SERIAL\" off" >> /tmp/device_delete_dialog
@@ -1720,7 +1720,7 @@ select_digital()
             if test "`get_config_val Crypto Enabled`" -ne 0
             then
                 ANALOG_STR="Plain"
-                if has_key "`get_key_index`"
+                if has_red_key "`get_key_index`"
                 then
                     DIGITAL_STR="Secure"
                     INSECURE_MODE_STR="Plain"
@@ -1831,7 +1831,7 @@ radio_menu()
 
         if test "`get_config_val Crypto Enabled`" -ne 0
         then
-            if has_key "`get_key_index`"
+            if has_red_key "`get_key_index`"
             then
                 DIGITAL_STR="Secure"
             else

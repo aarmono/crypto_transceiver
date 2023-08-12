@@ -473,9 +473,9 @@ save_sd_crypto_config()
     fi
 }
 
-# echoes a key path for the specified Key Slot
+# echoes a red key path for the specified Key Slot
 # to stdout
-get_key_path()
+get_red_key_path()
 {
     KEY_PATH="/etc/keys/key"
     if test "$1" -gt 1
@@ -486,25 +486,60 @@ get_key_path()
     echo "$KEY_PATH"
 }
 
+# echoes a black key path for the specified Key Slot
+# and Device Serial to stdout
+get_black_key_path()
+{
+    KEY_PATH="/etc/black_keys/${2}.key"
+    if test "$1" -gt 1
+    then
+        KEY_PATH="${KEY_PATH}${1}"
+    fi
+
+    echo "$KEY_PATH"
+}
+
 # Generates a new key and stores it to the specified Key Slot
 gen_key()
 {
     if test -z "$1"
     then
-        KEY_PATH=`get_key_path 1`
+        KEY_PATH=`get_red_key_path 1`
     else
-        KEY_PATH=`get_key_path "$1"`
+        KEY_PATH=`get_red_key_path "$1"`
     fi
 
-    dd if=/dev/hwrng of=/dev/urandom bs=512 count=1 && \
-        dd if=/dev/random of="$KEY_PATH" bs=131 count=1
+    if dd if=/dev/hwrng of=/dev/urandom bs=512 count=1 && \
+       dd if=/dev/random of="$KEY_PATH" bs=131 count=1
+    then
+        for KEK in `get_all_dkeks`
+        do
+            DEVICE_SERIAL=`echo "$KEK" | sed -e 's|/etc/dkeks/||g' -e 's|.kek||g'`
+            BLK_KEY_PATH=`get_black_key_path "$1" "$DEVICE_SERIAL"`
+            TMP_BLK_KEY=`mktemp`
+            openssl pkeyutl -encrypt -pubin -inkey "$KEK" -in "$KEY_PATH" -out "$TMP_BLK_KEY" && \
+                mv "$TMP_BLK_KEY" "$BLK_KEY_PATH" || rm -f "$TMP_BLK_KEY"
+        done
+    fi
 }
 
-# Tests whether or not a key is in a particular Key Slot
-has_key()
+# Tests whether or not a red key is in a particular Key Slot
+has_red_key()
 {
-    KEY_PATH=`get_key_path "$1"`
+    KEY_PATH=`get_red_key_path "$1"`
     test -f "$KEY_PATH"
+}
+
+# Tests whether or not a black key is in a particular Key Slot
+has_black_key()
+{
+    KEY_NAME="key"
+    if test "$1" -gt 1
+    then
+        KEY_NAME="${KEY_NAME}$1"
+    fi
+
+    test "`find /etc/black_keys/ -type f -name "*.$KEY_NAME" | wc -l`" -gt 0
 }
 
 sd_has_any_keys()
@@ -527,9 +562,14 @@ has_any_keys()
     test `find /etc/keys -type f -name 'key*' | wc -l` -gt 0
 }
 
+get_all_dkeks()
+{
+    find /etc/dkeks/ -type f -name '*.kek'
+}
+
 has_any_dkeks()
 {
-    test `find /etc/dkeks/ -type f -name '*.kek' | wc -l` -gt 0
+    test `get_all_dkeks | wc -l` -gt 0
 }
 
 set_key_index()
@@ -674,7 +714,7 @@ next_key_idx()
 {
     NEXT_KEY_IDX=$(($1+1))
     # Prevent infinite loop if no key
-    while test "$NEXT_KEY_IDX" -ne "$1" && ! has_key "$NEXT_KEY_IDX"
+    while test "$NEXT_KEY_IDX" -ne "$1" && ! has_red_key "$NEXT_KEY_IDX"
     do
         if test "$NEXT_KEY_IDX" -ge 256
         then

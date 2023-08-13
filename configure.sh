@@ -1139,7 +1139,7 @@ write_key_image()
 {
     while true
     do
-        if is_initialized && has_any_red_keys
+        if is_initialized
         then
             TMP_DOS_IMG=`mktemp`
             TMP_SD_IMG=`mktemp`
@@ -1572,9 +1572,9 @@ show_device_delete_dialog()
     done
 
     dialog \
-    --title "Select Devices to Delete" \
+    --title "Select Key Encryption Keys to Delete" \
     --no-tags \
-    --checklist "Deleting a Device removes its Key Encryption Key. Once saved to the SD Card, this cannot be undone." "$HEIGHT" 60 4 \
+    --checklist "Deleting a Key Encryption Key also deletes all Black Keys encrypted with it." "$HEIGHT" 60 4 \
     --file /tmp/device_delete_dialog
 }
 
@@ -1592,9 +1592,9 @@ delete_devices()
                     do
                         find "$BLACK_KEY_DIR" -type f -name "${DEVICE_SERIAL}.key*" | xargs rm -f
                     done
-                    dialog --msgbox "Devices Deleted!" 0 0
+                    dialog --msgbox "Keys Deleted!" 0 0
                 else
-                    dialog --msgbox "Devices Not Deleted!" 0 0
+                    dialog --msgbox "Keys Not Deleted!" 0 0
                 fi
             fi
 
@@ -1831,7 +1831,7 @@ select_digital()
 
 load_keks()
 {
-    if dialog --yesno "Load Keys Using Ethernet?" 0 0
+    if ! sd_has_any_dkeks && ! usb_has_any_dkeks && dialog --yesno "Load Keys Using Ethernet?" 0 0
     then
         ifconfig eth0 up
         dialog --infobox "Enabling Ethernet..." 0 0
@@ -2044,10 +2044,12 @@ key_fill_menu()
         rm -f /tmp/load_opt
         rm -f /tmp/del_opt
         rm -f /tmp/shell_opt
+        rm -f /tmp/kek_opt
         touch /tmp/fill_opt
         touch /tmp/load_opt
         touch /tmp/del_opt
         touch /tmp/shell_opt
+        touch /tmp/kek_opt
 
         HEIGHT=11
 
@@ -2056,6 +2058,12 @@ key_fill_menu()
             echo "F \"Enable Ethernet Key Fill\"" >> /tmp/fill_opt
             echo "I \"Deploy Black Key Image\"" >> /tmp/fill_opt
             HEIGHT=$((HEIGHT+2))
+        fi
+
+        if has_any_dkeks
+        then
+            echo "E \"Delete Key Encryption Keys\"" > /tmp/kek_opt
+            HEIGHT=$((HEIGHT+1))
         fi
 
         if has_any_keys
@@ -2078,6 +2086,7 @@ key_fill_menu()
            --file /tmp/fill_opt \
            --file /tmp/load_opt \
            K "Load Key Encryption Keys" \
+           --file /tmp/kek_opt \
            C "Create Encryption Keys" \
            --file /tmp/del_opt \
            B "View Boot Messages" \
@@ -2111,6 +2120,9 @@ key_fill_menu()
                     ;;
                 I)
                     write_key_image 1
+                    ;;
+                E)
+                    delete_devices
                     ;;
             esac
         else

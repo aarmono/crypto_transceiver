@@ -18,6 +18,23 @@ toggle_keyfill()
     fi
 }
 
+# $1: Number of times to blink (Default: 1)
+blink_led()
+{
+    if test "$1" -gt 1
+    then
+        TIMES="$1"
+    else
+        TIMES=1
+    fi
+
+    for i in `seq 1 "$TIMES"`
+    do
+        start_keyfill_led.sh 50000
+        sleep .05
+    done
+}
+
 can_toggle_keyfill()
 {
     has_any_black_keys && ! /etc/init.d/S10pppoe_client running
@@ -32,6 +49,8 @@ do
                     if can_toggle_keyfill
                     then
                         toggle_keyfill
+                    else
+                        blink_led 3
                     fi
                     ;;
             esac

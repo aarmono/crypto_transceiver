@@ -1588,6 +1588,10 @@ delete_devices()
             then
                 if cat "$ANSWER" | xargs rm -f
                 then
+                    for DEVICE_SERIAL in `cat "$ANSWER" | sed -e "s|${DKEK_DIR}/||g" -e 's|.kek||g'`
+                    do
+                        find "$BLACK_KEY_DIR" -type f -name "${DEVICE_SERIAL}.key*" | xargs rm -f
+                    done
                     dialog --msgbox "Devices Deleted!" 0 0
                 else
                     dialog --msgbox "Devices Not Deleted!" 0 0

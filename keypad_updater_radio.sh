@@ -44,7 +44,7 @@ update_key_idx()
 
 load_keys()
 {
-    if load_sd_key_noclobber
+    if load_ext_key_noclobber
     then
         /etc/init.d/manual/S10pppoe_client stop
 

@@ -538,6 +538,35 @@ get_all_key_paths()
     get_all_black_key_paths "$1"
 }
 
+# $1 Key Encryption Key Path
+# $2 Red Key Path
+encrypt_key()
+{
+    DEVICE_SERIAL=`echo "$1" | sed -e "s|${DKEK_DIR}/||g" -e 's|.kek||g'`
+    BLK_KEY_PATH=`echo "$2" | sed -e "s|/etc/keys/|${BLACK_KEY_DIR}/${DEVICE_SERIAL}.|g"`
+    if ! test -f "$BLK_KEY_PATH"
+    then
+        TMP_BLK_KEY=`mktemp`
+        openssl pkeyutl -encrypt -pubin -inkey "$1" -in "$2" -out "$TMP_BLK_KEY" && \
+            mv "$TMP_BLK_KEY" "$BLK_KEY_PATH" || rm -f "$TMP_BLK_KEY"
+    else
+        return 0
+    fi
+}
+
+encrypt_all()
+{
+    for RED_KEY in `get_all_red_keys`
+    do
+        for DKEK in `get_all_dkeks`
+        do
+            encrypt_key "$DKEK" "$RED_KEY"
+        done
+    done
+
+    return 0
+}
+
 # Generates a new key and stores it to the specified Key Slot
 gen_key()
 {
@@ -553,11 +582,7 @@ gen_key()
     then
         for KEK in `get_all_dkeks`
         do
-            DEVICE_SERIAL=`echo "$KEK" | sed -e "s|${DKEK_DIR}/||g" -e 's|.kek||g'`
-            BLK_KEY_PATH=`get_black_key_path "$1" "$DEVICE_SERIAL"`
-            TMP_BLK_KEY=`mktemp`
-            openssl pkeyutl -encrypt -pubin -inkey "$KEK" -in "$KEY_PATH" -out "$TMP_BLK_KEY" && \
-                mv "$TMP_BLK_KEY" "$BLK_KEY_PATH" || rm -f "$TMP_BLK_KEY"
+            encrypt_key "$KEK" "$KEY_PATH"
         done
     fi
 }
@@ -592,7 +617,7 @@ ext_has_any_keys()
 
 has_any_red_keys()
 {
-    test `find /etc/keys -type f -name 'key*' | wc -l` -gt 0
+    test `get_all_red_keys | wc -l` -gt 0
 }
 
 has_any_black_keys()
@@ -610,9 +635,24 @@ get_all_dkeks()
     find "$DKEK_DIR" -type f -name '*.kek'
 }
 
+get_all_red_keys()
+{
+    find /etc/keys -type f -name 'key*'
+}
+
 has_any_dkeks()
 {
     test `get_all_dkeks | wc -l` -gt 0
+}
+
+sd_has_any_dkeks()
+{
+    mdir_sd -b ::config/*.kek
+}
+
+usb_has_any_dkeks()
+{
+    mdir_usb -b ::config/*.kek
 }
 
 set_key_index()
@@ -626,10 +666,11 @@ set_key_index()
     set_sys_config_val Crypto KeyIndex "$1"
 }
 
-# Loads keys from the SD card if and only if
+# Loads keys from an external device if and only if
 # 1. There are no local keys
 # 2. There is at least one key on the SD card (first) or USB drive (second)
-load_sd_key_noclobber()
+#    or ethernet is connected (third)
+load_ext_key_noclobber()
 {
     if ! has_any_keys
     then
@@ -659,6 +700,29 @@ load_sd_key_noclobber()
     else
         return 1
     fi
+}
+
+# Loads key encryption keys from any external device with them
+load_ext_dkek()
+{
+    LOADED=0
+    if sd_has_any_dkeks && mcopy_bin_sd ::config/*.kek "$DKEK_DIR"
+    then
+         LOADED=1
+    fi
+    if usb_has_any_dkeks && mcopy_bin_usb ::config/*.kek "$DKEK_DIR"
+    then
+         LOADED=1
+    fi
+    if pppoe_link_established
+    then
+        if echo "get dkeks/*.kek $DKEK_DIR" | sftp -b - keyfill@10.0.0.1 &> /dev/null
+        then
+            LOADED=1
+        fi
+    fi
+
+    test "$LOADED" -ne 0 && encrypt_all
 }
 
 # Loads device key encryption keys from the SD card

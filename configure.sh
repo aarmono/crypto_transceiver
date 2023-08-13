@@ -1285,14 +1285,26 @@ start_alsamixer()
 
 key_slot_str()
 {
+    KEY_STR=""
+
     if has_red_key "$1"
     then
-        echo "*Slot $1 (Red)"
+        if has_black_key "$1"
+        then
+            KEY_STR="(Red,Black)"
+        else
+            KEY_STR="(Red)"
+        fi
     elif has_black_key "$1"
     then
-        echo "*Slot $1 (Black)"
+        KEY_STR="(Black)"
+    fi
+
+    if test -n "$KEY_STR"
+    then
+        printf '*Slot %03d %s' "$1" "$KEY_STR"
     else
-        echo " Slot $1"
+        printf ' Slot %03d' "$1"
     fi
 }
 
@@ -1595,7 +1607,7 @@ configuration_menu()
         touch /tmp/key_opts
         touch /tmp/dev_opts
 
-        HEIGHT=17
+        HEIGHT=18
 
         if has_any_black_keys
         then
@@ -1622,9 +1634,10 @@ configuration_menu()
            A "Apply Current Settings" \
            R "Reinitialize System From SD Card" \
            S "Save Configuration To SD Card" \
-           D "Deploy Images" \
+           I "Import Devices" \
            --file /tmp/dev_opts \
-           --file /tmp/key_opts 2>$ANSWER
+           --file /tmp/key_opts \
+           D "Deploy Images" 2>$ANSWER
         then
             option=`cat $ANSWER`
             case "$option" in
@@ -1663,6 +1676,9 @@ configuration_menu()
                     ;;
                 V)
                     delete_devices
+                    ;;
+                I)
+                    load_keks
                     ;;
                 *)
                     return
@@ -1805,6 +1821,50 @@ select_digital()
     done
 }
 
+load_keks()
+{
+    if dialog --yesno "Load Keys Using Ethernet?" 0 0
+    then
+        ifconfig eth0 up
+        dialog --infobox "Enabling Ethernet..." 0 0
+
+        COUNT=0
+        while ! ethernet_link_detected && test "$COUNT" -lt 10
+        do
+            COUNT=$((COUNT+1))
+            sleep 1
+        done
+
+        if ethernet_link_detected
+        then
+            /etc/init.d/manual/S10pppoe_client start &> /dev/null
+            dialog --infobox "Connecting to Key Fill Device..." 0 0
+
+            COUNT=0
+            while ! pppoe_link_established
+            do
+                COUNT=$((COUNT+1))
+                sleep 1
+            done
+        fi
+    fi
+
+    if load_ext_dkek &> /dev/null
+    then
+        /etc/init.d/manual/S10pppoe_client stop &> /dev/null
+        dialog --msgbox "Keys Loaded!" 0 0
+        ifconfig eth0 down
+
+        return 0
+    else
+        /etc/init.d/manual/S10pppoe_client stop &> /dev/null
+        dialog --msgbox "Keys Not Loaded!" 0 0
+        ifconfig eth0 down
+
+        return 1
+    fi
+}
+
 load_keys()
 {
     if ! sd_has_any_keys && ! usb_has_any_keys && dialog --yesno "Load Keys Using Ethernet?" 0 0
@@ -1833,7 +1893,7 @@ load_keys()
         fi
     fi
 
-    if load_sd_key_noclobber &> /dev/null
+    if load_ext_key_noclobber &> /dev/null
     then
         set_key_index "`next_key_idx 256`"
         set_dirty
@@ -1845,7 +1905,6 @@ load_keys()
 
         return 0
     else
-
         /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Not Loaded!" 0 0
         ifconfig eth0 down
@@ -1982,19 +2041,19 @@ key_fill_menu()
         touch /tmp/del_opt
         touch /tmp/shell_opt
 
-        HEIGHT=10
+        HEIGHT=11
 
         if has_any_black_keys
         then
             echo "F \"Enable Ethernet Key Fill\"" > /tmp/fill_opt
+            HEIGHT=$((HEIGHT+1))
         fi
 
-        if ! has_any_keys
+        if has_any_keys
         then
-            echo "L \"Load Keys\"" > /tmp/load_opt
+            echo "D \"Delete Encryption Keys\"" > /tmp/del_opt
         else
-            echo "D \"Delete Keys\"" > /tmp/del_opt
-            HEIGHT=$((HEIGHT+1))
+            echo "L \"Load Encryption Keys\"" > /tmp/load_opt
         fi
 
         if test "`get_sys_config_val Diagnostics ShellEnabled`" -ne 0
@@ -2009,6 +2068,7 @@ key_fill_menu()
            --menu "Select an option." $HEIGHT 60 4 \
            --file /tmp/fill_opt \
            --file /tmp/load_opt \
+           K "Load Key Encryption Keys" \
            C "Create Encryption Keys" \
            --file /tmp/del_opt \
            B "View Boot Messages" \
@@ -2036,6 +2096,9 @@ key_fill_menu()
                     then
                         load_keys
                     fi
+                    ;;
+                K)
+                    load_keks
                     ;;
             esac
         else

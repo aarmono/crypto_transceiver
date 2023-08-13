@@ -1841,7 +1841,7 @@ load_keks()
             dialog --infobox "Connecting to Key Fill Device..." 0 0
 
             COUNT=0
-            while ! pppoe_link_established
+            while ! pppoe_link_established && test "$COUNT" -lt 10
             do
                 COUNT=$((COUNT+1))
                 sleep 1
@@ -1885,7 +1885,7 @@ load_keys()
             dialog --infobox "Connecting to Key Fill Device..." 0 0
 
             COUNT=0
-            while ! pppoe_link_established
+            while ! pppoe_link_established && test "$COUNT" -lt 10
             do
                 COUNT=$((COUNT+1))
                 sleep 1
@@ -2045,8 +2045,9 @@ key_fill_menu()
 
         if has_any_black_keys
         then
-            echo "F \"Enable Ethernet Key Fill\"" > /tmp/fill_opt
-            HEIGHT=$((HEIGHT+1))
+            echo "F \"Enable Ethernet Key Fill\"" >> /tmp/fill_opt
+            echo "I \"Deploy Black Key Image\"" >> /tmp/fill_opt
+            HEIGHT=$((HEIGHT+2))
         fi
 
         if has_any_keys
@@ -2099,6 +2100,9 @@ key_fill_menu()
                     ;;
                 K)
                     load_keks
+                    ;;
+                I)
+                    write_key_image 1
                     ;;
             esac
         else

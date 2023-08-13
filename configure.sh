@@ -1903,9 +1903,12 @@ load_keys()
 
     if load_ext_key_noclobber &> /dev/null
     then
-        set_key_index "`next_key_idx 256`"
-        set_dirty
-        apply_settings
+        if has_any_red_keys
+        then
+            set_key_index "`next_key_idx 256`"
+            set_dirty
+            apply_settings
+        fi
 
         /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Loaded!" 0 0
@@ -1929,15 +1932,17 @@ radio_menu()
         rm -f /tmp/load_opt
         rm -f /tmp/shell_opt
         rm -f /tmp/config_opt
+        rm -f /tmp/active_opt
         touch /tmp/transmit_opt
         touch /tmp/load_opt
         touch /tmp/shell_opt
         touch /tmp/config_opt
+        touch /tmp/active_opt
 
         PTT_ENABLED=`get_config_val PTT Enabled`
         PTT_GPIONUM=`get_config_val PTT GPIONum`
 
-        HEIGHT=13
+        HEIGHT=12
         if test "$PTT_ENABLED" -ne 0 && test "$PTT_GPIONUM" -eq "-1"
         then
             echo "T \"Transmit Voice\"" > /tmp/transmit_opt
@@ -1961,8 +1966,13 @@ radio_menu()
         if ! has_any_keys
         then
             echo "L \"Load Keys\"" > /tmp/load_opt
-        else
-            echo "K \"Select Active Key\"" > /tmp/load_opt
+            HEIGHT=$((HEIGHT+1))
+        fi
+
+        if has_any_red_keys
+        then
+            echo "K \"Select Active Key\"" > /tmp/active_opt
+            HEIGHT=$((HEIGHT+1))
         fi
 
         if test "`get_sys_config_val Diagnostics ShellEnabled`" -ne 0
@@ -1986,6 +1996,7 @@ radio_menu()
            H "Adjust Headset Volume" \
            R "Adjust Radio Volume" \
            --file /tmp/load_opt \
+           --file /tmp/active_opt \
            D "Select $DIGITAL_STR/$ANALOG_STR" \
            --file /tmp/config_opt \
            B "View Boot Messages" \

@@ -1191,7 +1191,7 @@ write_image()
             touch /tmp/black_key_opts
             touch /tmp/dkek_opts
 
-            HEIGHT=12
+            HEIGHT=13
 
             if has_any_dkeks
             then
@@ -1208,14 +1208,14 @@ write_image()
             if has_any_red_keys
             then
                 echo "6 \"Red Keys Only\"" >> /tmp/red_key_opts
-                echo "7 \"Locked Handheld, With Red Keys (OBSOLETE)\"" >> /tmp/red_key_opts
-                echo "8 \"Locked Base Station, With Red Keys (OBSOLETE)\"" >> /tmp/red_key_opts
+                echo "7 \"Locked Handheld, With Red Keys\"" >> /tmp/red_key_opts
+                echo "8 \"Locked Base Station, With Red Keys\"" >> /tmp/red_key_opts
                 HEIGHT=$((HEIGHT+3))
             fi
 
             dialog \
             --title "Deployment Options" \
-            --menu "Select a type of image to deploy. Deploying a Locked Device Image to an SD Card will permanently make it read-only." "$HEIGHT" 60 4 \
+            --menu "Select a type of image to deploy. Deploying a Locked Device Image to an SD Card will permanently make it read-only. Key Encryption Keys can only make a Red Key Black and cannot make a Black Key Red." "$HEIGHT" 60 4 \
             1 "Locked Key Gen/Fill Device" \
             2 "Locked Handheld, No Keys" \
             3 "Locked Base Station, No Keys" \

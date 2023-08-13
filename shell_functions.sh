@@ -602,12 +602,12 @@ has_black_key()
 
 sd_has_any_keys()
 {
-    mdir_sd -b ::config/key* || mdir_sd -b ::black_keys/*.key*
+    mdir_sd -b ::config/key* &> /dev/null || mdir_sd -b ::black_keys/*.key* &> /dev/null
 }
 
 usb_has_any_keys()
 {
-    mdir_usb -b ::config/key* || mdir_sd -b ::black_keys/*.key*
+    mdir_usb -b ::config/key* &> /dev/null || mdir_sd -b ::black_keys/*.key* &> /dev/null
 }
 
 ext_has_any_keys()
@@ -647,12 +647,12 @@ has_any_dkeks()
 
 sd_has_any_dkeks()
 {
-    mdir_sd -b ::config/*.kek
+    mdir_sd -b ::config/*.kek &> /dev/null
 }
 
 usb_has_any_dkeks()
 {
-    mdir_usb -b ::config/*.kek
+    mdir_usb -b ::config/*.kek &> /dev/null
 }
 
 set_key_index()
@@ -676,18 +676,20 @@ load_ext_key_noclobber()
     then
         if sd_has_any_keys
         then
-            mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR" && decrypt_black_keys
-            BLACK=$?
-            mcopy_bin_sd ::config/key* /etc/keys/
-            RED=$?
-            return $((BlACK||RED))
+            if mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR" &> /dev/null
+            then
+                decrypt_black_keys
+            else
+                mcopy_bin_sd ::config/key* /etc/keys/ &> /dev/null && encrypt_all
+            fi
         elif usb_has_any_keys
         then
-            mcopy_bin_usb ::black_keys/*.key* "$BLACK_KEY_DIR" && decrypt_black_keys
-            BLACK=$?
-            mcopy_bin_usb ::config/key* /etc/keys/
-            RED=$?
-            return $((BLACK||RED))
+            if mcopy_bin_usb ::black_keys/*.key* "$BLACK_KEY_DIR" &> /dev/null
+            then
+                decrypt_black_keys
+            else
+                mcopy_bin_usb ::config/key* /etc/keys/ &> /dev/null && encrypt_all
+            fi
         elif pppoe_link_established
         then
             if echo "get keys/*.key* $BLACK_KEY_DIR" | sftp -b - keyfill@10.0.0.1 &> /dev/null
@@ -763,34 +765,12 @@ load_sd_dkek()
 # Loads the red keys from the SD card
 load_sd_red_key()
 {
-    MDIR_OUT=`mktemp`
     # We want this to succeed if the SD card is inserted but no keys are found
-    # and fail if there is no SD card. So don't wildcard on the mdir call but
-    # instead pass it through grep
-    if mdir_sd -b ::config/ > "$MDIR_OUT"
+    # and fail if there is no SD card. So don't wildcard on the mdir call
+    if mdir_sd -b ::config/key* &> /dev/null
     then
-        SD_KEYS=`mktemp`
-
-        grep -E '^key' < "$MDIR_OUT" | sed -e 's|::/config/||g' | sort > "$SD_KEYS"
-        NUM_KEYS=`wc -l < "$SD_KEYS"`
-
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::config/key* /etc/keys/
-        then
-            PI_KEYS=`mktemp`
-
-            find /etc/keys/ -type f -name 'key*' | sed -e 's|/etc/keys/||g' | sort > "$PI_KEYS"
-
-            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e 's|^|/etc/keys/|' | xargs -r rm -f
-            RET=$?
-
-            rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
-            return $RET
-        else
-            rm -f "$SD_KEYS" "$MDIR_OUT"
-            return 1
-        fi
+        mcopy_bin_sd ::config/key* /etc/keys/ &> /dev/null
     else
-        rm -f "$MDIR_OUT"
         return 1
     fi
 }
@@ -798,34 +778,10 @@ load_sd_red_key()
 # Loads the black keys from the SD card
 load_sd_black_key()
 {
-    MDIR_OUT=`mktemp`
-    # We want this to succeed if the SD card is inserted but no keys are found
-    # and fail if there is no SD card. So don't wildcard on the mdir call but
-    # instead pass it through grep
-    if mdir_sd -b ::black_keys/ > "$MDIR_OUT"
+    if mdir_sd -b ::black_keys/*.key* &> /dev/null
     then
-        SD_KEYS=`mktemp`
-
-        grep -E '[[:alnum:]]+\.key' < "$MDIR_OUT" | sed -e 's|::/black_keys/||g' | sort > "$SD_KEYS"
-        NUM_KEYS=`wc -l < "$SD_KEYS"`
-
-        if test "$NUM_KEYS" -eq 0 || mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR"
-        then
-            PI_KEYS=`mktemp`
-
-            find "$BLACK_KEY_DIR" -type f -name '*.key*' | sed -e "s|${BLACK_KEY_DIR}/||g" | sort > "$PI_KEYS"
-
-            comm -23 "$PI_KEYS" "$SD_KEYS" | sed -e "s|^|${BLACK_KEY_DIR}/|" | xargs -r rm -f
-            RET=$?
-
-            rm -f "$PI_KEYS" "$SD_KEYS" "$MDIR_OUT"
-            return $RET
-        else
-            rm -f "$SD_KEYS" "$MDIR_OUT"
-            return 1
-        fi
+        mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR" &> /dev/null
     else
-        rm -f "$MDIR_OUT"
         return 1
     fi
 }
@@ -833,7 +789,12 @@ load_sd_black_key()
 # Loads red and black keys from the SD card
 load_sd_key()
 {
-    load_sd_red_key && load_sd_black_key && decrypt_black_keys
+    if load_sd_black_key
+    then
+        decrypt_black_keys
+    else
+        load_sd_red_key && encrypt_all
+    fi
 }
 
 decrypt_black_keys()

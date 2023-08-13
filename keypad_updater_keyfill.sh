@@ -20,7 +20,7 @@ toggle_keyfill()
 
 can_toggle_keyfill()
 {
-    has_any_keys && ! /etc/init.d/S10pppoe_client running
+    has_any_black_keys && ! /etc/init.d/S10pppoe_client running
 }
 
 while read -r button event

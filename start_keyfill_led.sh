@@ -15,4 +15,12 @@ then
 	ACTIVE_ARG="-l"
 fi
 
-exec gpioset -m signal -B "$BIAS" -D "$DRIVE" $ACTIVE_ARG gpiochip0 "$PIN"=1
+if test "$1" -gt 0
+then
+	MODE="time"
+	TIME_ARG="-u $1"
+else
+	MODE="signal"
+fi
+
+exec gpioset -m "$MODE" $TIME_ARG -B "$BIAS" -D "$DRIVE" $ACTIVE_ARG gpiochip0 "$PIN"=1

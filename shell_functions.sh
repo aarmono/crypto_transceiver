@@ -548,7 +548,10 @@ encrypt_key()
     then
         TMP_BLK_KEY=`mktemp`
         openssl pkeyutl -encrypt -pubin -inkey "$1" -in "$2" -out "$TMP_BLK_KEY" && \
-            mv "$TMP_BLK_KEY" "$BLK_KEY_PATH" || rm -f "$TMP_BLK_KEY"
+            install -m 0644 "$TMP_BLK_KEY" "$BLK_KEY_PATH"
+        RET=$?
+        rm -f "$TMP_BLK_KEY"
+        return "$RET"
     else
         return 0
     fi
@@ -580,6 +583,7 @@ gen_key()
     if dd if=/dev/hwrng of=/dev/urandom bs=512 count=1 && \
        dd if=/dev/random of="$KEY_PATH" bs=131 count=1
     then
+        get_all_black_key_paths "$1" | xargs rm -f
         for KEK in `get_all_dkeks`
         do
             encrypt_key "$KEK" "$KEY_PATH"

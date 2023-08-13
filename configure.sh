@@ -1115,6 +1115,10 @@ write_device_image()
 
                 duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1 $4
                 rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG" "$TMP_CRYPTO_INI"
+                if test "$4" -ne 0
+                then
+                    encrypt_all
+                fi
                 return
             elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
             then

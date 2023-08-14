@@ -2056,11 +2056,13 @@ key_fill_menu()
         rm -f /tmp/del_opt
         rm -f /tmp/shell_opt
         rm -f /tmp/kek_opt
+        rm -f /tmp/red_opt
         touch /tmp/fill_opt
         touch /tmp/load_opt
         touch /tmp/del_opt
         touch /tmp/shell_opt
         touch /tmp/kek_opt
+        touch /tmp/red_opt
 
         HEIGHT=11
 
@@ -2069,6 +2071,19 @@ key_fill_menu()
             echo "F \"Enable Ethernet Key Fill\"" >> /tmp/fill_opt
             echo "I \"Deploy Black Key Image\"" >> /tmp/fill_opt
             HEIGHT=$((HEIGHT+2))
+        fi
+
+        if has_any_red_keys
+        then
+            echo "R \"Delete All Red Keys\"" > /tmp/red_opt
+            HEIGHT=$((HEIGHT+1))
+
+            export DIALOGRC="/etc/dialogrc.red"
+        elif has_any_black_keys
+        then
+            export DIALOGRC="/etc/dialogrc.black"
+        else
+            unset DIALOGRC
         fi
 
         if has_any_dkeks
@@ -2094,6 +2109,7 @@ key_fill_menu()
            --cancel-label "LOCK" \
            --title "Crypto Voice Module Key Fill Interface" \
            --menu "Select an option." $HEIGHT 60 4 \
+           --file /tmp/red_opt \
            --file /tmp/fill_opt \
            --file /tmp/load_opt \
            K "Load Key Encryption Keys" \
@@ -2135,6 +2151,11 @@ key_fill_menu()
                 E)
                     delete_devices
                     ;;
+                R)
+                    rm -f /etc/keys/* && \
+                        dialog --msgbox "Red Keys Deleted!" 0 0 || \
+                        dialog --msgbox "Red Keys Not Deleted!" 0 0
+                    ;;
             esac
         else
             disable_config
@@ -2163,12 +2184,21 @@ main_menu()
     fi
 }
 
-# ForceShowConfig setting must be turned on in the firmware itself
-if (test "`get_sys_config_val Diagnostics ForceShowConfig`" -ne 0) ||
-   (wait_initialized && test "`get_config_val Config Enabled`" -ne 0)
-then
-    main_menu
-else
+locked_dialog()
+{
+    if key_fill_only
+    then
+        if has_any_red_keys
+        then
+            export DIALOGRC="/etc/dialogrc.red"
+        elif has_any_black_keys
+        then
+            export DIALOGRC="/etc/dialogrc.black"
+        else
+            unset DIALOGRC
+        fi
+    fi
+
     DEVICE_SERIAL=`get_device_serial`
     if test -z "$DEVICE_SERIAL"
     then
@@ -2176,4 +2206,13 @@ else
     else
         exec dialog --backtitle "Device Serial Number: $DEVICE_SERIAL" --msgbox "Display Locked" 0 0
     fi
+}
+
+# ForceShowConfig setting must be turned on in the firmware itself
+if (test "`get_sys_config_val Diagnostics ForceShowConfig`" -ne 0) ||
+   (wait_initialized && test "`get_config_val Config Enabled`" -ne 0)
+then
+    main_menu
+else
+    locked_dialog
 fi

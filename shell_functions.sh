@@ -917,3 +917,29 @@ get_device_serial()
 {
     get_device_kdk | sed -e 's|/etc/||g' -e 's|.kdk||g'
 }
+
+disable_keyfill()
+{
+    /etc/init.d/manual/S50sshd stop &> /dev/null
+    /etc/init.d/manual/S10pppoe_server stop &> /dev/null
+    ifconfig eth0 down &> /dev/null
+    /etc/init.d/manual/S60keyfill_led stop &> /dev/null
+}
+
+enable_keyfill()
+{
+    ifconfig eth0 up &> /dev/null
+    /etc/init.d/manual/S10pppoe_server start &> /dev/null
+    /etc/init.d/manual/S50sshd start &> /dev/null
+    /etc/init.d/manual/S60keyfill_led start &> /dev/null
+}
+
+toggle_keyfill()
+{
+    if /etc/init.d/manual/S10pppoe_server running
+    then
+        disable_keyfill
+    else
+        enable_keyfill
+    fi
+}

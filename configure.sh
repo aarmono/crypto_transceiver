@@ -13,7 +13,12 @@ FILTHY=/tmp/filthy
 
 alias set_dirty="touch $DIRTY"
 alias set_filthy="touch $FILTHY"
-alias disable_config="set_config_val Config Enabled 0"
+
+disable_config()
+{
+    set_config_val Config Enabled 0
+    key_fill_only && rm -f /etc/keys/*
+}
 
 trap 'disable_config; exit 0' INT TERM EXIT
 
@@ -1541,23 +1546,6 @@ configure_password()
     fi
 }
 
-run_key_fill()
-{
-    ifconfig eth0 up
-    /etc/init.d/manual/S10pppoe_server start &> /dev/null
-    /etc/init.d/manual/S50sshd start &> /dev/null
-    /etc/init.d/manual/S60keyfill_led start &> /dev/null
-
-    dialog \
-    --title "Ethernet Key Fill" \
-    --msgbox "Key Fill Active. Press OK To Stop" 5 37
-
-    /etc/init.d/manual/S50sshd stop &> /dev/null
-    /etc/init.d/manual/S10pppoe_server stop &> /dev/null
-    ifconfig eth0 down
-    /etc/init.d/manual/S60keyfill_led stop &> /dev/null
-}
-
 show_device_delete_dialog()
 {
     rm -f /tmp/device_delete_dialog &>/dev/null
@@ -1619,7 +1607,7 @@ configuration_menu()
 
         if has_any_black_keys
         then
-            echo "F \"Enable Ethernet Key Fill\"" > /tmp/key_opts
+            echo "F \"Control Ethernet Key Fill\"" > /tmp/key_opts
             HEIGHT=$((HEIGHT+1))
         fi
 
@@ -1680,7 +1668,7 @@ configuration_menu()
                     write_image
                     ;;
                 F)
-                    run_key_fill
+                    configure_keyfill
                     ;;
                 V)
                     delete_devices
@@ -1831,8 +1819,18 @@ select_digital()
 
 load_keks()
 {
+    PPOE_SERVER_RUNNING=1
+
     if ! sd_has_any_dkeks && ! usb_has_any_dkeks && dialog --yesno "Load Keys Using Ethernet?" 0 0
     then
+        /etc/init.d/manual/S10pppoe_server running
+        PPOE_SERVER_RUNNING=$?
+
+        if test "$PPOE_SERVER_RUNNING" -eq 0
+        then
+            toggle_keyfill
+        fi
+
         ifconfig eth0 up
         dialog --infobox "Enabling Ethernet..." 0 0
 
@@ -1861,13 +1859,25 @@ load_keks()
     then
         /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Loaded!" 0 0
-        ifconfig eth0 down
+
+        if test "$PPOE_SERVER_RUNNING" -eq 0
+        then
+            toggle_keyfill
+        else
+            ifconfig eth0 down
+        fi
 
         return 0
     else
         /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Not Loaded!" 0 0
-        ifconfig eth0 down
+
+        if test "$PPOE_SERVER_RUNNING" -eq 0
+        then
+            toggle_keyfill
+        else
+            ifconfig eth0 down
+        fi
 
         return 1
     fi
@@ -1875,8 +1885,18 @@ load_keks()
 
 load_keys()
 {
+    PPOE_SERVER_RUNNING=1
+
     if ! sd_has_any_keys && ! usb_has_any_keys && dialog --yesno "Load Keys Using Ethernet?" 0 0
     then
+        /etc/init.d/manual/S10pppoe_server running
+        PPOE_SERVER_RUNNING=$?
+
+        if test "$PPOE_SERVER_RUNNING" -eq 0
+        then
+            toggle_keyfill
+        fi
+
         ifconfig eth0 up
         dialog --infobox "Enabling Ethernet..." 0 0
 
@@ -1912,16 +1932,51 @@ load_keys()
 
         /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Loaded!" 0 0
-        ifconfig eth0 down
+
+        if test "$PPOE_SERVER_RUNNING" -eq 0
+        then
+            toggle_keyfill
+        else
+            ifconfig eth0 down
+        fi
 
         return 0
     else
         /etc/init.d/manual/S10pppoe_client stop &> /dev/null
         dialog --msgbox "Keys Not Loaded!" 0 0
-        ifconfig eth0 down
+
+        if test "$PPOE_SERVER_RUNNING" -eq 0
+        then
+            toggle_keyfill
+        else
+            ifconfig eth0 down
+        fi
 
         return 1
     fi
+}
+
+configure_keyfill()
+{
+    /etc/init.d/manual/S10pppoe_server running
+    VAL=$?
+
+    dialog \
+    --no-tags \
+    --title "Control Ethernet Key Fill" \
+    --radiolist "When On, other Devices will be able to download Black Keys and Key Encryption Keys." 10 60 3 \
+    1       "Off" `on_off $VAL 1`  \
+    0       "On"  `on_off $VAL 0` 2>$ANSWER
+
+    option=`cat $ANSWER`
+    case "$option" in
+        0)
+            enable_keyfill
+            ;;
+        1)
+            disable_keyfill
+            ;;
+    esac
 }
 
 radio_menu()
@@ -2068,7 +2123,7 @@ key_fill_menu()
 
         if has_any_black_keys
         then
-            echo "F \"Enable Ethernet Key Fill\"" >> /tmp/fill_opt
+            echo "F \"Control Ethernet Key Fill\"" >> /tmp/fill_opt
             echo "I \"Deploy Black Key Image\"" >> /tmp/fill_opt
             HEIGHT=$((HEIGHT+2))
         fi
@@ -2122,7 +2177,7 @@ key_fill_menu()
             option=`cat $ANSWER`
             case "$option" in
                 F)
-                    run_key_fill
+                    configure_keyfill
                     ;;
                 D)
                     delete_encryption_keys

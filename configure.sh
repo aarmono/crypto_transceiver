@@ -2107,7 +2107,7 @@ key_fill_menu()
 
         if dialog \
            --cancel-label "LOCK" \
-           --title "Crypto Voice Module Key Fill Interface" \
+           --title "Crypto Voice Module Key Fill Console" \
            --menu "Select an option." $HEIGHT 60 4 \
            --file /tmp/red_opt \
            --file /tmp/fill_opt \

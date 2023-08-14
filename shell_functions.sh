@@ -659,6 +659,11 @@ usb_has_any_dkeks()
     mdir_usb -b ::config/*.kek &> /dev/null
 }
 
+ext_has_any_dkeks()
+{
+    sd_has_any_dkeks || usb_has_any_dkeks || ethernet_link_detected
+}
+
 set_key_index()
 {
     if test -z "$1"

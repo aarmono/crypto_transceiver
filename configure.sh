@@ -1605,7 +1605,7 @@ configuration_menu()
 
         HEIGHT=18
 
-        if has_any_black_keys
+        if has_any_black_keys || has_any_dkeks || /etc/init.d/manual/S10pppoe_server running
         then
             echo "F \"Control Ethernet Key Fill\"" > /tmp/key_opts
             HEIGHT=$((HEIGHT+1))
@@ -2106,12 +2106,14 @@ key_fill_menu()
 {
     while true
     do
+        rm -f /tmp/eth_opt
         rm -f /tmp/fill_opt
         rm -f /tmp/load_opt
         rm -f /tmp/del_opt
         rm -f /tmp/shell_opt
         rm -f /tmp/kek_opt
         rm -f /tmp/red_opt
+        touch /tmp/eth_opt
         touch /tmp/fill_opt
         touch /tmp/load_opt
         touch /tmp/del_opt
@@ -2121,11 +2123,16 @@ key_fill_menu()
 
         HEIGHT=11
 
+        if has_any_black_keys || has_any_dkeks || /etc/init.d/manual/S10pppoe_server running
+        then
+            echo "F \"Control Ethernet Key Fill\"" >> /tmp/eth_opt
+            HEIGHT=$((HEIGHT+1))
+        fi
+
         if has_any_black_keys
         then
-            echo "F \"Control Ethernet Key Fill\"" >> /tmp/fill_opt
             echo "I \"Deploy Black Key Image\"" >> /tmp/fill_opt
-            HEIGHT=$((HEIGHT+2))
+            HEIGHT=$((HEIGHT+1))
         fi
 
         if has_any_red_keys
@@ -2165,6 +2172,7 @@ key_fill_menu()
            --title "Crypto Voice Module Key Fill Console" \
            --menu "Select an option." $HEIGHT 60 4 \
            --file /tmp/red_opt \
+           --file /tmp/eth_opt \
            --file /tmp/fill_opt \
            --file /tmp/load_opt \
            K "Load Key Encryption Keys" \

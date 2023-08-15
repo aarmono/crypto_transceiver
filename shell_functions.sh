@@ -21,6 +21,7 @@ USB_DEV=/dev/sda1
 
 BLACK_KEY_DIR=/etc/black/keys
 DKEK_DIR=/etc/black/dkeks
+CIK_DIR=/etc/ciks
 
 # Copies a text file
 alias mcopy_text="mcopy -t -n -D o"
@@ -64,10 +65,10 @@ alias set_initialized="touch /var/run/initialized"
 alias is_tx_initialized="test -e /var/run/tx_initialized"
 
 # Tests whether the system has an SD card installed
-alias has_sd_card="test -b $SD_DEV"
+alias has_sd_card="test -b /dev/mmcblk0"
 
 # Tests whether the system has a USB flash drive installed
-alias has_usb_drive="test -b $USB_DEV"
+alias has_usb_drive="test -b /dev/sda"
 
 # Runs espeak with settings optimized for radio transmission
 alias espeak_radio="espeak -v en -g 10 -s 140"
@@ -606,12 +607,28 @@ has_black_key()
 
 sd_has_any_keys()
 {
-    mdir_sd -b ::config/key* &> /dev/null || mdir_sd -b ::black_keys/*.key* &> /dev/null
+    if device_kdk_encrypted
+    then
+        mdir_sd -b ::config/key* &> /dev/null || \
+            mdir_sd -b ::black_keys/*.key* &> /dev/null || \
+            mdir_sd -b ::cik &> /dev/null
+    else
+        mdir_sd -b ::config/key* &> /dev/null || \
+            mdir_sd -b ::black_keys/*.key* &> /dev/null
+    fi
 }
 
 usb_has_any_keys()
 {
-    mdir_usb -b ::config/key* &> /dev/null || mdir_sd -b ::black_keys/*.key* &> /dev/null
+    if device_kdk_encrypted
+    then
+        mdir_usb -b ::config/key* &> /dev/null || \
+            mdir_usb -b ::black_keys/*.key* &> /dev/null || \
+            mdir_usb -b ::cik &> /dev/null
+    else
+        mdir_usb -b ::config/key* &> /dev/null || \
+            mdir_usb -b ::black_keys/*.key* &> /dev/null
+    fi
 }
 
 ext_has_any_keys()
@@ -621,12 +638,12 @@ ext_has_any_keys()
 
 has_any_red_keys()
 {
-    test `get_all_red_keys | wc -l` -gt 0
+    test "`get_all_red_keys | wc -l`" -gt 0
 }
 
 has_any_black_keys()
 {
-    test `find "$BLACK_KEY_DIR" -type f -name '*.key*' | wc -l` -gt 0
+    test "`find "$BLACK_KEY_DIR" -type f -name '*.key*' | wc -l`" -gt 0
 }
 
 has_any_keys()
@@ -646,7 +663,7 @@ get_all_red_keys()
 
 has_any_dkeks()
 {
-    test `get_all_dkeks | wc -l` -gt 0
+    test "`get_all_dkeks | wc -l`" -gt 0
 }
 
 sd_has_any_dkeks()
@@ -681,32 +698,67 @@ set_key_index()
 #    or ethernet is connected (third)
 load_ext_key_noclobber()
 {
-    if ! has_any_keys
+    if sd_has_any_keys
     then
-        if sd_has_any_keys
+        if ! has_any_keys
         then
             if mcopy_bin_sd ::black_keys/*.key* "$BLACK_KEY_DIR" &> /dev/null
             then
                 decrypt_black_keys
+            elif mcopy_bin_sd ::config/key* /etc/keys/ &> /dev/null
+            then
+                encrypt_all
+                # The keys will be unusable until the Crypto Ignition Key is
+                # loaded
+                if device_kdk_encrypted
+                then
+                    rm -f /etc/keys/key*
+                fi
+            elif device_kdk_encrypted && mcopy_bin_sd ::cik /tmp/ &> /dev/null
+            then
+                decrypt_kdk /tmp/cik && decrypt_black_keys
             else
-                mcopy_bin_sd ::config/key* /etc/keys/ &> /dev/null && encrypt_all
+                return 1
             fi
-        elif usb_has_any_keys
+        elif device_kdk_encrypted && mcopy_bin_sd ::cik /tmp/ &> /dev/null
+        then
+            decrypt_kdk /tmp/cik && decrypt_black_keys
+        else
+            return 1
+        fi
+    elif usb_has_any_keys
+    then
+        if ! has_any_keys
         then
             if mcopy_bin_usb ::black_keys/*.key* "$BLACK_KEY_DIR" &> /dev/null
             then
                 decrypt_black_keys
-            else
-                mcopy_bin_usb ::config/key* /etc/keys/ &> /dev/null && encrypt_all
-            fi
-        elif pppoe_link_established
-        then
-            if echo "get keys/*.key* $BLACK_KEY_DIR" | sftp -b - keyfill@10.0.0.1 &> /dev/null
+            elif mcopy_bin_usb ::config/key* /etc/keys/ &> /dev/null
             then
-                decrypt_black_keys
+                encrypt_all
+                # The keys will be unusable until the Crypto Ignition Key is
+                # loaded
+                if device_kdk_encrypted
+                then
+                    rm -f /etc/keys/key*
+                fi
+            elif device_kdk_encrypted && mcopy_bin_usb ::cik /tmp/ &> /dev/null
+            then
+                decrypt_kdk /tmp/cik && decrypt_black_keys
+            else
+                return 1
             fi
+        elif device_kdk_encrypted && mcopy_bin_usb ::cik /tmp/ &> /dev/null
+        then
+            decrypt_kdk /tmp/cik && decrypt_black_keys
         else
             return 1
+        fi
+    elif ! has_any_keys && pppoe_link_established
+    then
+        if echo "get keys/*.key* $BLACK_KEY_DIR" | sftp -b - keyfill@10.0.0.1 &> /dev/null
+        then
+            decrypt_black_keys
         fi
     else
         return 1
@@ -825,9 +877,31 @@ decrypt_black_keys()
     fi
 }
 
+decrypt_kdk()
+{
+    ENCRYPTED_KDK=`get_encrypted_kdk`
+    TMP_DECRYPTED_KDK=`mktemp`
+    DECRYPTED_KDK=`echo "$ENCRYPTED_KDK" | sed -e 's|\.enc||g'`
+
+    if openssl pkcs8 -scrypt -in "$ENCRYPTED_KDK" -out "$TMP_DECRYPTED_KDK" -passin "file:$1" && \
+       mv "$TMP_DECRYPTED_KDK" "$DECRYPTED_KDK"
+    then
+        rm -f /etc/*.kdk.enc "$1"
+        return 0
+    else
+        rm -f "$TMP_DECRYPTED_KDK" "$1"
+        return 1
+    fi
+}
+
 load_sd_dkdk()
 {
-    mcopy_bin_sd ::config/*.kdk /etc/
+    if mdir_sd ::config/*.kdk.enc &> /dev/null
+    then
+        mcopy_bin_sd ::config/*.kdk.enc /etc/
+    else
+        mcopy_bin_sd ::config/*.kdk /etc/
+    fi
 }
 
 # Saves device key encryption keys to the SD card
@@ -908,14 +982,29 @@ key_fill_only()
     test "`get_config_val Config KeyFillOnly`" -ne 0
 }
 
+device_kdk_encrypted()
+{
+    test "`get_encrypted_kdk | wc -l`" -gt 0
+}
+
+get_encrypted_kdk()
+{
+    find /etc/ -name '*.kdk.enc' | head -n 1
+}
+
 get_device_kdk()
 {
     find /etc/ -name '*.kdk' | head -n 1
 }
 
+has_device_kdk()
+{
+    test "`get_device_kdk | wc -l`" -gt 0
+}
+
 get_device_serial()
 {
-    get_device_kdk | sed -e 's|/etc/||g' -e 's|.kdk||g'
+    find /etc/ -name '*.kdk*' | head -n 1 | sed -e 's|/etc/||g' -e 's|\.kdk||g' -e 's|\.enc||g'
 }
 
 disable_keyfill()

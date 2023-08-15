@@ -954,6 +954,7 @@ test_write_protect()
 # $3 Add seed to partition
 # $4 lock the SD Card
 # $5 Serialize the SD Card
+# $6 Encrypt the Key Decryption Key
 duplicate_sd_card_loop()
 {
     if test -z "$4"
@@ -981,7 +982,22 @@ duplicate_sd_card_loop()
 
             SERIAL_PART_IMG=`mktemp`
             cp "$2" "$SERIAL_PART_IMG"
-            mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE" ::config/"${DEVICE_SERIAL_NUMBER}.kdk"
+
+            if test "$6" -ne 0
+            then
+                DEVICE_CIK=`mktemp`
+                DEVICE_DECRYPTION_KEYFILE_ENC=`mktemp`
+
+                dd if=/dev/random of="$DEVICE_CIK" bs=512 count=1
+                openssl pkcs8 -scrypt -topk8 -in "$DEVICE_DECRYPTION_KEYFILE" -out "$DEVICE_DECRYPTION_KEYFILE_ENC" -passout "file:${DEVICE_CIK}"
+                mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE_ENC" ::config/"${DEVICE_SERIAL_NUMBER}.kdk.enc"
+
+                rm -f "$DEVICE_DECRYPTION_KEYFILE_ENC"
+            else
+                mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE" ::config/"${DEVICE_SERIAL_NUMBER}.kdk"
+            fi
+
+            mcopy_bin -i "$SERIAL_PART_IMG" "$DEVICE_ENCRYPTION_KEYFILE" ::config/"${DEVICE_SERIAL_NUMBER}.kek"
 
             combine_img_p1 "$1" "$SERIAL_PART_IMG"
             rm -f "$SERIAL_PART_IMG" "$DEVICE_DECRYPTION_KEYFILE"
@@ -1004,6 +1020,11 @@ duplicate_sd_card_loop()
             if test -n "$DEVICE_ENCRYPTION_KEYFILE"
             then
                 mv "$DEVICE_ENCRYPTION_KEYFILE" "${DKEK_DIR}/${DEVICE_SERIAL_NUMBER}.kek"
+            fi
+
+            if test -n "$DEVICE_CIK"
+            then
+                mv "$DEVICE_CIK" "${CIK_DIR}/${DEVICE_SERIAL_NUMBER}.cik"
             fi
 
             if test "$4" -ne 0
@@ -1060,15 +1081,11 @@ duplicate_sd_card_loop()
             fi
         elif ! dialog --yesno "$DST_NAME Write Failed! Retry?" 0 0
         then
-            if test -n "$DEVICE_DECRYPTION_KEYFILE"
-            then
-                rm "$DEVICE_ENCRYPTION_KEYFILE"
-            fi
+            rm -f "$DEVICE_ENCRYPTION_KEYFILE" "$DEVICE_CIK"
 
             return 1
-        elif test -n "$DEVICE_ENCRYPTION_KEYFILE"
-        then
-            rm "$DEVICE_ENCRYPTION_KEYFILE"
+        else
+            rm -f "$DEVICE_ENCRYPTION_KEYFILE" "$DEVICE_CIK"
         fi
     done
 }
@@ -1077,6 +1094,7 @@ duplicate_sd_card_loop()
 # $2 1 to Enable Console Interface, 0 to Disable
 # $3 1 for Key Fill Device, 0 for Radio
 # $4 1 to Serialize the Device
+# $5 1 to encrypt the Key Decription Key with a Crypto Ignition Key
 write_device_image()
 {
     while true
@@ -1118,7 +1136,7 @@ write_device_image()
                     mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
                 fi
 
-                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1 $4
+                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG" 1 1 $4 $5
                 rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG" "$TMP_CRYPTO_INI"
                 if test "$4" -ne 0
                 then
@@ -1187,38 +1205,124 @@ write_key_image()
     done
 }
 
+write_cik_image()
+{
+    while true
+    do
+        if ! has_any_ciks
+        then
+            dialog --msgbox "No More CIKs to Write!" 0 0
+            return
+        fi
+
+        HEIGHT=8
+        rm -f /tmp/cik_opts
+        for CIK in `find "$CIK_DIR" -type f -name '*.cik'`
+        do
+            DEVICE_SERIAL=`echo "$CIK" | sed -e "s|${CIK_DIR}/||g" -e 's|\.cik||g'`
+            echo "\"$CIK\" \"$DEVICE_SERIAL\"" >> /tmp/cik_opts
+            HEIGHT=$((HEIGHT<24 ? HEIGHT+1 : HEIGHT))
+        done
+
+        if dialog \
+           --title "Write Crypto Ignition Keys" \
+           --no-tags \
+           --menu "Select the Device for which a CIK will be written. Only one copy will be written per Device." $HEIGHT 60 3 \
+           --file /tmp/cik_opts 2> "$ANSWER"
+        then
+            CIK=`cat "$ANSWER"`
+
+            TMP_DOS_IMG=`mktemp`
+            TMP_SD_IMG=`mktemp`
+
+            if dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
+               mkdosfs "$TMP_DOS_IMG" &> /dev/null
+            then
+                mcopy_bin -i "$TMP_DOS_IMG" "$CIK" ::cik
+
+                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
+                echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
+
+                combine_img_p1 "$TMP_SD_IMG" "$TMP_DOS_IMG"
+
+                if dialog --yesno "Insert SD Card or USB Drive and select Yes to copy or No to exit" 0 0
+                then
+                    if has_usb_drive
+                    then
+                        DST_DRIVE="/dev/sda"
+                        DST_NAME="USB Drive"
+                    else
+                        DST_DRIVE="/dev/mmcblk0"
+                        DST_NAME="SD Card"
+                    fi
+
+                    if partprobe && test -b "$DST_DRIVE" && try_ensure_is_writable "$DST_DRIVE" && copy_img_to_sd "$TMP_SD_IMG" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
+                    then
+                        rm -f "$CIK"
+                    elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+                    then
+                        rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
+                        return
+                    fi
+                fi
+            elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+            then
+                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
+                return
+            else
+                rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+            fi
+        else
+            return
+        fi
+    done
+}
+
+has_any_ciks()
+{
+    test "`find $CIK_DIR -type f -name '*.cik' | wc -l`" -gt 0
+}
+
 write_image()
 {
     while true
     do
         if is_initialized
         then
+            rm -f /tmp/cik_opts
             rm -f /tmp/red_key_opts
             rm -f /tmp/black_key_opts
             rm -f /tmp/dkek_opts
+            touch /tmp/cik_opts
             touch /tmp/red_key_opts
             touch /tmp/black_key_opts
             touch /tmp/dkek_opts
 
-            HEIGHT=13
+            HEIGHT=15
+
+            if has_any_ciks
+            then
+                echo "6 \"Crypto Ignition Keys\"" >> /tmp/cik_opts
+                HEIGHT=$((HEIGHT+1))
+            fi
 
             if has_any_dkeks
             then
-                echo "4 \"Key Encryption Keys Only\"" >> /tmp/dkek_opts
+                echo "7 \"Key Encryption Keys\"" >> /tmp/dkek_opts
                 HEIGHT=$((HEIGHT+1))
             fi
 
             if has_any_black_keys
             then
-                echo "5 \"Black Keys Only\"" >> /tmp/black_key_opts
+                echo "8 \"Black Keys\"" >> /tmp/black_key_opts
                 HEIGHT=$((HEIGHT+1))
             fi
 
             if has_any_red_keys
             then
-                echo "6 \"Red Keys Only\"" >> /tmp/red_key_opts
-                echo "7 \"Locked Handheld, With Red Keys\"" >> /tmp/red_key_opts
-                echo "8 \"Locked Base Station, With Red Keys\"" >> /tmp/red_key_opts
+                echo "9 \"Red Keys\"" >> /tmp/red_key_opts
+                echo "0 \"Locked Handheld, With Red Keys\"" >> /tmp/red_key_opts
+                echo "A \"Locked Base Station, With Red Keys\"" >> /tmp/red_key_opts
                 HEIGHT=$((HEIGHT+3))
             fi
 
@@ -1226,8 +1330,11 @@ write_image()
             --title "Deployment Options" \
             --menu "Select a type of image to deploy. Deploying a Locked Device Image to an SD Card will permanently make it read-only. Key Encryption Keys can only make a Red Key Black and cannot make a Black Key Red." "$HEIGHT" 60 4 \
             1 "Locked Key Gen/Fill Device" \
-            2 "Locked Handheld, No Keys" \
-            3 "Locked Base Station, No Keys" \
+            2 "Locked Handheld, CIK Required" \
+            3 "Locked Handheld, No CIK" \
+            4 "Locked Base Station, CIK Required" \
+            5 "Locked Base Station, No CIK" \
+            --file /tmp/cik_opts \
             --file /tmp/dkek_opts \
             --file /tmp/black_key_opts \
             --file /tmp/red_key_opts 2>$ANSWER
@@ -1238,25 +1345,34 @@ write_image()
                     write_device_image 0 1 1
                     ;;
                 2)
-                    write_device_image 0 0 0 1
+                    write_device_image 0 0 0 1 1
                     ;;
                 3)
-                    write_device_image 0 1 0 1
+                    write_device_image 0 0 0 1
                     ;;
                 4)
-                    write_key_image 2
+                    write_device_image 0 1 0 1 1
                     ;;
                 5)
-                    write_key_image 1
+                    write_device_image 0 1 0 1
                     ;;
                 6)
-                    write_key_image 0
+                    write_cik_image
                     ;;
                 7)
-                    write_device_image 1 0 0 1
+                    write_key_image 2
                     ;;
                 8)
-                    write_device_image 1 1 0 1
+                    write_key_image 1
+                    ;;
+                9)
+                    write_key_image 0
+                    ;;
+                0)
+                    write_device_image 1 0 0
+                    ;;
+                A)
+                    write_device_image 1 1 0
                     ;;
                 "")
                     return
@@ -2022,12 +2138,26 @@ radio_menu()
         then
             echo "L \"Load Keys\"" > /tmp/load_opt
             HEIGHT=$((HEIGHT+1))
+        elif device_kdk_encrypted
+        then
+            echo "L \"Load Crypto Ignition Key\"" > /tmp/load_opt
+            HEIGHT=$((HEIGHT+1))
         fi
 
         if has_any_red_keys
         then
             echo "K \"Select Active Key\"" > /tmp/active_opt
             HEIGHT=$((HEIGHT+1))
+
+            export DIALOGRC="/etc/dialogrc.red"
+        elif has_device_kdk
+        then
+            export DIALOGRC="/etc/dialogrc.yellow"
+        elif has_any_black_keys
+        then
+            export DIALOGRC="/etc/dialogrc.black"
+        else
+            unset DIALOGRC
         fi
 
         if test "`get_sys_config_val Diagnostics ShellEnabled`" -ne 0
@@ -2089,7 +2219,7 @@ radio_menu()
                     apply_settings
                     ;;
                 L)
-                    if ! has_any_keys
+                    if ! has_any_keys || device_kdk_encrypted
                     then
                         load_keys
                     fi

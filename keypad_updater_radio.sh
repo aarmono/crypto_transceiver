@@ -35,7 +35,7 @@ update_key_idx()
         then
             headset_tts "$CONFIRM_MSG"
         else
-            headset_tts "No Key"
+            headset_tts "No Red Key"
         fi
     else
         headset_tts "Error"
@@ -48,8 +48,13 @@ load_keys()
     then
         /etc/init.d/manual/S10pppoe_client stop
 
-        KEY_IDX=`next_key_idx 256`
-        update_key_idx "$KEY_IDX" "Loaded. Key $KEY_IDX Selected"
+        if has_any_red_keys
+        then
+            KEY_IDX=`next_key_idx 256`
+            update_key_idx "$KEY_IDX" "Loaded. Key $KEY_IDX Selected"
+        else
+            headset_tts "No Red Key"
+        fi
 
         ifconfig eth0 down
     else
@@ -158,6 +163,10 @@ do
                     then
                         /etc/init.d/manual/S10pppoe_client start
                         headset_tts "Ready to Load"
+                    elif device_kdk_encrypted && ext_has_any_keys
+                    then
+                        #No CIK from ethernet
+                        headset_tts "Ready to Load"
                     else
                         headset_tts "Cannot Load"
                     fi
@@ -178,6 +187,9 @@ do
                     ;;
                 b)
                     if ! has_any_keys && ext_has_any_keys
+                    then
+                        load_keys
+                    elif device_kdk_encrypted && ext_has_any_keys
                     then
                         load_keys
                     else

@@ -331,7 +331,7 @@ combine_img_p1()
 {
     if test -z "$1" || test -z "$2"
     then
-        echo "usage: extract_img_p1 <img_filepath> <part_filepath>"
+        echo "usage: combine_img_p1 <img_filepath> <part_filepath>"
         return 1
     fi
 
@@ -602,7 +602,7 @@ has_red_key()
 # Tests whether or not a black key is in a particular Key Slot
 has_black_key()
 {
-    test "`get_all_black_key_paths $1 | wc -l`" -gt 0
+    test "`get_all_black_key_paths "$1" | wc -l`" -gt 0
 }
 
 sd_has_any_keys()

@@ -1280,7 +1280,7 @@ write_cik_image()
 
 has_any_ciks()
 {
-    test "`find $CIK_DIR -type f -name '*.cik' | wc -l`" -gt 0
+    test "`find "$CIK_DIR" -type f -name '*.cik' | wc -l`" -gt 0
 }
 
 write_image()

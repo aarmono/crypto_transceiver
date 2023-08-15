@@ -709,7 +709,7 @@ load_ext_key_noclobber()
             then
                 encrypt_all
                 # The keys will be unusable until the Crypto Ignition Key is
-                # loaded
+                # loaded, at which point it will be able to decrypt them
                 if device_kdk_encrypted
                 then
                     rm -f /etc/keys/key*
@@ -737,7 +737,7 @@ load_ext_key_noclobber()
             then
                 encrypt_all
                 # The keys will be unusable until the Crypto Ignition Key is
-                # loaded
+                # loaded, at which point it will be able to decrypt them
                 if device_kdk_encrypted
                 then
                     rm -f /etc/keys/key*

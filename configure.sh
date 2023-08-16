@@ -1017,12 +1017,12 @@ duplicate_sd_card_loop()
 
         if partprobe && test -b "$DST_DRIVE" && try_ensure_is_writable "$DST_DRIVE" && copy_img_to_sd "$1" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
         then
-            if test -n "$DEVICE_ENCRYPTION_KEYFILE"
+            if test "$5" -ne 0
             then
                 mv "$DEVICE_ENCRYPTION_KEYFILE" "${DKEK_DIR}/${DEVICE_SERIAL_NUMBER}.kek"
             fi
 
-            if test -n "$DEVICE_CIK"
+            if test "$6" -ne 0
             then
                 mv "$DEVICE_CIK" "${CIK_DIR}/${DEVICE_SERIAL_NUMBER}.cik"
             fi
@@ -1049,7 +1049,7 @@ duplicate_sd_card_loop()
                     # If we didn't get the correct status code back,
                     # the write protect failed
                     MSG="Could Not Write Protect!"
-                    if test -n "$DEVICE_SERIAL_NUMBER"
+                    if test "$5" -ne 0
                     then
                         MSG="${MSG}\nDevice Serial Number: $DEVICE_SERIAL_NUMBER"
                     fi
@@ -1061,7 +1061,7 @@ duplicate_sd_card_loop()
                     # to write files to the device after, then write protect
                     # isn't actually "protecting" anything
                     MSG="Write Protect Doesnt Work!"
-                    if test -n "$DEVICE_SERIAL_NUMBER"
+                    if test "$5" -ne 0
                     then
                         MSG="${MSG}\nDevice Serial Number: $DEVICE_SERIAL_NUMBER"
                     fi
@@ -1071,7 +1071,7 @@ duplicate_sd_card_loop()
                     # Otherwise write protect appears to have succeeded
                     # and appears to work
                     MSG="Write Protect Succeeded!"
-                    if test -n "$DEVICE_SERIAL_NUMBER"
+                    if test "$5" -ne 0
                     then
                         MSG="${MSG}\nDevice Serial Number: $DEVICE_SERIAL_NUMBER"
                     fi
@@ -1160,37 +1160,29 @@ write_key_image()
             TMP_DOS_IMG=`mktemp`
             TMP_SD_IMG=`mktemp`
 
-            if dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
-               mkdosfs "$TMP_DOS_IMG" &> /dev/null
-            then
-                case "$1" in
-                    0)
-                        ensure_sd_has_config_dir "$TMP_DOS_IMG"
-                        mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
-                        ;;
-                    1)
-                        ensure_sd_has_black_keys_dir "$TMP_DOS_IMG"
-                        mcopy_bin -i "$TMP_DOS_IMG" "$BLACK_KEY_DIR"/*.key* ::black_keys/
-                        ;;
-                    2)
-                        ensure_sd_has_config_dir "$TMP_DOS_IMG"
-                        mcopy_bin -i "$TMP_DOS_IMG" "$DKEK_DIR"/*.kek ::config/
-                        ;;
-                esac
+            dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002
+            mkdosfs "$TMP_DOS_IMG" &> /dev/null
+            case "$1" in
+                0)
+                    ensure_sd_has_config_dir "$TMP_DOS_IMG"
+                    mcopy_bin -i "$TMP_DOS_IMG" /etc/keys/key* ::config/
+                    ;;
+                1)
+                    ensure_sd_has_black_keys_dir "$TMP_DOS_IMG"
+                    mcopy_bin -i "$TMP_DOS_IMG" "$BLACK_KEY_DIR"/*.key* ::black_keys/
+                    ;;
+                2)
+                    ensure_sd_has_config_dir "$TMP_DOS_IMG"
+                    mcopy_bin -i "$TMP_DOS_IMG" "$DKEK_DIR"/*.kek ::config/
+                    ;;
+            esac
 
-                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
-                echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
+            dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
+            echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
 
-                duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG"
-                rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
-                return
-            elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
-            then
-                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
-                return
-            else
-                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
-            fi
+            duplicate_sd_card_loop "$TMP_SD_IMG" "$TMP_DOS_IMG"
+            rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+            return
         elif ! dialog --yesno "Config Not Initialized or No SD Card! Retry?" 0 0
         then
             return
@@ -1228,43 +1220,38 @@ write_cik_image()
             TMP_DOS_IMG=`mktemp`
             TMP_SD_IMG=`mktemp`
 
-            if dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002 && \
-               mkdosfs "$TMP_DOS_IMG" &> /dev/null
+            dd if=/dev/zero of="$TMP_DOS_IMG" bs=512 count=16002
+            mkdosfs "$TMP_DOS_IMG" &> /dev/null
+
+            mcopy_bin -i "$TMP_DOS_IMG" "$CIK" ::cik
+
+            dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
+            echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
+
+            combine_img_p1 "$TMP_SD_IMG" "$TMP_DOS_IMG"
+
+            if dialog --yesno "Insert SD Card or USB Drive and select Yes to copy or No to exit" 0 0
             then
-                mcopy_bin -i "$TMP_DOS_IMG" "$CIK" ::cik
-
-                dd if=/dev/zero of="$TMP_SD_IMG" bs=512 count=16065
-                echo -e "n\np\n1\n63\n16064\nt\nc\na\n1\nw\n" | fdisk "$TMP_SD_IMG" &> /dev/null
-
-                combine_img_p1 "$TMP_SD_IMG" "$TMP_DOS_IMG"
-
-                if dialog --yesno "Insert SD Card or USB Drive and select Yes to copy or No to exit" 0 0
+                if has_usb_drive
                 then
-                    if has_usb_drive
-                    then
-                        DST_DRIVE="/dev/sda"
-                        DST_NAME="USB Drive"
-                    else
-                        DST_DRIVE="/dev/mmcblk0"
-                        DST_NAME="SD Card"
-                    fi
-
-                    if partprobe && test -b "$DST_DRIVE" && try_ensure_is_writable "$DST_DRIVE" && copy_img_to_sd "$TMP_SD_IMG" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
-                    then
-                        rm -f "$CIK"
-                    elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
-                    then
-                        rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
-                        return
-                    fi
+                    DST_DRIVE="/dev/sda"
+                    DST_NAME="USB Drive"
+                else
+                    DST_DRIVE="/dev/mmcblk0"
+                    DST_NAME="SD Card"
                 fi
-            elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
-            then
-                rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
-                return
-            else
-                rm -f "$TMP_DOS_IMG" "$TMP_SD_IMG"
+
+                if partprobe && test -b "$DST_DRIVE" && try_ensure_is_writable "$DST_DRIVE" && copy_img_to_sd "$TMP_SD_IMG" "$DST_DRIVE" 2>&1 | dialog --programbox "Writing $DST_NAME" 20 60
+                then
+                    rm -f "$CIK"
+                elif ! dialog --yesno "SD Card Write Failed! Retry?" 0 0
+                then
+                    rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
+                    return
+                fi
             fi
+
+            rm -f "$TMP_SD_IMG" "$TMP_DOS_IMG"
         else
             return
         fi
@@ -1996,7 +1983,7 @@ load_keys()
 {
     PPOE_SERVER_RUNNING=1
 
-    if ! sd_has_any_keys && ! usb_has_any_keys && dialog --yesno "Load Keys Using Ethernet?" 0 0
+    if ! has_any_keys && ! sd_has_any_keys && ! usb_has_any_keys && dialog --yesno "Load Keys Using Ethernet?" 0 0
     then
         /etc/init.d/manual/S10pppoe_server running
         PPOE_SERVER_RUNNING=$?

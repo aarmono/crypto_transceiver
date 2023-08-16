@@ -320,11 +320,11 @@ extract_img_p1()
     fi
 
     BLOCK_SIZE=`fdisk -u -l "$1" | grep -o -E '[0-9]+ bytes$' | cut -d ' ' -f 1`
-    START_BLOCK=`fdisk -u -l "$1" | grep "${1}1" | xargs echo | cut -d ' ' -f 5`
-    END_BLOCK=`fdisk -u -l "$1" | grep "${1}1" | xargs echo | cut -d ' ' -f 6`
+    START_BLOCK=`fdisk -u -l "$1" | grep -E "^${1}" | head -n 1 | xargs echo | cut -d ' ' -f 5`
+    END_BLOCK=`fdisk -u -l "$1" | grep -E "^${1}" | head -n 1 | xargs echo | cut -d ' ' -f 6`
 
     BLOCK_COUNT=$((END_BLOCK-START_BLOCK+1))
-    dd if="$1" of="$2" bs="$BLOCK_SIZE" count="$BLOCK_COUNT" skip="$START_BLOCK"
+    dd if="$1" of="$2" bs="$BLOCK_SIZE" count="$BLOCK_COUNT" skip="$START_BLOCK" conv=fsync
 }
 
 combine_img_p1()
@@ -336,8 +336,8 @@ combine_img_p1()
     fi
 
     BLOCK_SIZE=`fdisk -u -l "$1" | grep -o -E '[0-9]+ bytes$' | cut -d ' ' -f 1`
-    START_BLOCK=`fdisk -u -l "$1" | grep "${1}1" | xargs echo | cut -d ' ' -f 5`
-    dd if="$2" of="$1" bs="$BLOCK_SIZE" seek="$START_BLOCK"
+    START_BLOCK=`fdisk -u -l "$1" | grep -E "^${1}" | head -n 1 | xargs echo | cut -d ' ' -f 5`
+    dd if="$2" of="$1" bs="$BLOCK_SIZE" seek="$START_BLOCK" conv=fsync
 }
 
 # Copies SD card image to SD card
@@ -361,7 +361,7 @@ copy_img_to_sd()
     VER_FILE=`mktemp`
 
     echo "Copying" 1>&2 && \
-        dd if="$1" of="$DST_DEV" bs=512 conv=fsync status=progress && \
+        dd if="$1" of="$DST_DEV" bs=1MiB conv=fsync oflag=direct,sync status=progress && sync && \
         echo "Verifying" 1>&2 && \
         dd if="$DST_DEV" of="$VER_FILE" bs=512 count="$SRC_BLOCKS" status=progress && \
         diff "$VER_FILE" "$1" && \
@@ -383,9 +383,18 @@ ensure_sd_has_config_dir()
         SD_DST="$1"
     fi
 
-    if ! (mdir -i "$SD_DST" -b | grep -q '::/config/')
+    if ! mdir -i "$SD_DST" -b '::config' &> /dev/null
     then
-        mkdir -p /tmp/config && mcopy -i "$SD_DST" /tmp/config :: && rmdir /tmp/config
+        if mkdir -p /tmp/config && mcopy -i "$SD_DST" /tmp/config ::
+        then
+            rmdir /tmp/config
+            return 0
+        else
+            rmdir /tmp/config
+            return 1
+        fi
+    else
+        return 0
     fi
 }
 
@@ -398,9 +407,18 @@ ensure_sd_has_black_keys_dir()
         SD_DST="$1"
     fi
 
-    if ! (mdir -i "$SD_DST" -b | grep -q '::/black_keys/')
+    if ! mdir -i "$SD_DST" -b '::black_keys' &> /dev/null
     then
-        mkdir -p /tmp/black_keys && mcopy -i "$SD_DST" /tmp/black_keys :: && rmdir /tmp/black_keys
+        if mkdir -p /tmp/black_keys && mcopy -i "$SD_DST" /tmp/black_keys ::
+        then
+            rmdir /tmp/black_keys
+            return 0
+        else
+            rmdir /tmp/black_keys
+            return 1
+        fi
+    else
+        return 0
     fi
 }
 
